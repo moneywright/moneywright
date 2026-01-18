@@ -1,0 +1,47 @@
+---
+title: Getting Started
+description: Welcome to Moneywright documentation
+---
+
+# Welcome to Moneywright
+
+Moneywright is an open-source, self-hostable, AI-powered personal finance helper. Upload your bank statements, credit card statements, and investment data to get intelligent expense analysis, investment insights, and personalized financial advice.
+
+## Quick Start
+
+1. Install dependencies:
+
+```bash
+bun install
+```
+
+2. Start development server:
+
+```bash
+bun run dev
+```
+
+3. Open [http://localhost:7777](http://localhost:7777) in your browser.
+
+## Project Structure
+
+```
+├── apps/
+│   ├── api/          # Hono backend
+│   ├── web/          # React frontend
+│   └── docs/         # Documentation (Fumadocs)
+├── scripts/          # Build scripts
+├── Dockerfile        # Docker configuration
+└── docker-compose.yml
+```
+
+## Features
+
+- **AI-Powered Analysis**: Get intelligent insights into your spending patterns
+- **Statement Upload**: Import bank and credit card statements
+- **Expense Tracking**: Automatic categorization of expenses
+- **Investment Analysis**: Track your portfolio performance
+- **Financial Advice**: Personalized recommendations
+- **Self-Hostable**: Full control over your financial data
+- **Authentication**: Google OAuth with secure session management
+- **Database**: PostgreSQL or SQLite with Drizzle ORM

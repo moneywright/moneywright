@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1768566089774,
+      "tag": "0000_sparkling_alex_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1768585616805,
+      "tag": "0001_brown_marrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1768596184498,
+      "tag": "0002_noisy_blue_shield",
+      "breakpoints": true
+    }
+  ]
+}

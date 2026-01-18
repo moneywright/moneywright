@@ -1,0 +1,58 @@
+{
+  "name": "moneywright",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "bun run --parallel dev:api dev:web",
+    "dev:api": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "build": "bun run build:api && bun run build:web",
+    "build:api": "bun run --cwd apps/api build",
+    "build:web": "bun run --cwd apps/web build",
+    "build:binary": "./scripts/build-binary.sh",
+    "build:binary:linux": "./scripts/build-binary.sh --target bun-linux-x64",
+    "build:binary:linux-arm": "./scripts/build-binary.sh --target bun-linux-arm64",
+    "build:binary:macos": "./scripts/build-binary.sh --target bun-darwin-arm64",
+    "build:binary:macos-intel": "./scripts/build-binary.sh --target bun-darwin-x64",
+    "build:binary:windows": "./scripts/build-binary.sh --target bun-windows-x64",
+    "db:generate": "bun run --cwd apps/api db:generate",
+    "db:migrate": "bun run --cwd apps/api db:migrate",
+    "db:push": "bun run --cwd apps/api db:push",
+    "db:studio": "bun run --cwd apps/api db:studio",
+    "db:reset": "bun run --cwd apps/api db:reset",
+    "prepare": "husky",
+    "lint": "bun run --cwd apps/api lint && bun run --cwd apps/web lint && bun run --cwd apps/docs lint",
+    "format": "bun run --cwd apps/api format && bun run --cwd apps/web format && bun run --cwd apps/docs format",
+    "format:check": "bun run --cwd apps/api format:check && bun run --cwd apps/web format:check"
+  },
+  "lint-staged": {
+    "apps/api/src/**/*.ts": [
+      "eslint --config apps/api/eslint.config.js --fix",
+      "prettier --write"
+    ],
+    "apps/web/src/**/*.{ts,tsx}": [
+      "eslint --config apps/web/eslint.config.js --fix",
+      "prettier --write"
+    ],
+    "apps/web/src/**/*.css": [
+      "prettier --write"
+    ],
+    "apps/docs/src/**/*.{ts,tsx}": [
+      "bunx biome check --write --config-path apps/docs/biome.json"
+    ],
+    "apps/docs/content/**/*.mdx": [
+      "bunx biome format --write --config-path apps/docs/biome.json"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.49.0"
+  }
+}
