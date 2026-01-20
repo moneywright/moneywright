@@ -88,7 +88,8 @@ statementRoutes.post('/upload', async (c) => {
     const accountId = formData.get('accountId') as string | null
     const password = formData.get('password') as string | null
     const savePassword = formData.get('savePassword') === 'true'
-    const model = formData.get('model') as string | null
+    const parsingModel = formData.get('parsingModel') as string | null
+    const categorizationModel = formData.get('categorizationModel') as string | null
 
     // Validate file
     if (!file) {
@@ -247,7 +248,8 @@ statementRoutes.post('/upload', async (c) => {
       userId,
       countryCode: user.country as CountryCode,
       pages,
-      model: model || undefined,
+      parsingModel: parsingModel || undefined,
+      categorizationModel: categorizationModel || undefined,
     })
 
     logger.info(`[Statement] Uploaded ${file.name}, queued job ${jobId}`)

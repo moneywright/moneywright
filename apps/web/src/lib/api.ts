@@ -214,7 +214,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
  * Get supported countries
  */
 export async function getCountries(): Promise<Country[]> {
-  const response = await api.get('/user/countries')
+  const response = await api.get('/setup/countries')
   return response.data.countries
 }
 
@@ -298,6 +298,10 @@ export async function deleteProfile(profileId: string): Promise<void> {
 export interface LLMSettings {
   provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'vercel'
   model: string
+  /** Model for statement parsing (code generation) - requires strong reasoning */
+  parsingModel: string
+  /** Model for transaction categorization - can be a smaller/faster model */
+  categorizationModel: string
   apiBaseUrl: string | null
   hasOpenaiApiKey: boolean
   hasAnthropicApiKey: boolean
@@ -312,7 +316,12 @@ export interface LLMSettings {
 export interface AIModel {
   id: string
   name: string
-  recommended?: boolean
+  /** Model is capable of parsing statements (requires tool use, code generation) */
+  supportsParsing?: boolean
+  /** Recommended model for parsing statements */
+  recommendedForParsing?: boolean
+  /** Recommended model for categorization */
+  recommendedForCategorization?: boolean
   supportsThinking?: boolean
   reasoningBuiltIn?: boolean
 }
@@ -354,6 +363,10 @@ export async function getLLMSettings(): Promise<LLMSettings> {
 export async function updateLLMSettings(data: {
   provider?: string
   model?: string
+  /** Model for statement parsing (code generation) */
+  parsingModel?: string
+  /** Model for transaction categorization */
+  categorizationModel?: string
   apiBaseUrl?: string | null
   openaiApiKey?: string | null
   anthropicApiKey?: string | null
@@ -395,11 +408,17 @@ export interface Account {
   institution: string | null
   accountNumber: string | null
   accountName: string | null
+  /** Account product/variant name (e.g., "Regalia", "Savings Max", "Imperia") */
+  productName: string | null
   currency: string
   isActive: boolean
   hasStatementPassword: boolean
   createdAt: string
   updatedAt: string
+  /** Latest balance from the most recent statement */
+  latestBalance: number | null
+  /** Date of the latest statement (YYYY-MM-DD) */
+  latestStatementDate: string | null
 }
 
 /**
@@ -548,7 +567,10 @@ export async function uploadStatement(
     accountId?: string
     password?: string
     savePassword?: boolean
-    model?: string
+    /** Model for statement parsing (code generation) */
+    parsingModel?: string
+    /** Model for transaction categorization */
+    categorizationModel?: string
   }
 ): Promise<StatementUploadResponse> {
   const formData = new FormData()
@@ -558,7 +580,9 @@ export async function uploadStatement(
   if (options?.password) formData.append('password', options.password)
   if (options?.savePassword !== undefined)
     formData.append('savePassword', String(options.savePassword))
-  if (options?.model) formData.append('model', options.model)
+  if (options?.parsingModel) formData.append('parsingModel', options.parsingModel)
+  if (options?.categorizationModel)
+    formData.append('categorizationModel', options.categorizationModel)
 
   const response = await api.post('/statements/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -606,8 +630,8 @@ export interface Transaction {
 export interface TransactionFilters {
   profileId?: string
   accountId?: string
-  statementId?: string
-  category?: string
+  statementId?: string[]
+  category?: string[]
   type?: 'credit' | 'debit'
   startDate?: string
   endDate?: string
@@ -667,8 +691,8 @@ export async function getTransactions(
   const params = new URLSearchParams()
   if (filters?.profileId) params.set('profileId', filters.profileId)
   if (filters?.accountId) params.set('accountId', filters.accountId)
-  if (filters?.statementId) params.set('statementId', filters.statementId)
-  if (filters?.category) params.set('category', filters.category)
+  if (filters?.statementId?.length) params.set('statementId', filters.statementId.join(','))
+  if (filters?.category?.length) params.set('category', filters.category.join(','))
   if (filters?.type) params.set('type', filters.type)
   if (filters?.startDate) params.set('startDate', filters.startDate)
   if (filters?.endDate) params.set('endDate', filters.endDate)
@@ -710,18 +734,20 @@ export async function updateTransaction(
 export async function getTransactionStats(filters?: {
   profileId?: string
   accountId?: string
+  statementId?: string[]
   startDate?: string
   endDate?: string
-  category?: string
+  category?: string[]
   type?: 'credit' | 'debit'
   search?: string
 }): Promise<TransactionStats> {
   const params = new URLSearchParams()
   if (filters?.profileId) params.set('profileId', filters.profileId)
   if (filters?.accountId) params.set('accountId', filters.accountId)
+  if (filters?.statementId?.length) params.set('statementId', filters.statementId.join(','))
   if (filters?.startDate) params.set('startDate', filters.startDate)
   if (filters?.endDate) params.set('endDate', filters.endDate)
-  if (filters?.category) params.set('category', filters.category)
+  if (filters?.category?.length) params.set('category', filters.category.join(','))
   if (filters?.type) params.set('type', filters.type)
   if (filters?.search) params.set('search', filters.search)
 
@@ -899,4 +925,77 @@ export async function updateInvestment(
  */
 export async function deleteInvestment(investmentId: string): Promise<void> {
   await api.delete(`/investments/${investmentId}`)
+}
+
+// ============================================
+// Summary API
+// ============================================
+
+/**
+ * Account balance info for net worth
+ */
+export interface AccountBalanceInfo {
+  accountId: string
+  accountName: string | null
+  type: string
+  institution: string | null
+  currency: string
+  latestBalance: number | null
+  latestStatementDate: string | null
+  isLiability: boolean
+}
+
+/**
+ * Financial summary response
+ */
+export interface FinancialSummary {
+  netWorth: {
+    totalAssets: number
+    totalLiabilities: number
+    netWorth: number
+    currency: string
+    accounts: AccountBalanceInfo[]
+    calculatedAt: string
+  }
+  investments: {
+    totalPurchaseValue: number
+    totalCurrentValue: number
+    totalGainLoss: number
+    gainLossPercentage: number
+    byType: { type: string; count: number; purchaseValue: number; currentValue: number }[]
+    byCurrency: { currency: string; purchaseValue: number; currentValue: number }[]
+  }
+  transactions: {
+    period: {
+      startDate: string
+      endDate: string
+    }
+    totalIncome: number
+    totalExpenses: number
+    incomeCount: number
+    expenseCount: number
+    netCashFlow: number
+    currency: string
+    categoryBreakdown: { category: string; total: number; count: number }[]
+  }
+  totals: {
+    totalWealth: number
+    currency: string
+  }
+}
+
+/**
+ * Get financial summary for a profile
+ */
+export async function getSummary(
+  profileId: string,
+  options?: { startDate?: string; endDate?: string }
+): Promise<FinancialSummary> {
+  const params = new URLSearchParams()
+  params.set('profileId', profileId)
+  if (options?.startDate) params.set('startDate', options.startDate)
+  if (options?.endDate) params.set('endDate', options.endDate)
+
+  const response = await api.get(`/summary?${params.toString()}`)
+  return response.data
 }

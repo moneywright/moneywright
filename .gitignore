@@ -34,6 +34,7 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.devtools
 
 # Lock files (bun uses bun.lock)
 package-lock.json
@@ -43,6 +44,7 @@ pnpm-lock.yaml
 # Tanstack Router generated files
 apps/web/src/routeTree.gen.ts
 apps/docs/src/routeTree.gen.ts
+.tanstack
 
 # Fumadocs
 .source/

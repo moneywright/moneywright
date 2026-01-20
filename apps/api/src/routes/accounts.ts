@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod/v4'
 import { auth, type AuthVariables } from '../middleware/auth'
 import {
-  getAccountsByUserId,
+  getAccountsWithBalances,
   getAccountById,
   createAccount,
   updateAccount,
@@ -41,14 +41,14 @@ const updateAccountSchema = z.object({
 
 /**
  * GET /accounts
- * List all accounts for the current user
+ * List all accounts for the current user with latest balances
  * Query params: profileId (optional)
  */
 accountRoutes.get('/', async (c) => {
   const userId = c.get('userId')
   const profileId = c.req.query('profileId')
 
-  const accounts = await getAccountsByUserId(userId, profileId || undefined)
+  const accounts = await getAccountsWithBalances(userId, profileId || undefined)
 
   return c.json({ accounts })
 })

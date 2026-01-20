@@ -72,7 +72,47 @@ export const pageParseResultSchema = z.object({
 })
 
 /**
- * Account info schema (extracted from first page)
+ * Statement summary schema - extracted from the printed summary section of the statement
+ * These are the EXACT numbers printed on the statement, NOT calculated from transactions
+ */
+export const statementSummarySchema = z.object({
+  // Transaction counts (exact numbers printed on statement)
+  debit_count: z
+    .number()
+    .nullable()
+    .describe(
+      'Number of debit/withdrawal transactions (Dr Count) printed on statement, or null if not shown'
+    ),
+  credit_count: z
+    .number()
+    .nullable()
+    .describe(
+      'Number of credit/deposit transactions (Cr Count) printed on statement, or null if not shown'
+    ),
+
+  // Transaction totals (exact amounts printed on statement)
+  total_debits: z
+    .number()
+    .nullable()
+    .describe('Total debit/withdrawal amount printed on statement summary, or null if not shown'),
+  total_credits: z
+    .number()
+    .nullable()
+    .describe('Total credit/deposit amount printed on statement summary, or null if not shown'),
+
+  // Balances
+  opening_balance: z
+    .number()
+    .nullable()
+    .describe('Opening balance printed on statement, or null if not shown'),
+  closing_balance: z
+    .number()
+    .nullable()
+    .describe('Closing balance printed on statement, or null if not shown'),
+})
+
+/**
+ * Account info schema (extracted from full statement)
  */
 export const accountInfoSchema = z.object({
   account_type: z
@@ -80,14 +120,50 @@ export const accountInfoSchema = z.object({
     .describe(
       'Type of account (savings_account, current_account, credit_card, checking_account, etc.)'
     ),
-  institution: z.string().describe('Bank or financial institution name'),
+  institution_id: z
+    .string()
+    .describe('Institution ID code from the provided list (e.g., HDFC, ICICI, SBI)'),
+  institution_name: z.string().describe('Full name of the bank or financial institution'),
   account_number: z.string().describe('Full account or card number'),
   account_holder_name: z.string().nullable().describe('Name on the account or null if not found'),
+  product_name: z
+    .string()
+    .nullable()
+    .describe(
+      'Account product/variant name. For credit cards: "Biz Power", "Platinum Travel", "Regalia", "SimplyCLICK", "Millennia", "Amazon Pay", "Rewards". For bank accounts: "Savings Max", "Imperia", "Classic", "Premium", "Privilege", "Salary Account". For CO-BRANDED cards/accounts (bank partnered with fintech/app): include the partner name like "Slice", "Jupiter", "Fi", "Niyo", "OneCard", "Uni", "Cred", "Paytm", "PhonePe", "Google Pay". Example: "Jupiter" for Federal Bank + Jupiter, "Slice" for SBM + Slice. Extract the specific product/program/partner name, NOT the bank name. Return null if not found.'
+    ),
+
+  // Statement period
+  period_start: z
+    .string()
+    .nullable()
+    .describe('Statement period start date in YYYY-MM-DD format, or null if not found'),
+  period_end: z
+    .string()
+    .nullable()
+    .describe('Statement period end date in YYYY-MM-DD format, or null if not found'),
+
+  // Statement summary - exact numbers from the printed summary section
+  summary: statementSummarySchema.describe(
+    'Statement summary with exact numbers printed on the statement'
+  ),
+
+  // Credit card specific fields
+  total_dues: z
+    .number()
+    .nullable()
+    .describe('Total amount due / statement balance (for credit cards), or null'),
+  minimum_dues: z.number().nullable().describe('Minimum payment due (for credit cards), or null'),
+  payment_due_date: z
+    .string()
+    .nullable()
+    .describe('Payment due date in YYYY-MM-DD format (for credit cards), or null'),
 })
 
 // Type exports
 export type TransactionParsed = z.infer<typeof transactionSchema>
 export type BankStatementSummary = z.infer<typeof bankStatementSummarySchema>
+export type StatementSummary = z.infer<typeof statementSummarySchema>
 export type CreditCardSummary = z.infer<typeof creditCardSummarySchema>
 export type PageParseResult = z.infer<typeof pageParseResultSchema>
 export type AccountInfo = z.infer<typeof accountInfoSchema>

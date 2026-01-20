@@ -35,6 +35,18 @@ const linkTransactionsSchema = z.object({
 })
 
 /**
+ * Parse comma-separated query param into array
+ */
+function parseMultiValue(value: string | undefined): string[] | undefined {
+  if (!value) return undefined
+  const values = value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+  return values.length > 0 ? values : undefined
+}
+
+/**
  * GET /transactions
  * List transactions with filters and pagination
  */
@@ -57,13 +69,17 @@ transactionRoutes.get('/', async (c) => {
   const sortBy = c.req.query('sortBy') as 'date' | 'amount' | 'createdAt' | undefined
   const sortOrder = c.req.query('sortOrder') as 'asc' | 'desc' | undefined
 
+  // Parse multi-value filters (comma-separated)
+  const statementIds = parseMultiValue(statementId)
+  const categories = parseMultiValue(category)
+
   const result = await getTransactions(
     userId,
     {
       profileId: profileId || undefined,
       accountId: accountId || undefined,
-      statementId: statementId || undefined,
-      category: category || undefined,
+      statementId: statementIds,
+      category: categories,
       type: type && ['credit', 'debit'].includes(type) ? type : undefined,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
@@ -94,15 +110,21 @@ transactionRoutes.get('/stats', async (c) => {
   const startDate = c.req.query('startDate')
   const endDate = c.req.query('endDate')
   const category = c.req.query('category')
+  const statementId = c.req.query('statementId')
   const type = c.req.query('type')
   const search = c.req.query('search')
+
+  // Parse multi-value filters
+  const categories = parseMultiValue(category)
+  const statementIds = parseMultiValue(statementId)
 
   const stats = await getTransactionStats(userId, {
     profileId: profileId || undefined,
     accountId: accountId || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
-    category: category || undefined,
+    category: categories,
+    statementId: statementIds,
     type: type && ['credit', 'debit'].includes(type) ? (type as 'credit' | 'debit') : undefined,
     search: search || undefined,
   })

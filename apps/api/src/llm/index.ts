@@ -8,13 +8,19 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGateway } from '@ai-sdk/gateway'
 import { createOllama } from 'ollama-ai-provider-v2'
-import type { LanguageModel } from 'ai'
+import { wrapLanguageModel, type LanguageModel } from 'ai'
+import { devToolsMiddleware } from '@ai-sdk/devtools'
 import {
   LLM_PROVIDERS,
   type LLMProvider,
-  getDefaultModelId,
+  getDefaultParsingModelId,
   getProviderModels,
 } from '../lib/constants'
+
+/**
+ * Check if DevTools should be enabled (development only)
+ */
+const isDevToolsEnabled = process.env.APP_ENV === 'development'
 
 export interface LLMConfig {
   provider: LLMProvider
@@ -27,7 +33,7 @@ export interface LLMConfig {
  * Get default model for a provider
  */
 export function getDefaultModel(provider: LLMProvider): string {
-  return getDefaultModelId(provider)
+  return getDefaultParsingModelId(provider)
 }
 
 /**
@@ -38,6 +44,19 @@ export function getAvailableModels(provider: LLMProvider): string[] {
 }
 
 /**
+ * Optionally wrap model with DevTools middleware in development
+ */
+function maybeWrapWithDevTools(model: LanguageModel): LanguageModel {
+  if (isDevToolsEnabled) {
+    return wrapLanguageModel({
+      model,
+      middleware: devToolsMiddleware(),
+    })
+  }
+  return model
+}
+
+/**
  * Create an LLM client based on configuration
  */
 export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
@@ -45,13 +64,16 @@ export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
   const model = config?.model || process.env.LLM_MODEL || getDefaultModel(provider)
   const apiBaseUrl = config?.apiBaseUrl || process.env.LLM_API_BASE_URL
 
+  let llmModel: LanguageModel
+
   switch (provider) {
     case 'openai': {
       const openai = createOpenAI({
         apiKey: config?.apiKey || process.env.OPENAI_API_KEY,
         baseURL: apiBaseUrl,
       })
-      return openai(model)
+      llmModel = openai(model)
+      break
     }
 
     case 'anthropic': {
@@ -59,7 +81,8 @@ export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
         apiKey: config?.apiKey || process.env.ANTHROPIC_API_KEY,
         baseURL: apiBaseUrl,
       })
-      return anthropic(model)
+      llmModel = anthropic(model)
+      break
     }
 
     case 'google': {
@@ -67,14 +90,16 @@ export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
         apiKey: config?.apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
         baseURL: apiBaseUrl,
       })
-      return google(model)
+      llmModel = google(model)
+      break
     }
 
     case 'ollama': {
       const ollama = createOllama({
         baseURL: apiBaseUrl || 'http://localhost:11434/api',
       })
-      return ollama(model)
+      llmModel = ollama(model)
+      break
     }
 
     case 'vercel': {
@@ -83,12 +108,15 @@ export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
         baseURL: apiBaseUrl,
       })
       // modelId is in format "provider/model" e.g. "openai/gpt-4o"
-      return gateway(model)
+      llmModel = gateway(model)
+      break
     }
 
     default:
       throw new Error(`Unsupported LLM provider: ${provider}`)
   }
+
+  return maybeWrapWithDevTools(llmModel)
 }
 
 /**

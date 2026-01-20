@@ -65,6 +65,10 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
   // Form state - initialized from settings
   const [provider, setProvider] = useState<string>(settings?.provider || 'openai')
   const [model, setModel] = useState<string>(settings?.model || '')
+  const [parsingModel, setParsingModel] = useState<string>(settings?.parsingModel || '')
+  const [categorizationModel, setCategorizationModel] = useState<string>(
+    settings?.categorizationModel || ''
+  )
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(settings?.apiBaseUrl || '')
   const [openaiApiKey, setOpenaiApiKey] = useState<string>('')
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>('')
@@ -79,6 +83,8 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
   const hasChanges = settings
     ? provider !== settings.provider ||
       model !== settings.model ||
+      parsingModel !== settings.parsingModel ||
+      categorizationModel !== settings.categorizationModel ||
       apiBaseUrl !== (settings.apiBaseUrl || '') ||
       openaiApiKey !== '' ||
       anthropicApiKey !== '' ||
@@ -129,6 +135,9 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
 
     if (provider !== settings?.provider) data.provider = provider
     if (model !== settings?.model) data.model = model
+    if (parsingModel !== settings?.parsingModel) data.parsingModel = parsingModel
+    if (categorizationModel !== settings?.categorizationModel)
+      data.categorizationModel = categorizationModel
     if (apiBaseUrl !== (settings?.apiBaseUrl || '')) {
       data.apiBaseUrl = apiBaseUrl || null
     }
@@ -140,14 +149,17 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
     updateMutation.mutate(data)
   }
 
-  // Handle provider change - update model to default
+  // Handle provider change - update models to defaults
   const handleProviderChange = (newProvider: string) => {
     setProvider(newProvider)
     const newProviderData = providers?.find((p) => p.code === newProvider)
     if (newProviderData && newProviderData.models.length > 0) {
       // Find recommended model or use first model
       const recommendedModel = newProviderData.models.find((m) => m.recommended)
-      setModel(recommendedModel?.id || newProviderData.models[0]?.id || '')
+      const defaultModel = recommendedModel?.id || newProviderData.models[0]?.id || ''
+      setModel(defaultModel)
+      setParsingModel(defaultModel)
+      setCategorizationModel(defaultModel)
     }
   }
 
@@ -214,46 +226,76 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Model Configuration</CardTitle>
-            <CardDescription>Choose your preferred LLM provider and model</CardDescription>
+            <CardDescription>
+              Choose your preferred LLM provider and models for different tasks
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="provider">Provider</Label>
-                <Select value={provider} onValueChange={handleProviderChange}>
-                  <SelectTrigger id="provider">
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers?.map((p) => (
-                      <SelectItem key={p.code} value={p.code}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger id="model">
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableModels.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                        {m.recommended && (
-                          <span className="text-xs text-muted-foreground ml-2">(Recommended)</span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <CardContent className="space-y-6">
+            {/* Provider Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="provider">Provider</Label>
+              <Select value={provider} onValueChange={handleProviderChange}>
+                <SelectTrigger id="provider">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.map((p) => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
+            {/* Parsing Model */}
+            <div className="space-y-2">
+              <Label htmlFor="parsingModel">Statement Parsing Model</Label>
+              <Select value={parsingModel} onValueChange={setParsingModel}>
+                <SelectTrigger id="parsingModel">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                      {m.recommended && (
+                        <span className="text-xs text-muted-foreground ml-2">(Recommended)</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used for generating code to parse bank statements. Requires strong reasoning - use a
+                capable model.
+              </p>
+            </div>
+
+            {/* Categorization Model */}
+            <div className="space-y-2">
+              <Label htmlFor="categorizationModel">Categorization Model</Label>
+              <Select value={categorizationModel} onValueChange={setCategorizationModel}>
+                <SelectTrigger id="categorizationModel">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                      {m.recommended && (
+                        <span className="text-xs text-muted-foreground ml-2">(Recommended)</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used for categorizing transactions. Can use a smaller, faster model to reduce costs.
+              </p>
+            </div>
+
+            {/* API Base URL */}
             <div className="space-y-2">
               <Label htmlFor="apiBaseUrl">API Base URL (Optional)</Label>
               <Input

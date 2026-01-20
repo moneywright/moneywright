@@ -60,6 +60,8 @@ export interface StatementResponse {
   fileSizeBytes: number | null
   periodStart: string | null
   periodEnd: string | null
+  openingBalance: number | null
+  closingBalance: number | null
   status: StatementStatus
   errorMessage: string | null
   summary: StatementSummary | null
@@ -81,7 +83,10 @@ export interface ParseJob {
   userId: string
   countryCode: CountryCode
   pages: string[]
-  model?: string
+  /** Model for statement parsing (code generation) */
+  parsingModel?: string
+  /** Model for transaction categorization */
+  categorizationModel?: string
   status: 'pending' | 'processing' | 'completed' | 'failed'
   createdAt: Date
 }
@@ -132,6 +137,8 @@ function toStatementResponse(statement: Statement): StatementResponse {
     fileSizeBytes: statement.fileSizeBytes,
     periodStart: statement.periodStart,
     periodEnd: statement.periodEnd,
+    openingBalance: statement.openingBalance != null ? Number(statement.openingBalance) : null,
+    closingBalance: statement.closingBalance != null ? Number(statement.closingBalance) : null,
     status: statement.status as StatementStatus,
     errorMessage: statement.errorMessage,
     summary,
@@ -308,6 +315,8 @@ export async function updateStatementResults(
   data: {
     periodStart?: string | null
     periodEnd?: string | null
+    openingBalance?: number | null
+    closingBalance?: number | null
     summary?: StatementSummary | null
     transactionCount: number
     parseStartedAt?: Date
@@ -332,11 +341,27 @@ export async function updateStatementResults(
       : data.parseCompletedAt.toISOString()
     : null
 
+  // Handle balance values - Postgres decimal expects string, SQLite real expects number
+  const openingBalanceValue =
+    data.openingBalance != null
+      ? dbType === 'postgres'
+        ? data.openingBalance.toString()
+        : data.openingBalance
+      : null
+  const closingBalanceValue =
+    data.closingBalance != null
+      ? dbType === 'postgres'
+        ? data.closingBalance.toString()
+        : data.closingBalance
+      : null
+
   await db
     .update(tables.statements)
     .set({
       periodStart: data.periodStart || null,
       periodEnd: data.periodEnd || null,
+      openingBalance: openingBalanceValue as typeof tables.statements.$inferSelect.openingBalance,
+      closingBalance: closingBalanceValue as typeof tables.statements.$inferSelect.closingBalance,
       summary: summaryValue as typeof tables.statements.$inferSelect.summary,
       transactionCount: data.transactionCount,
       parseStartedAt: parseStartedAt as Date,
@@ -382,7 +407,10 @@ export function queueParseJob(data: {
   userId: string
   countryCode: CountryCode
   pages: string[]
-  model?: string
+  /** Model for statement parsing (code generation) */
+  parsingModel?: string
+  /** Model for transaction categorization */
+  categorizationModel?: string
 }): string {
   const jobId = nanoid()
   const job: ParseJob = {
@@ -392,7 +420,8 @@ export function queueParseJob(data: {
     userId: data.userId,
     countryCode: data.countryCode,
     pages: data.pages,
-    model: data.model,
+    parsingModel: data.parsingModel,
+    categorizationModel: data.categorizationModel,
     status: 'pending',
     createdAt: new Date(),
   }
@@ -430,7 +459,8 @@ async function processNextJob(): Promise<void> {
       userId: pendingJob.userId,
       countryCode: pendingJob.countryCode,
       pages: pendingJob.pages,
-      model: pendingJob.model,
+      parsingModel: pendingJob.parsingModel,
+      categorizationModel: pendingJob.categorizationModel,
     })
 
     pendingJob.status = 'completed'

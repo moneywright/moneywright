@@ -37,8 +37,8 @@ export interface TransactionResponse {
 export interface TransactionFilters {
   profileId?: string
   accountId?: string
-  statementId?: string
-  category?: string
+  statementId?: string | string[]
+  category?: string | string[]
   type?: 'credit' | 'debit'
   startDate?: string
   endDate?: string
@@ -112,11 +112,23 @@ export async function getTransactions(
   }
 
   if (filters?.statementId) {
-    conditions.push(eq(tables.transactions.statementId, filters.statementId))
+    const statementIds = Array.isArray(filters.statementId)
+      ? filters.statementId
+      : [filters.statementId]
+    if (statementIds.length === 1) {
+      conditions.push(eq(tables.transactions.statementId, statementIds[0]!))
+    } else if (statementIds.length > 1) {
+      conditions.push(or(...statementIds.map((id) => eq(tables.transactions.statementId, id)))!)
+    }
   }
 
   if (filters?.category) {
-    conditions.push(eq(tables.transactions.category, filters.category))
+    const categories = Array.isArray(filters.category) ? filters.category : [filters.category]
+    if (categories.length === 1) {
+      conditions.push(eq(tables.transactions.category, categories[0]!))
+    } else if (categories.length > 1) {
+      conditions.push(or(...categories.map((cat) => eq(tables.transactions.category, cat)))!)
+    }
   }
 
   if (filters?.type) {
@@ -383,9 +395,10 @@ export async function getTransactionStats(
   filters?: {
     profileId?: string
     accountId?: string
+    statementId?: string | string[]
     startDate?: string
     endDate?: string
-    category?: string
+    category?: string | string[]
     type?: 'credit' | 'debit'
     search?: string
   }
@@ -408,6 +421,17 @@ export async function getTransactionStats(
     conditions.push(eq(tables.transactions.accountId, filters.accountId))
   }
 
+  if (filters?.statementId) {
+    const statementIds = Array.isArray(filters.statementId)
+      ? filters.statementId
+      : [filters.statementId]
+    if (statementIds.length === 1) {
+      conditions.push(eq(tables.transactions.statementId, statementIds[0]!))
+    } else if (statementIds.length > 1) {
+      conditions.push(or(...statementIds.map((id) => eq(tables.transactions.statementId, id)))!)
+    }
+  }
+
   if (filters?.startDate) {
     conditions.push(gte(tables.transactions.date, filters.startDate))
   }
@@ -417,7 +441,12 @@ export async function getTransactionStats(
   }
 
   if (filters?.category) {
-    conditions.push(eq(tables.transactions.category, filters.category))
+    const categories = Array.isArray(filters.category) ? filters.category : [filters.category]
+    if (categories.length === 1) {
+      conditions.push(eq(tables.transactions.category, categories[0]!))
+    } else if (categories.length > 1) {
+      conditions.push(or(...categories.map((cat) => eq(tables.transactions.category, cat)))!)
+    }
   }
 
   if (filters?.type) {

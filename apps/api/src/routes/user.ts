@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import { z } from 'zod/v4'
 import { auth, type AuthVariables } from '../middleware/auth'
 import { updateUserCountry, findUserById } from '../services/user'
-import { SUPPORTED_COUNTRIES } from '../lib/constants'
 
 const userRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -11,21 +10,6 @@ const userRoutes = new Hono<{ Variables: AuthVariables }>()
  */
 const onboardingSchema = z.object({
   country: z.string().length(2, 'Country code must be 2 characters'),
-})
-
-/**
- * GET /user/countries
- * Returns list of supported countries
- */
-userRoutes.get('/countries', (c) => {
-  return c.json({
-    countries: SUPPORTED_COUNTRIES.map((country) => ({
-      code: country.code,
-      name: country.name,
-      currency: country.currency,
-      currencySymbol: country.currencySymbol,
-    })),
-  })
 })
 
 /**

@@ -23,8 +23,6 @@ export async function extractPdfText(
     const info = await parser.getInfo()
     const totalPages = info.total || 1
 
-    console.log(`[PDF] Document has ${totalPages} pages`)
-
     const pages: string[] = []
 
     // Extract text page by page
@@ -33,7 +31,6 @@ export async function extractPdfText(
         const result = await parser.getText({ partial: [pageNum] })
         if (result.text && result.text.trim().length > 0) {
           pages.push(result.text.trim())
-          console.log(`[PDF] Page ${pageNum}: ${result.text.length} chars`)
         }
       } catch (pageError) {
         console.warn(`[PDF] Could not extract page ${pageNum}:`, pageError)

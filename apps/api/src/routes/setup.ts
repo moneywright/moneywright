@@ -8,8 +8,24 @@ import {
   setLLMSettings,
 } from '../services/config'
 import { isAuthEnabled } from '../lib/startup'
+import { SUPPORTED_COUNTRIES } from '../lib/constants'
 
 const setupRoutes = new Hono()
+
+/**
+ * GET /setup/countries
+ * Returns list of supported countries for onboarding
+ */
+setupRoutes.get('/countries', (c) => {
+  return c.json({
+    countries: SUPPORTED_COUNTRIES.map((country) => ({
+      code: country.code,
+      name: country.name,
+      currency: country.currency,
+      currencySymbol: country.currencySymbol,
+    })),
+  })
+})
 
 /**
  * GET /setup/status

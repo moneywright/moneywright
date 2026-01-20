@@ -133,6 +133,7 @@ export const accounts = pgTable(
     institution: text('institution'), // bank/institution name (free text)
     accountNumber: text('account_number'), // encrypted, full account number
     accountName: text('account_name'), // user-friendly name
+    productName: text('product_name'), // account product/variant name (e.g., "Regalia", "Savings Max", "Imperia")
 
     // Statement password (for password-protected PDFs)
     statementPassword: text('statement_password'), // encrypted
@@ -177,6 +178,10 @@ export const statements = pgTable(
     // Statement period
     periodStart: date('period_start'),
     periodEnd: date('period_end'),
+
+    // Balance info (for bank statements)
+    openingBalance: decimal('opening_balance', { precision: 15, scale: 2 }),
+    closingBalance: decimal('closing_balance', { precision: 15, scale: 2 }),
 
     // Parsing status
     status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, parsing, completed, failed
@@ -230,6 +235,7 @@ export const transactions = pgTable(
     type: varchar('type', { length: 10 }).notNull(), // credit or debit
     amount: decimal('amount', { precision: 15, scale: 2 }).notNull(),
     currency: varchar('currency', { length: 3 }).notNull(),
+    balance: decimal('balance', { precision: 15, scale: 2 }), // Running balance after this transaction (if available)
 
     // Description
     originalDescription: text('original_description').notNull(),

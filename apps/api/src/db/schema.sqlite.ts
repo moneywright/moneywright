@@ -138,6 +138,7 @@ export const accounts = sqliteTable(
     institution: text('institution'), // bank/institution name (free text)
     accountNumber: text('account_number'), // encrypted, full account number
     accountName: text('account_name'), // user-friendly name
+    productName: text('product_name'), // account product/variant name (e.g., "Regalia", "Savings Max", "Imperia")
 
     // Statement password (for password-protected PDFs)
     statementPassword: text('statement_password'), // encrypted
@@ -186,6 +187,10 @@ export const statements = sqliteTable(
     // Statement period
     periodStart: text('period_start'), // ISO date string
     periodEnd: text('period_end'), // ISO date string
+
+    // Balance info (for bank statements)
+    openingBalance: real('opening_balance'), // Balance at start of statement period
+    closingBalance: real('closing_balance'), // Balance at end of statement period
 
     // Parsing status
     status: text('status').notNull().default('pending'), // pending, parsing, completed, failed
@@ -243,6 +248,7 @@ export const transactions = sqliteTable(
     type: text('type').notNull(), // credit or debit
     amount: real('amount').notNull(),
     currency: text('currency').notNull(),
+    balance: real('balance'), // Running balance after this transaction (if available)
 
     // Description
     originalDescription: text('original_description').notNull(),

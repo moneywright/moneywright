@@ -7,7 +7,6 @@ import {
   createInvestment,
   updateInvestment,
   deleteInvestment,
-  getInvestmentSummary,
 } from '../services/investments'
 import { getInvestmentTypesForCountry, type CountryCode } from '../lib/constants'
 import { findUserById } from '../services/user'
@@ -85,20 +84,6 @@ investmentRoutes.get('/types', async (c) => {
   const investmentTypes = getInvestmentTypesForCountry(countryCode)
 
   return c.json({ investmentTypes, countryCode })
-})
-
-/**
- * GET /investments/summary
- * Get investment portfolio summary/stats
- * Query params: profileId (optional)
- */
-investmentRoutes.get('/summary', async (c) => {
-  const userId = c.get('userId')
-  const profileId = c.req.query('profileId')
-
-  const summary = await getInvestmentSummary(userId, profileId || undefined)
-
-  return c.json(summary)
 })
 
 /**

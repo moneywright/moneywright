@@ -6,7 +6,7 @@
 import { eq } from 'drizzle-orm'
 import { db, tables, dbType } from '../db'
 import { encrypt, decrypt } from '../lib/encryption'
-import { getDefaultModelId, getProviderModels } from '../lib/constants'
+import { getDefaultParsingModelId, getProviderModels } from '../lib/constants'
 
 // Keys that should be encrypted
 const ENCRYPTED_KEYS = [
@@ -141,6 +141,10 @@ export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'ollama' | 'vercel
 export interface LLMSettings {
   provider: LLMProvider
   model: string
+  /** Model used for statement parsing (code generation) - requires strong reasoning */
+  parsingModel: string
+  /** Model used for transaction categorization - can be a smaller/faster model */
+  categorizationModel: string
   apiBaseUrl: string | null
   openaiApiKey: string | null
   anthropicApiKey: string | null
@@ -160,10 +164,22 @@ export async function getLLMSettings(): Promise<LLMSettings> {
     provider = ((await getConfig('llm_provider')) as LLMProvider) || 'openai'
   }
 
-  // Model
+  // Default model (legacy, for backwards compatibility)
   let model = process.env.LLM_MODEL || null
   if (!model) {
     model = (await getConfig('llm_model')) || getDefaultModelForProvider(provider)
+  }
+
+  // Parsing model (for code generation - needs strong reasoning)
+  let parsingModel = process.env.LLM_PARSING_MODEL || null
+  if (!parsingModel) {
+    parsingModel = (await getConfig('llm_parsing_model')) || model
+  }
+
+  // Categorization model (for transaction categorization - can be smaller/faster)
+  let categorizationModel = process.env.LLM_CATEGORIZATION_MODEL || null
+  if (!categorizationModel) {
+    categorizationModel = (await getConfig('llm_categorization_model')) || model
   }
 
   // API Base URL
@@ -216,6 +232,8 @@ export async function getLLMSettings(): Promise<LLMSettings> {
   return {
     provider,
     model,
+    parsingModel,
+    categorizationModel,
     apiBaseUrl,
     openaiApiKey,
     anthropicApiKey,
@@ -231,6 +249,8 @@ export async function getLLMSettings(): Promise<LLMSettings> {
 export async function setLLMSettings(settings: {
   provider?: LLMProvider
   model?: string
+  parsingModel?: string
+  categorizationModel?: string
   apiBaseUrl?: string | null
   openaiApiKey?: string | null
   anthropicApiKey?: string | null
@@ -243,6 +263,14 @@ export async function setLLMSettings(settings: {
 
   if (settings.model !== undefined) {
     await setConfig('llm_model', settings.model)
+  }
+
+  if (settings.parsingModel !== undefined) {
+    await setConfig('llm_parsing_model', settings.parsingModel)
+  }
+
+  if (settings.categorizationModel !== undefined) {
+    await setConfig('llm_categorization_model', settings.categorizationModel)
   }
 
   if (settings.apiBaseUrl !== undefined) {
@@ -290,7 +318,7 @@ export async function setLLMSettings(settings: {
  * Get default model for a provider
  */
 function getDefaultModelForProvider(provider: LLMProvider): string {
-  return getDefaultModelId(provider)
+  return getDefaultParsingModelId(provider)
 }
 
 /**

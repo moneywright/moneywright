@@ -191,7 +191,12 @@ export type LLMProvider = (typeof LLM_PROVIDERS)[number]
 export interface AIModel {
   id: string
   name: string
-  recommended?: boolean
+  /** Model is capable of parsing statements (requires tool use, code generation) */
+  supportsParsing?: boolean
+  /** Recommended model for parsing statements */
+  recommendedForParsing?: boolean
+  /** Recommended model for categorization */
+  recommendedForCategorization?: boolean
   supportsThinking?: boolean
   reasoningBuiltIn?: boolean
 }
@@ -219,22 +224,45 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     id: 'openai',
     name: 'OpenAI',
     models: [
-      { id: 'gpt-5.2', name: 'GPT-5.2', supportsThinking: true },
-      { id: 'gpt-5-mini', name: 'GPT-5 Mini', recommended: true, supportsThinking: true },
+      {
+        id: 'gpt-5.2',
+        name: 'GPT-5.2',
+        supportsParsing: true,
+        recommendedForParsing: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'gpt-5-mini',
+        name: 'GPT-5 Mini',
+        supportsParsing: true,
+        recommendedForCategorization: true,
+        supportsThinking: true,
+      },
       { id: 'gpt-5-nano', name: 'GPT-5 Nano', supportsThinking: true },
-      { id: 'gpt-4.1', name: 'GPT-4.1', supportsThinking: true },
+      { id: 'gpt-4.1', name: 'GPT-4.1', supportsParsing: true, supportsThinking: true },
     ],
   },
   {
     id: 'anthropic',
     name: 'Anthropic',
     models: [
-      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', supportsThinking: true },
-      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', supportsThinking: true },
+      {
+        id: 'claude-opus-4-5',
+        name: 'Claude Opus 4.5',
+        supportsParsing: true,
+        recommendedForParsing: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'claude-sonnet-4-5',
+        name: 'Claude Sonnet 4.5',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
       {
         id: 'claude-haiku-4-5',
         name: 'Claude Haiku 4.5',
-        recommended: true,
+        recommendedForCategorization: true,
         supportsThinking: true,
       },
     ],
@@ -244,61 +272,119 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     name: 'Google',
     models: [
       {
-        id: 'gemini-2.5-flash',
-        name: 'Gemini 2.5 Flash',
-        recommended: true,
+        id: 'gemini-3-pro-preview',
+        name: 'Gemini 3 Pro',
+        supportsParsing: true,
+        recommendedForParsing: true,
         supportsThinking: true,
       },
-      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', supportsThinking: true },
+      {
+        id: 'gemini-3-flash-preview',
+        name: 'Gemini 3 Flash',
+        supportsParsing: true,
+        recommendedForCategorization: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'gemini-2.5-pro',
+        name: 'Gemini 2.5 Pro',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'gemini-2.5-flash',
+        name: 'Gemini 2.5 Flash',
+        recommendedForCategorization: true,
+        supportsThinking: true,
+      },
     ],
   },
   {
     id: 'ollama',
     name: 'Ollama (Local)',
     models: [
-      { id: 'llama3.2', name: 'Llama 3.2', recommended: true },
-      { id: 'llama3.1', name: 'Llama 3.1' },
-      { id: 'mistral', name: 'Mistral' },
-      { id: 'mixtral', name: 'Mixtral' },
+      { id: 'llama3.2', name: 'Llama 3.2', supportsParsing: true, recommendedForParsing: true },
+      { id: 'llama3.1', name: 'Llama 3.1', supportsParsing: true },
+      { id: 'mixtral', name: 'Mixtral', supportsParsing: true },
+      { id: 'qwen2.5', name: 'Qwen 2.5', supportsParsing: true },
+      { id: 'mistral', name: 'Mistral', recommendedForCategorization: true },
       { id: 'phi3', name: 'Phi-3' },
-      { id: 'qwen2.5', name: 'Qwen 2.5' },
     ],
   },
   {
     id: 'vercel',
     name: 'Vercel AI Gateway',
     models: [
-      // OpenAI models via Gateway
-      { id: 'openai/gpt-5.2', name: 'GPT-5.2', supportsThinking: true },
-      { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini', recommended: true, supportsThinking: true },
-      { id: 'openai/gpt-5-nano', name: 'GPT-5 Nano', supportsThinking: true },
-      { id: 'openai/gpt-4.1', name: 'GPT-4.1', supportsThinking: true },
       // Anthropic models via Gateway
-      { id: 'anthropic/claude-sonnet-4-5', name: 'Claude Sonnet 4.5', supportsThinking: true },
-      { id: 'anthropic/claude-opus-4-5', name: 'Claude Opus 4.5', supportsThinking: true },
+      {
+        id: 'anthropic/claude-opus-4-5',
+        name: 'Claude Opus 4.5',
+        supportsParsing: true,
+        recommendedForParsing: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'anthropic/claude-sonnet-4-5',
+        name: 'Claude Sonnet 4.5',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
       { id: 'anthropic/claude-haiku-4-5', name: 'Claude Haiku 4.5', supportsThinking: true },
+      // OpenAI models via Gateway
+      { id: 'openai/gpt-5.2', name: 'GPT-5.2', supportsParsing: true, supportsThinking: true },
+      {
+        id: 'openai/gpt-5-mini',
+        name: 'GPT-5 Mini',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
+      { id: 'openai/gpt-5-nano', name: 'GPT-5 Nano', supportsThinking: true },
+      { id: 'openai/gpt-4.1', name: 'GPT-4.1', supportsParsing: true, supportsThinking: true },
       // Google models via Gateway
+      {
+        id: 'google/gemini-3-pro-preview',
+        name: 'Gemini 3 Pro',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'google/gemini-3-flash-preview',
+        name: 'Gemini 3 Flash',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
+      {
+        id: 'google/gemini-2.5-pro',
+        name: 'Gemini 2.5 Pro',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
       { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', supportsThinking: true },
-      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', supportsThinking: true },
       // xAI Grok models via Gateway
-      { id: 'xai/grok-4', name: 'Grok 4' },
-      { id: 'xai/grok-4.1-fast-non-reasoning', name: 'Grok 4.1 Fast' },
+      { id: 'xai/grok-4', name: 'Grok 4', supportsParsing: true },
       {
         id: 'xai/grok-4.1-fast-reasoning',
         name: 'Grok 4.1 Fast Reasoning',
         supportsThinking: true,
         reasoningBuiltIn: true,
       },
+      {
+        id: 'xai/grok-4.1-fast-non-reasoning',
+        name: 'Grok 4.1 Fast',
+        recommendedForCategorization: true,
+      },
       // Minimax models via Gateway (reasoning is built-in)
       {
-        id: 'minimax/minimax-m2',
-        name: 'Minimax M2',
+        id: 'minimax/minimax-m2.1',
+        name: 'Minimax M2.1',
+        supportsParsing: true,
         supportsThinking: true,
         reasoningBuiltIn: true,
       },
       {
-        id: 'minimax/minimax-m2.1',
-        name: 'Minimax M2.1',
+        id: 'minimax/minimax-m2',
+        name: 'Minimax M2',
+        supportsParsing: true,
         supportsThinking: true,
         reasoningBuiltIn: true,
       },
@@ -330,12 +416,35 @@ export function isValidModel(providerId: LLMProvider, modelId: string): boolean 
 }
 
 /**
- * Get the recommended model for a provider
+ * Get the recommended model for parsing statements
  */
-export function getRecommendedModel(providerId: LLMProvider): AIModel | undefined {
+export function getRecommendedParsingModel(providerId: LLMProvider): AIModel | undefined {
   const provider = getProviderConfig(providerId)
   if (!provider) return undefined
-  return provider.models.find((m) => m.recommended) ?? provider.models[0]
+  // First try to find recommended parsing model, then any parsing-capable model
+  return (
+    provider.models.find((m) => m.recommendedForParsing && m.supportsParsing) ??
+    provider.models.find((m) => m.supportsParsing) ??
+    provider.models[0]
+  )
+}
+
+/**
+ * Get the recommended model for categorization
+ */
+export function getRecommendedCategorizationModel(providerId: LLMProvider): AIModel | undefined {
+  const provider = getProviderConfig(providerId)
+  if (!provider) return undefined
+  return provider.models.find((m) => m.recommendedForCategorization) ?? provider.models[0]
+}
+
+/**
+ * Get all models that support parsing for a provider
+ */
+export function getParsingModels(providerId: LLMProvider): AIModel[] {
+  const provider = getProviderConfig(providerId)
+  if (!provider) return []
+  return provider.models.filter((m) => m.supportsParsing)
 }
 
 /**
@@ -346,10 +455,18 @@ export function getProviderModels(providerId: LLMProvider): AIModel[] {
 }
 
 /**
- * Get the default model ID for a provider
+ * Get the default parsing model ID for a provider
  */
-export function getDefaultModelId(provider: LLMProvider): string {
-  const recommended = getRecommendedModel(provider)
+export function getDefaultParsingModelId(provider: LLMProvider): string {
+  const recommended = getRecommendedParsingModel(provider)
+  return recommended?.id ?? 'gpt-5-mini'
+}
+
+/**
+ * Get the default categorization model ID for a provider
+ */
+export function getDefaultCategorizationModelId(provider: LLMProvider): string {
+  const recommended = getRecommendedCategorizationModel(provider)
   return recommended?.id ?? 'gpt-5-mini'
 }
 

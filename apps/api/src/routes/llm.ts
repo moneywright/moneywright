@@ -5,7 +5,8 @@ import { getLLMSettings, setLLMSettings } from '../services/config'
 import { createLLMClient } from '../llm'
 import { generateText } from 'ai'
 import { logger } from '../lib/logger'
-import { AI_PROVIDERS, getDefaultModelId } from '../lib/constants'
+import { AI_PROVIDERS, getDefaultParsingModelId } from '../lib/constants'
+import { listCachedBanks, clearParserCache, getParserCodes } from '../lib/pdf'
 
 const llmRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -139,7 +140,7 @@ llmRoutes.post('/test', async (c) => {
     }
 
     // Use saved model or default model for the provider
-    const modelId = settings.model || getDefaultModelId(settings.provider)
+    const modelId = settings.model || getDefaultParsingModelId(settings.provider)
 
     const model = createLLMClient({
       provider: settings.provider,
@@ -179,6 +180,55 @@ llmRoutes.post('/test', async (c) => {
       400
     )
   }
+})
+
+/**
+ * GET /llm/parser-cache
+ * List all cached parser codes (for debugging/admin)
+ */
+llmRoutes.get('/parser-cache', async (c) => {
+  const banks = await listCachedBanks()
+  return c.json({ banks })
+})
+
+/**
+ * GET /llm/parser-cache/:bankKey
+ * Get all versions of parser code for a specific bank
+ */
+llmRoutes.get('/parser-cache/:bankKey', async (c) => {
+  const bankKey = c.req.param('bankKey')
+  const versions = await getParserCodes(bankKey)
+
+  return c.json({
+    bankKey,
+    versions: versions.map((v) => ({
+      version: v.version,
+      detectedFormat: v.detectedFormat,
+      dateFormat: v.dateFormat,
+      confidence: v.confidence,
+      createdAt: v.createdAt,
+      successCount: v.successCount,
+      failCount: v.failCount,
+      // Don't send full code in list, only first 200 chars
+      codePreview: v.code.slice(0, 200) + (v.code.length > 200 ? '...' : ''),
+    })),
+  })
+})
+
+/**
+ * DELETE /llm/parser-cache/:bankKey
+ * Clear all cached parser code for a bank (forces regeneration on next parse)
+ */
+llmRoutes.delete('/parser-cache/:bankKey', async (c) => {
+  const bankKey = c.req.param('bankKey')
+  const deletedCount = await clearParserCache(bankKey)
+
+  return c.json({
+    success: true,
+    bankKey,
+    deletedVersions: deletedCount,
+    message: `Cleared ${deletedCount} cached parser version(s) for ${bankKey}. Next statement will generate new parser code.`,
+  })
 })
 
 export default llmRoutes
