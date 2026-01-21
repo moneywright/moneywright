@@ -16,10 +16,18 @@ const INSERT_BATCH_SIZE = 100
 
 /**
  * Generate transaction hash for deduplication
- * Hash is based on date, amount, and description
+ * Hash is based on account, date, amount, description, and position within the statement
+ * Position is included to allow identical transactions (same date/amount/description)
+ * that appear multiple times in the same statement (e.g., two identical purchases)
  */
-function generateTransactionHash(date: string, amount: number, description: string): string {
-  const data = `${date}|${amount}|${description}`
+function generateTransactionHash(
+  accountId: string,
+  date: string,
+  amount: number,
+  description: string,
+  position: number
+): string {
+  const data = `${accountId}|${date}|${amount}|${description}|${position}`
   return createHash('sha256').update(data).digest('hex')
 }
 
@@ -49,8 +57,16 @@ export async function insertRawTransactions(
   for (let i = 0; i < transactions.length; i += INSERT_BATCH_SIZE) {
     const batch = transactions.slice(i, i + INSERT_BATCH_SIZE)
 
-    for (const txn of batch) {
-      const hash = generateTransactionHash(txn.date, txn.amount, txn.description)
+    for (let j = 0; j < batch.length; j++) {
+      const txn = batch[j]!
+      const position = i + j // Global position in the transaction list
+      const hash = generateTransactionHash(
+        accountId,
+        txn.date,
+        txn.amount,
+        txn.description,
+        position
+      )
 
       // Check for duplicate
       const [existing] = await db

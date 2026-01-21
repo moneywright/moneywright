@@ -1,60 +1,62 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/domain/app-layout'
 import { ProfileSelector } from '@/components/domain/profile-selector'
+import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
-import {
-  Loader2,
-  Plus,
-  TrendingUp,
-  TrendingDown,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  X,
-  PiggyBank,
-  Landmark,
-} from 'lucide-react'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { toast } from 'sonner'
 import {
-  getInvestments,
-  getInvestmentTypes,
-  getInvestmentSummary,
-  createInvestment,
-  updateInvestment,
-  deleteInvestment as deleteInvestmentApi,
-  type Investment,
-  type InvestmentType,
-} from '@/lib/api'
-import { useProfiles } from '@/hooks/useAuthStatus'
+  Plus,
+  Briefcase,
+  Upload,
+  RefreshCw,
+  LayoutGrid,
+  List,
+  History,
+  Loader2,
+} from 'lucide-react'
+import { StatCardGridSkeleton, CardSkeleton } from '@/components/ui/skeleton'
+import type { InvestmentSource, InvestmentHolding } from '@/lib/api'
+import {
+  useProfiles,
+  useAuthStatus,
+  useInvestmentTypes,
+  useInvestmentSources,
+  useInvestmentHoldings,
+  useInvestmentSummary,
+  useInvestmentSnapshots,
+  useDeleteSource,
+  useDeleteHolding,
+  useDeleteSnapshot,
+  useFxRates,
+  useCurrencyConverter,
+  useConstants,
+} from '@/hooks'
+import {
+  PortfolioStats,
+  SourceCard,
+  HoldingsTable,
+  SnapshotRow,
+  SourceForm,
+  HoldingForm,
+} from '@/components/investments'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export const Route = createFileRoute('/investments')({
   component: InvestmentsPage,
@@ -63,564 +65,394 @@ export const Route = createFileRoute('/investments')({
 function InvestmentsPage() {
   const queryClient = useQueryClient()
   const { profiles, defaultProfile } = useProfiles()
+  const { user } = useAuthStatus()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null)
+  const [showAddSourceDialog, setShowAddSourceDialog] = useState(false)
+  const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false)
+  const [editingSource, setEditingSource] = useState<InvestmentSource | null>(null)
+  const [editingHolding, setEditingHolding] = useState<InvestmentHolding | null>(null)
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set())
+  const [showInINR, setShowInINR] = useState(true)
 
   // Use default profile if none selected
   const activeProfileId = selectedProfileId || defaultProfile?.id
+  const countryCode = user?.country?.toLowerCase() || 'in'
 
-  // Fetch investments
-  const { data: investments, isLoading: investmentsLoading } = useQuery({
-    queryKey: ['investments', activeProfileId],
-    queryFn: () => getInvestments(activeProfileId),
-    enabled: !!activeProfileId,
+  // Query hooks
+  const { data: typesData } = useInvestmentTypes()
+  const { rawInvestmentSourceTypes } = useConstants()
+  const { data: sources, isLoading: sourcesLoading } = useInvestmentSources(activeProfileId)
+  const { data: holdings, isLoading: holdingsLoading } = useInvestmentHoldings(activeProfileId)
+  const { data: summary, isLoading: summaryLoading } = useInvestmentSummary(activeProfileId)
+  const { data: snapshots, isLoading: snapshotsLoading } = useInvestmentSnapshots(activeProfileId, {
+    limit: 50,
   })
 
-  // Fetch investment types
-  const { data: typesData } = useQuery({
-    queryKey: ['investment-types'],
-    queryFn: getInvestmentTypes,
+  // Check if we have any non-INR holdings
+  const hasMultipleCurrencies = holdings?.some((h) => h.currency !== 'INR')
+
+  // FX rates for currency conversion
+  const { data: fxRatesData, isLoading: fxRatesLoading } = useFxRates('USD', {
+    enabled: showInINR && hasMultipleCurrencies,
   })
 
-  // Fetch summary
-  const { data: summary } = useQuery({
-    queryKey: ['investment-summary', activeProfileId],
-    queryFn: () => getInvestmentSummary(activeProfileId),
-    enabled: !!activeProfileId,
-  })
+  // Currency converter
+  const { formatCurrency, formatPercentage } = useCurrencyConverter(showInINR)
 
-  const investmentTypes = typesData?.investmentTypes || []
+  // Build FX rates map
+  const fxRates: Record<string, number> = {}
+  if (fxRatesData?.success && fxRatesData.data?.rates) {
+    fxRates['USD'] = fxRatesData.data.rates.INR || 83
+    fxRates['EUR'] = (fxRatesData.data.rates.INR || 83) / (fxRatesData.data.rates.EUR || 0.92)
+    fxRates['GBP'] = (fxRatesData.data.rates.INR || 83) / (fxRatesData.data.rates.GBP || 0.79)
+    fxRates['INR'] = 1
+  }
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: deleteInvestmentApi,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['investments'] })
-      queryClient.invalidateQueries({ queryKey: ['investment-summary'] })
-      toast.success('Investment deleted')
+  // Local convertToINR that uses local fxRates
+  const localConvertToINR = (amount: number, currency: string): number => {
+    if (!showInINR || currency === 'INR') return amount
+    const rate = fxRates[currency]
+    if (rate) return amount * rate
+    return amount
+  }
+
+  // Use rawInvestmentSourceTypes from constants (includes logo paths)
+  const sourceTypes = rawInvestmentSourceTypes
+  const holdingTypes = typesData?.holdingTypes || []
+
+  // Group holdings by source
+  const holdingsBySource = holdings?.reduce(
+    (acc, holding) => {
+      if (!acc[holding.sourceId]) {
+        acc[holding.sourceId] = []
+      }
+      acc[holding.sourceId].push(holding)
+      return acc
     },
-    onError: () => {
-      toast.error('Failed to delete investment')
+    {} as Record<string, InvestmentHolding[]>
+  )
+
+  // Mutation hooks
+  const deleteSourceMutation = useDeleteSource(activeProfileId)
+  const deleteHoldingMutation = useDeleteHolding(activeProfileId)
+  const deleteSnapshotMutation = useDeleteSnapshot(activeProfileId)
+
+  const getSourceTypeLabel = (code: string) => {
+    return sourceTypes.find((t) => t.code === code)?.label || code.replace(/_/g, ' ')
+  }
+
+  const toggleSource = (sourceId: string) => {
+    setExpandedSources((prev) => {
+      const next = new Set(prev)
+      if (next.has(sourceId)) {
+        next.delete(sourceId)
+      } else {
+        next.add(sourceId)
+      }
+      return next
+    })
+  }
+
+  const handleAddHolding = (sourceId: string) => {
+    setSelectedSourceId(sourceId)
+    setShowAddHoldingDialog(true)
+  }
+
+  // Calculate totals - only include holdings with valid invested value for gain calculations
+  const calcTotals = holdings?.reduce(
+    (acc, h) => {
+      const currentConverted = localConvertToINR(h.currentValue, h.currency)
+      const hasValidInvested = h.investedValue !== null && h.investedValue > 0
+      const investedConverted = hasValidInvested
+        ? localConvertToINR(h.investedValue!, h.currency)
+        : 0
+      const currentForGain = hasValidInvested ? currentConverted : 0
+
+      return {
+        totalCurrent: acc.totalCurrent + currentConverted,
+        totalInvested: acc.totalInvested + investedConverted,
+        totalCurrentWithInvested: acc.totalCurrentWithInvested + currentForGain,
+      }
     },
-  })
+    { totalCurrent: 0, totalInvested: 0, totalCurrentWithInvested: 0 }
+  ) || { totalCurrent: 0, totalInvested: 0, totalCurrentWithInvested: 0 }
 
-  const getInvestmentTypeLabel = (code: string) => {
-    return investmentTypes.find((t) => t.code === code)?.label || code.replace(/_/g, ' ')
-  }
+  const totalGainLoss = calcTotals.totalCurrentWithInvested - calcTotals.totalInvested
+  const gainLossPercent =
+    calcTotals.totalInvested > 0 ? (totalGainLoss / calcTotals.totalInvested) * 100 : null
 
-  const formatCurrency = (amount: number | null, currency: string) => {
-    if (amount === null) return '-'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount)
-  }
-
-  const formatPercentage = (value: number) => {
-    const sign = value >= 0 ? '+' : ''
-    return `${sign}${value.toFixed(2)}%`
-  }
+  const isLoading = sourcesLoading || holdingsLoading
 
   return (
     <AppLayout>
       <div className="space-y-6">
         {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Investments</h1>
-            <p className="text-muted-foreground">Track your investment portfolio</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <ProfileSelector
-              profiles={profiles || []}
-              selectedProfileId={activeProfileId || ''}
-              onProfileChange={setSelectedProfileId}
-            />
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Investment
-            </Button>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        {summary && (
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
-                  {formatCurrency(summary.totalCurrentValue, 'USD')}
-                </div>
-                <p className="text-xs text-muted-foreground">Current Value</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
-                  {formatCurrency(summary.totalPurchaseValue, 'USD')}
-                </div>
-                <p className="text-xs text-muted-foreground">Purchase Value</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div
-                  className={`text-2xl font-bold flex items-center gap-2 ${
-                    summary.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {summary.totalGainLoss >= 0 ? (
-                    <TrendingUp className="h-5 w-5" />
-                  ) : (
-                    <TrendingDown className="h-5 w-5" />
+        <PageHeader
+          title="Investments"
+          description="Track your investment portfolio"
+          actions={
+            <>
+              {hasMultipleCurrencies && (
+                <div className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-card/50 px-3 py-2">
+                  <Label
+                    htmlFor="show-inr"
+                    className="cursor-pointer text-sm text-muted-foreground"
+                  >
+                    Show in INR
+                  </Label>
+                  <Switch id="show-inr" checked={showInINR} onCheckedChange={setShowInINR} />
+                  {showInINR && fxRatesLoading && (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                   )}
-                  {formatCurrency(Math.abs(summary.totalGainLoss), 'USD')}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {summary.totalGainLoss >= 0 ? 'Total Gain' : 'Total Loss'}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div
-                  className={`text-2xl font-bold ${
-                    summary.gainLossPercentage >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {formatPercentage(summary.gainLossPercentage)}
-                </div>
-                <p className="text-xs text-muted-foreground">Returns</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              )}
+              <ProfileSelector
+                profiles={profiles || []}
+                selectedProfileId={activeProfileId || ''}
+                onProfileChange={setSelectedProfileId}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setShowAddSourceDialog(true)}>
+                    <Briefcase className="mr-2 h-4 w-4" />
+                    New Source
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/statements">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import Statement
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          }
+        />
 
-        {/* Add/Edit Form */}
-        {(showAddForm || editingInvestment) && (
-          <InvestmentForm
-            investment={editingInvestment}
-            profileId={activeProfileId!}
-            investmentTypes={investmentTypes}
-            onClose={() => {
-              setShowAddForm(false)
-              setEditingInvestment(null)
-            }}
-            onSuccess={() => {
-              setShowAddForm(false)
-              setEditingInvestment(null)
-              queryClient.invalidateQueries({ queryKey: ['investments'] })
-              queryClient.invalidateQueries({ queryKey: ['investment-summary'] })
-            }}
+        {/* Portfolio Stats */}
+        {summary && !summaryLoading && (
+          <PortfolioStats
+            totalCurrent={calcTotals.totalCurrent}
+            totalInvested={calcTotals.totalInvested}
+            totalGainLoss={totalGainLoss}
+            gainLossPercent={gainLossPercent}
+            currency="INR"
+            isLoading={summaryLoading}
           />
         )}
 
-        {/* Investments List */}
-        {investmentsLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : investments && investments.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {investments.map((investment) => {
-              const gainLoss =
-                investment.currentValue && investment.purchaseValue
-                  ? investment.currentValue - investment.purchaseValue
-                  : null
-              const gainLossPercent =
-                gainLoss !== null && investment.purchaseValue
-                  ? (gainLoss / investment.purchaseValue) * 100
-                  : null
+        {/* Add Source Dialog */}
+        <Dialog
+          open={showAddSourceDialog || !!editingSource}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowAddSourceDialog(false)
+              setEditingSource(null)
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingSource ? 'Edit Source' : 'Add Investment Source'}</DialogTitle>
+              <DialogDescription>
+                {editingSource
+                  ? 'Update the investment source details'
+                  : 'Add a new investment source like a brokerage or mutual fund platform'}
+              </DialogDescription>
+            </DialogHeader>
+            {activeProfileId && (
+              <SourceForm
+                source={editingSource}
+                profileId={activeProfileId}
+                sourceTypes={sourceTypes}
+                onClose={() => {
+                  setShowAddSourceDialog(false)
+                  setEditingSource(null)
+                }}
+                onSuccess={() => {
+                  setShowAddSourceDialog(false)
+                  setEditingSource(null)
+                  queryClient.invalidateQueries({ queryKey: ['investments'] })
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
-              return (
-                <Card key={investment.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-muted p-2">
-                          {investment.type.includes('stock') ||
-                          investment.type.includes('mutual') ? (
-                            <TrendingUp className="h-5 w-5" />
-                          ) : investment.type.includes('deposit') ||
-                            investment.type.includes('ppf') ? (
-                            <PiggyBank className="h-5 w-5" />
-                          ) : (
-                            <Landmark className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{investment.name}</CardTitle>
-                          <CardDescription>
-                            {getInvestmentTypeLabel(investment.type)}
-                            {investment.institution && ` • ${investment.institution}`}
-                          </CardDescription>
-                        </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setEditingInvestment(investment)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onSelect={(e) => e.preventDefault()}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Investment?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={() => deleteMutation.mutate(investment.id)}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {investment.currentValue !== null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Current Value</span>
-                          <span className="font-semibold">
-                            {formatCurrency(investment.currentValue, investment.currency)}
-                          </span>
-                        </div>
-                      )}
-                      {investment.purchaseValue !== null && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Purchase Value</span>
-                          <span>
-                            {formatCurrency(investment.purchaseValue, investment.currency)}
-                          </span>
-                        </div>
-                      )}
-                      {gainLoss !== null && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Gain/Loss</span>
-                          <span className={gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            {gainLoss >= 0 ? '+' : ''}
-                            {formatCurrency(gainLoss, investment.currency)}
-                            {gainLossPercent !== null && ` (${formatPercentage(gainLossPercent)})`}
-                          </span>
-                        </div>
-                      )}
-                      {investment.units !== null && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Units</span>
-                          <span>{investment.units}</span>
-                        </div>
-                      )}
-                      {investment.interestRate !== null && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Interest Rate</span>
-                          <span>{investment.interestRate}%</span>
-                        </div>
-                      )}
-                      {investment.maturityDate && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Maturity</span>
-                          <span>{new Date(investment.maturityDate).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+        {/* Add Holding Dialog */}
+        <Dialog
+          open={showAddHoldingDialog || !!editingHolding}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowAddHoldingDialog(false)
+              setEditingHolding(null)
+              setSelectedSourceId(null)
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{editingHolding ? 'Edit Holding' : 'Add Holding'}</DialogTitle>
+              <DialogDescription>
+                {editingHolding
+                  ? 'Update the holding details'
+                  : 'Add a new investment holding to this source'}
+              </DialogDescription>
+            </DialogHeader>
+            {(selectedSourceId || editingHolding?.sourceId) && (
+              <HoldingForm
+                holding={editingHolding}
+                sourceId={selectedSourceId || editingHolding!.sourceId}
+                holdingTypes={holdingTypes}
+                sources={sources || []}
+                onClose={() => {
+                  setShowAddHoldingDialog(false)
+                  setEditingHolding(null)
+                  setSelectedSourceId(null)
+                }}
+                onSuccess={() => {
+                  setShowAddHoldingDialog(false)
+                  setEditingHolding(null)
+                  setSelectedSourceId(null)
+                  queryClient.invalidateQueries({ queryKey: ['investments'] })
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Main Content */}
+        {isLoading ? (
+          <div className="space-y-6">
+            <StatCardGridSkeleton />
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <CardSkeleton key={i} />
+              ))}
+            </div>
           </div>
+        ) : sources && sources.length > 0 ? (
+          <Tabs defaultValue="by-source" className="space-y-6">
+            <TabsList className="bg-muted/50">
+              <TabsTrigger value="by-source" className="gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">By Source</span>
+              </TabsTrigger>
+              <TabsTrigger value="all-holdings" className="gap-2">
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">All Holdings</span>
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2">
+                <History className="h-4 w-4" />
+                <span className="hidden sm:inline">History</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* By Source View */}
+            <TabsContent value="by-source" className="space-y-4">
+              {sources.map((source) => {
+                const sourceHoldings = holdingsBySource?.[source.id] || []
+                return (
+                  <SourceCard
+                    key={source.id}
+                    source={source}
+                    holdings={sourceHoldings}
+                    holdingTypes={holdingTypes}
+                    sourceTypes={sourceTypes}
+                    isExpanded={expandedSources.has(source.id)}
+                    onToggle={() => toggleSource(source.id)}
+                    onAddHolding={() => handleAddHolding(source.id)}
+                    onEditSource={() => setEditingSource(source)}
+                    onDeleteSource={() => deleteSourceMutation.mutate(source.id)}
+                    onEditHolding={setEditingHolding}
+                    onDeleteHolding={(id) => deleteHoldingMutation.mutate(id)}
+                    formatCurrency={formatCurrency}
+                    formatPercentage={formatPercentage}
+                    showInINR={showInINR}
+                    convertToINR={localConvertToINR}
+                    getSourceTypeLabel={getSourceTypeLabel}
+                  />
+                )
+              })}
+            </TabsContent>
+
+            {/* All Holdings View */}
+            <TabsContent value="all-holdings">
+              <HoldingsTable
+                holdings={holdings || []}
+                sources={sources}
+                holdingTypes={holdingTypes}
+                formatCurrency={formatCurrency}
+                formatPercentage={formatPercentage}
+                showInINR={showInINR}
+                convertToINR={localConvertToINR}
+                onEditHolding={setEditingHolding}
+                onDeleteHolding={(id) => deleteHoldingMutation.mutate(id)}
+              />
+            </TabsContent>
+
+            {/* History View */}
+            <TabsContent value="history" className="space-y-4">
+              {snapshotsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : snapshots && snapshots.length > 0 ? (
+                snapshots.map((snapshot) => {
+                  const source = sources?.find((s) => s.id === snapshot.sourceId)
+                  return (
+                    <SnapshotRow
+                      key={snapshot.id}
+                      snapshot={snapshot}
+                      sourceName={source?.sourceName}
+                      formatCurrency={formatCurrency}
+                      formatPercentage={formatPercentage}
+                      onDelete={() => deleteSnapshotMutation.mutate(snapshot.id)}
+                    />
+                  )
+                })
+              ) : (
+                <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-card">
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="h-14 w-14 rounded-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center mb-4">
+                      <History className="h-7 w-7 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      No snapshot history yet
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+                      Snapshots are created when you import investment statements
+                    </p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         ) : (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center">
-                <PiggyBank className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">No investments yet</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Start tracking your investments by adding them manually
-                </p>
-                <Button className="mt-4" onClick={() => setShowAddForm(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Investment
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Briefcase}
+            title="No investment sources yet"
+            description="Add an investment source like a brokerage account, or upload an investment statement to start tracking your portfolio."
+            action={{
+              label: 'Add Source',
+              onClick: () => setShowAddSourceDialog(true),
+              icon: Plus,
+            }}
+            secondaryAction={{
+              label: 'Upload Statement',
+              linkOptions: { to: '/statements', search: { upload: true } },
+              icon: Upload,
+            }}
+          />
         )}
       </div>
     </AppLayout>
-  )
-}
-
-// Investment Form Component
-function InvestmentForm({
-  investment,
-  profileId,
-  investmentTypes,
-  onClose,
-  onSuccess,
-}: {
-  investment: Investment | null
-  profileId: string
-  investmentTypes: InvestmentType[]
-  onClose: () => void
-  onSuccess: () => void
-}) {
-  const [type, setType] = useState(investment?.type || '')
-  const [name, setName] = useState(investment?.name || '')
-  const [institution, setInstitution] = useState(investment?.institution || '')
-  const [units, setUnits] = useState(investment?.units?.toString() || '')
-  const [purchaseValue, setPurchaseValue] = useState(investment?.purchaseValue?.toString() || '')
-  const [currentValue, setCurrentValue] = useState(investment?.currentValue?.toString() || '')
-  const [currency, setCurrency] = useState(investment?.currency || 'USD')
-  const [folioNumber, setFolioNumber] = useState(investment?.folioNumber || '')
-  const [maturityDate, setMaturityDate] = useState(investment?.maturityDate || '')
-  const [interestRate, setInterestRate] = useState(investment?.interestRate?.toString() || '')
-  const [notes, setNotes] = useState(investment?.notes || '')
-
-  const createMutation = useMutation({
-    mutationFn: createInvestment,
-    onSuccess: () => {
-      toast.success('Investment added')
-      onSuccess()
-    },
-    onError: () => {
-      toast.error('Failed to add investment')
-    },
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: (data: Parameters<typeof updateInvestment>[1]) =>
-      updateInvestment(investment!.id, data),
-    onSuccess: () => {
-      toast.success('Investment updated')
-      onSuccess()
-    },
-    onError: () => {
-      toast.error('Failed to update investment')
-    },
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!type || !name) {
-      toast.error('Please fill in required fields')
-      return
-    }
-
-    const data = {
-      profileId,
-      type,
-      name,
-      currency,
-      institution: institution || null,
-      units: units ? parseFloat(units) : null,
-      purchaseValue: purchaseValue ? parseFloat(purchaseValue) : null,
-      currentValue: currentValue ? parseFloat(currentValue) : null,
-      folioNumber: folioNumber || null,
-      maturityDate: maturityDate || null,
-      interestRate: interestRate ? parseFloat(interestRate) : null,
-      notes: notes || null,
-    }
-
-    if (investment) {
-      updateMutation.mutate(data)
-    } else {
-      createMutation.mutate(data)
-    }
-  }
-
-  const isPending = createMutation.isPending || updateMutation.isPending
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{investment ? 'Edit Investment' : 'Add Investment'}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="type">Investment Type *</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger id="type">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {investmentTypes.map((t) => (
-                    <SelectItem key={t.code} value={t.code}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency *</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="INR">INR</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Name / Scheme *</Label>
-            <Input
-              id="name"
-              placeholder="e.g., HDFC Top 100 Fund, Reliance Industries"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="institution">Institution / Broker</Label>
-            <Input
-              id="institution"
-              placeholder="e.g., Zerodha, HDFC AMC"
-              value={institution}
-              onChange={(e) => setInstitution(e.target.value)}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="units">Units / Quantity</Label>
-              <Input
-                id="units"
-                type="number"
-                step="0.0001"
-                placeholder="0"
-                value={units}
-                onChange={(e) => setUnits(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="purchaseValue">Purchase Value</Label>
-              <Input
-                id="purchaseValue"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={purchaseValue}
-                onChange={(e) => setPurchaseValue(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="currentValue">Current Value</Label>
-              <Input
-                id="currentValue"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={currentValue}
-                onChange={(e) => setCurrentValue(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="folioNumber">Folio Number</Label>
-              <Input
-                id="folioNumber"
-                placeholder="Optional"
-                value={folioNumber}
-                onChange={(e) => setFolioNumber(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="maturityDate">Maturity Date</Label>
-              <Input
-                id="maturityDate"
-                type="date"
-                value={maturityDate}
-                onChange={(e) => setMaturityDate(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="interestRate">Interest Rate (%)</Label>
-              <Input
-                id="interestRate"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Input
-              id="notes"
-              placeholder="Additional notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {investment ? 'Updating...' : 'Adding...'}
-                </>
-              ) : investment ? (
-                'Update Investment'
-              ) : (
-                'Add Investment'
-              )}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
   )
 }

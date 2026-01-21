@@ -502,9 +502,11 @@ export async function deleteFinancialAccount(accountId: string): Promise<void> {
  */
 export interface Statement {
   id: string
-  accountId: string
+  accountId: string | null
+  sourceId: string | null
   profileId: string
   userId: string
+  documentType: 'bank_statement' | 'credit_card_statement' | 'investment_statement' | null
   originalFilename: string
   fileType: string
   fileSizeBytes: number | null
@@ -514,6 +516,7 @@ export interface Statement {
   errorMessage: string | null
   summary: Record<string, unknown> | null
   transactionCount: number
+  holdingsCount: number | null
   createdAt: string
   updatedAt: string
 }
@@ -564,7 +567,12 @@ export async function uploadStatement(
   file: File,
   profileId: string,
   options?: {
+    /** Document type: bank_statement or investment_statement */
+    documentType?: 'bank_statement' | 'investment_statement'
+    /** For bank statements: existing account ID (optional, auto-detect if not provided) */
     accountId?: string
+    /** For investment statements: source type (e.g., zerodha, groww, mf_central) */
+    sourceType?: string
     password?: string
     savePassword?: boolean
     /** Model for statement parsing (code generation) */
@@ -576,7 +584,9 @@ export async function uploadStatement(
   const formData = new FormData()
   formData.append('file', file)
   formData.append('profileId', profileId)
+  if (options?.documentType) formData.append('documentType', options.documentType)
   if (options?.accountId) formData.append('accountId', options.accountId)
+  if (options?.sourceType) formData.append('sourceType', options.sourceType)
   if (options?.password) formData.append('password', options.password)
   if (options?.savePassword !== undefined)
     formData.append('savePassword', String(options.savePassword))
@@ -618,6 +628,7 @@ export interface Transaction {
   summary: string | null
   category: string
   categoryConfidence: number | null
+  isSubscription: boolean
   linkedTransactionId: string | null
   linkType: string | null
   createdAt: string
@@ -629,7 +640,7 @@ export interface Transaction {
  */
 export interface TransactionFilters {
   profileId?: string
-  accountId?: string
+  accountId?: string[]
   statementId?: string[]
   category?: string[]
   type?: 'credit' | 'debit'
@@ -638,6 +649,7 @@ export interface TransactionFilters {
   search?: string
   minAmount?: number
   maxAmount?: number
+  isSubscription?: boolean
 }
 
 /**
@@ -679,6 +691,7 @@ export interface TransactionStats {
 export interface Category {
   code: string
   label: string
+  color: string
 }
 
 /**
@@ -690,7 +703,7 @@ export async function getTransactions(
 ): Promise<TransactionListResponse> {
   const params = new URLSearchParams()
   if (filters?.profileId) params.set('profileId', filters.profileId)
-  if (filters?.accountId) params.set('accountId', filters.accountId)
+  if (filters?.accountId?.length) params.set('accountId', filters.accountId.join(','))
   if (filters?.statementId?.length) params.set('statementId', filters.statementId.join(','))
   if (filters?.category?.length) params.set('category', filters.category.join(','))
   if (filters?.type) params.set('type', filters.type)
@@ -699,6 +712,8 @@ export async function getTransactions(
   if (filters?.search) params.set('search', filters.search)
   if (filters?.minAmount !== undefined) params.set('minAmount', String(filters.minAmount))
   if (filters?.maxAmount !== undefined) params.set('maxAmount', String(filters.maxAmount))
+  if (filters?.isSubscription !== undefined)
+    params.set('isSubscription', String(filters.isSubscription))
   if (pagination?.page) params.set('page', String(pagination.page))
   if (pagination?.limit) params.set('limit', String(pagination.limit))
   if (pagination?.sortBy) params.set('sortBy', pagination.sortBy)
@@ -733,23 +748,26 @@ export async function updateTransaction(
  */
 export async function getTransactionStats(filters?: {
   profileId?: string
-  accountId?: string
+  accountId?: string[]
   statementId?: string[]
   startDate?: string
   endDate?: string
   category?: string[]
   type?: 'credit' | 'debit'
   search?: string
+  isSubscription?: boolean
 }): Promise<TransactionStats> {
   const params = new URLSearchParams()
   if (filters?.profileId) params.set('profileId', filters.profileId)
-  if (filters?.accountId) params.set('accountId', filters.accountId)
+  if (filters?.accountId?.length) params.set('accountId', filters.accountId.join(','))
   if (filters?.statementId?.length) params.set('statementId', filters.statementId.join(','))
   if (filters?.startDate) params.set('startDate', filters.startDate)
   if (filters?.endDate) params.set('endDate', filters.endDate)
   if (filters?.category?.length) params.set('category', filters.category.join(','))
   if (filters?.type) params.set('type', filters.type)
   if (filters?.search) params.set('search', filters.search)
+  if (filters?.isSubscription !== undefined)
+    params.set('isSubscription', String(filters.isSubscription))
 
   const queryString = params.toString() ? `?${params.toString()}` : ''
   const response = await api.get(`/transactions/stats${queryString}`)
@@ -791,74 +809,125 @@ export async function getLinkCandidates(transactionId: string): Promise<Transact
 }
 
 // ============================================
-// Investments API
+// Investments API (Sources, Holdings, Snapshots)
 // ============================================
 
 /**
- * Investment type
+ * Investment source (platform like Zerodha, Groww, etc.)
  */
-export interface Investment {
+export interface InvestmentSource {
   id: string
   profileId: string
   userId: string
-  type: string
+  sourceType: string
+  sourceName: string
   institution: string | null
-  name: string
-  units: number | null
-  purchaseValue: number | null
-  currentValue: number | null
+  accountIdentifier: string | null
+  countryCode: string
   currency: string
-  folioNumber: string | null
-  accountNumber: string | null
-  maturityDate: string | null
-  interestRate: number | null
-  notes: string | null
+  lastStatementDate: string | null
+  lastSyncAt: string | null
   createdAt: string
   updatedAt: string
 }
 
 /**
- * Investment type option
+ * Investment holding (individual security/instrument)
  */
-export interface InvestmentType {
+export interface InvestmentHolding {
+  id: string
+  sourceId: string
+  profileId: string
+  userId: string
+  investmentType: string
+  symbol: string | null
+  name: string
+  isin: string | null
+  units: number | null // null for balance-based holdings like PPF, EPF, FD
+  averageCost: number | null
+  currentPrice: number | null
+  currentValue: number
+  investedValue: number | null
+  gainLoss: number | null
+  gainLossPercent: number | null
+  currency: string
+  asOfDate: string
+  folioNumber: string | null
+  maturityDate: string | null
+  interestRate: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Holding detail in snapshot
+ */
+export interface SnapshotHoldingDetail {
+  symbol: string | null
+  name: string
+  investmentType: string
+  units: number | null // null for balance-based holdings like PPF, EPF, FD
+  currentValue: number
+  investedValue: number | null
+  currency: string
+}
+
+/**
+ * Investment snapshot (historical point-in-time)
+ */
+export interface InvestmentSnapshot {
+  id: string
+  sourceId: string | null
+  profileId: string
+  userId: string
+  snapshotDate: string
+  snapshotType: 'statement_import' | 'manual' | 'scheduled'
+  totalInvested: number | null
+  totalCurrent: number
+  totalGainLoss: number | null
+  gainLossPercent: number | null
+  holdingsCount: number
+  holdingsDetail: SnapshotHoldingDetail[] | null
+  currency: string
+  createdAt: string
+}
+
+/**
+ * Investment source type option
+ */
+export interface InvestmentSourceType {
   code: string
   label: string
 }
 
 /**
- * Investment summary
+ * Investment holding type option
+ */
+export interface InvestmentHoldingType {
+  code: string
+  label: string
+}
+
+/**
+ * Investment summary (aggregated across all sources)
  */
 export interface InvestmentSummary {
-  totalPurchaseValue: number
-  totalCurrentValue: number
+  totalInvested: number
+  totalCurrent: number
   totalGainLoss: number
-  gainLossPercentage: number
-  byType: { type: string; count: number; purchaseValue: number; currentValue: number }[]
-  byCurrency: { currency: string; purchaseValue: number; currentValue: number }[]
+  gainLossPercent: number
+  holdingsCount: number
+  sourcesCount: number
+  byType: { type: string; count: number; investedValue: number; currentValue: number }[]
+  byCurrency: { currency: string; investedValue: number; currentValue: number }[]
 }
 
 /**
- * Get all investments
- */
-export async function getInvestments(profileId?: string): Promise<Investment[]> {
-  const params = profileId ? `?profileId=${profileId}` : ''
-  const response = await api.get(`/investments${params}`)
-  return response.data.investments
-}
-
-/**
- * Get investment by ID
- */
-export async function getInvestment(investmentId: string): Promise<Investment> {
-  const response = await api.get(`/investments/${investmentId}`)
-  return response.data.investment
-}
-
-/**
- * Get investment types for user's country
+ * Get investment types (sources, holdings)
  */
 export async function getInvestmentTypes(): Promise<{
-  investmentTypes: InvestmentType[]
+  sourceTypes: InvestmentSourceType[]
+  holdingTypes: InvestmentHoldingType[]
   countryCode: string
 }> {
   const response = await api.get('/investments/types')
@@ -875,56 +944,200 @@ export async function getInvestmentSummary(profileId?: string): Promise<Investme
 }
 
 /**
- * Create an investment
+ * Get all investment sources
  */
-export async function createInvestment(data: {
+export async function getInvestmentSources(profileId?: string): Promise<InvestmentSource[]> {
+  const params = profileId ? `?profileId=${profileId}` : ''
+  const response = await api.get(`/investments/sources${params}`)
+  return response.data.sources
+}
+
+/**
+ * Get investment source by ID
+ */
+export async function getInvestmentSource(sourceId: string): Promise<InvestmentSource> {
+  const response = await api.get(`/investments/sources/${sourceId}`)
+  return response.data.source
+}
+
+/**
+ * Create an investment source (for manual entry)
+ */
+export async function createInvestmentSource(data: {
   profileId: string
-  type: string
-  name: string
-  currency: string
+  sourceType: string
+  sourceName: string
   institution?: string | null
-  units?: number | null
-  purchaseValue?: number | null
-  currentValue?: number | null
+  accountIdentifier?: string | null
+  countryCode?: string
+  currency?: string
+}): Promise<InvestmentSource> {
+  const response = await api.post('/investments/sources', data)
+  return response.data.source
+}
+
+/**
+ * Update an investment source
+ */
+export async function updateInvestmentSource(
+  sourceId: string,
+  data: {
+    sourceName?: string
+    institution?: string | null
+    accountIdentifier?: string | null
+    countryCode?: string
+    currency?: string
+  }
+): Promise<InvestmentSource> {
+  const response = await api.patch(`/investments/sources/${sourceId}`, data)
+  return response.data.source
+}
+
+/**
+ * Delete an investment source
+ */
+export async function deleteInvestmentSource(sourceId: string): Promise<void> {
+  await api.delete(`/investments/sources/${sourceId}`)
+}
+
+/**
+ * Get holdings for a source
+ */
+export async function getHoldingsForSource(sourceId: string): Promise<InvestmentHolding[]> {
+  const response = await api.get(`/investments/sources/${sourceId}/holdings`)
+  return response.data.holdings
+}
+
+/**
+ * Get all holdings (across all sources)
+ */
+export async function getAllHoldings(profileId?: string): Promise<InvestmentHolding[]> {
+  const params = profileId ? `?profileId=${profileId}` : ''
+  const response = await api.get(`/investments/holdings${params}`)
+  return response.data.holdings
+}
+
+/**
+ * Get holding by ID
+ */
+export async function getHolding(holdingId: string): Promise<InvestmentHolding> {
+  const response = await api.get(`/investments/holdings/${holdingId}`)
+  return response.data.holding
+}
+
+/**
+ * Create a holding (for manual entry)
+ */
+export async function createHolding(data: {
+  sourceId: string
+  investmentType: string
+  name: string
+  units: number | null // null for balance-based holdings like PPF, EPF, FD
+  currentValue: number
+  currency: string
+  asOfDate: string
+  symbol?: string | null
+  isin?: string | null
+  averageCost?: number | null
+  currentPrice?: number | null
+  investedValue?: number | null
   folioNumber?: string | null
-  accountNumber?: string | null
   maturityDate?: string | null
   interestRate?: number | null
-  notes?: string | null
-}): Promise<Investment> {
-  const response = await api.post('/investments', data)
-  return response.data.investment
+}): Promise<InvestmentHolding> {
+  const response = await api.post('/investments/holdings', data)
+  return response.data.holding
 }
 
 /**
- * Update an investment
+ * Update a holding
  */
-export async function updateInvestment(
-  investmentId: string,
+export async function updateHolding(
+  holdingId: string,
   data: {
-    type?: string
+    investmentType?: string
     name?: string
-    institution?: string | null
     units?: number | null
-    purchaseValue?: number | null
-    currentValue?: number | null
+    currentValue?: number
     currency?: string
+    asOfDate?: string
+    symbol?: string | null
+    isin?: string | null
+    averageCost?: number | null
+    currentPrice?: number | null
+    investedValue?: number | null
     folioNumber?: string | null
-    accountNumber?: string | null
     maturityDate?: string | null
     interestRate?: number | null
-    notes?: string | null
   }
-): Promise<Investment> {
-  const response = await api.patch(`/investments/${investmentId}`, data)
-  return response.data.investment
+): Promise<InvestmentHolding> {
+  const response = await api.patch(`/investments/holdings/${holdingId}`, data)
+  return response.data.holding
 }
 
 /**
- * Delete an investment
+ * Delete a holding
  */
-export async function deleteInvestment(investmentId: string): Promise<void> {
-  await api.delete(`/investments/${investmentId}`)
+export async function deleteHolding(holdingId: string): Promise<void> {
+  await api.delete(`/investments/holdings/${holdingId}`)
+}
+
+/**
+ * Get snapshots for a source
+ */
+export async function getSnapshotsForSource(
+  sourceId: string,
+  options?: { startDate?: string; endDate?: string; limit?: number }
+): Promise<InvestmentSnapshot[]> {
+  const params = new URLSearchParams()
+  if (options?.startDate) params.set('startDate', options.startDate)
+  if (options?.endDate) params.set('endDate', options.endDate)
+  if (options?.limit) params.set('limit', options.limit.toString())
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const response = await api.get(`/investments/sources/${sourceId}/snapshots${queryString}`)
+  return response.data.snapshots
+}
+
+/**
+ * Get all snapshots (across all sources)
+ */
+export async function getAllSnapshots(
+  profileId?: string,
+  options?: { startDate?: string; endDate?: string; limit?: number }
+): Promise<InvestmentSnapshot[]> {
+  const params = new URLSearchParams()
+  if (profileId) params.set('profileId', profileId)
+  if (options?.startDate) params.set('startDate', options.startDate)
+  if (options?.endDate) params.set('endDate', options.endDate)
+  if (options?.limit) params.set('limit', options.limit.toString())
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const response = await api.get(`/investments/snapshots${queryString}`)
+  return response.data.snapshots
+}
+
+/**
+ * Create a snapshot manually
+ */
+export async function createSnapshot(data: {
+  sourceId?: string | null
+  profileId: string
+  snapshotDate: string
+  snapshotType: 'manual'
+  totalCurrent: number
+  holdingsCount: number
+  currency: string
+  totalInvested?: number | null
+  holdingsDetail?: SnapshotHoldingDetail[] | null
+}): Promise<InvestmentSnapshot> {
+  const response = await api.post('/investments/snapshots', data)
+  return response.data.snapshot
+}
+
+/**
+ * Delete a snapshot
+ */
+export async function deleteSnapshot(snapshotId: string): Promise<void> {
+  await api.delete(`/investments/snapshots/${snapshotId}`)
 }
 
 // ============================================
@@ -958,12 +1171,14 @@ export interface FinancialSummary {
     calculatedAt: string
   }
   investments: {
-    totalPurchaseValue: number
-    totalCurrentValue: number
+    totalInvested: number
+    totalCurrent: number
     totalGainLoss: number
-    gainLossPercentage: number
-    byType: { type: string; count: number; purchaseValue: number; currentValue: number }[]
-    byCurrency: { currency: string; purchaseValue: number; currentValue: number }[]
+    gainLossPercent: number
+    holdingsCount: number
+    sourcesCount: number
+    byType: { type: string; count: number; investedValue: number; currentValue: number }[]
+    byCurrency: { currency: string; investedValue: number; currentValue: number }[]
   }
   transactions: {
     period: {
@@ -997,5 +1212,127 @@ export async function getSummary(
   if (options?.endDate) params.set('endDate', options.endDate)
 
   const response = await api.get(`/summary?${params.toString()}`)
+  return response.data
+}
+
+// ============================================
+// FX Rates API
+// ============================================
+
+/**
+ * FX rates response
+ */
+export interface FxRatesResponse {
+  success: boolean
+  data?: {
+    date: string
+    baseCurrency: string
+    rates: Record<string, number>
+    fetchedAt: string
+  }
+  error?: string
+}
+
+/**
+ * FX rate conversion response
+ */
+export interface FxRateResponse {
+  success: boolean
+  data?: {
+    from: string
+    to: string
+    rate: number
+  }
+  error?: string
+}
+
+/**
+ * Get FX rates for a base currency
+ */
+export async function getFxRates(baseCurrency: string = 'USD'): Promise<FxRatesResponse> {
+  const response = await api.get(`/summary/fx-rates?base=${baseCurrency.toLowerCase()}`)
+  return response.data
+}
+
+/**
+ * Get conversion rate between two currencies
+ */
+export async function getFxRate(from: string, to: string): Promise<FxRateResponse> {
+  const response = await api.get(`/summary/fx-rate?from=${from}&to=${to}`)
+  return response.data
+}
+
+// ============================================
+// Constants API
+// ============================================
+
+/**
+ * Institution type (bank, NBFC, etc.)
+ */
+export interface Institution {
+  id: string
+  name: string
+  logo: string
+  website?: string
+}
+
+/**
+ * Investment source type (broker, platform, etc.)
+ */
+export interface InvestmentSourceType {
+  code: string
+  label: string
+  logo: string
+}
+
+/**
+ * Investment holding type
+ */
+export interface InvestmentHoldingType {
+  code: string
+  label: string
+}
+
+/**
+ * All constants response
+ */
+export interface ConstantsResponse {
+  countryCode: string
+  institutions: Institution[]
+  investmentSourceTypes: InvestmentSourceType[]
+  accountTypes: AccountType[]
+  categories: Category[]
+  investmentTypes: { code: string; label: string }[]
+  investmentHoldingTypes: InvestmentHoldingType[]
+  countries: Country[]
+}
+
+/**
+ * Get all constants for the user's country
+ */
+export async function getConstants(): Promise<ConstantsResponse> {
+  const response = await api.get('/constants')
+  return response.data
+}
+
+/**
+ * Get institutions for the user's country
+ */
+export async function getInstitutions(): Promise<{
+  institutions: Institution[]
+  countryCode: string
+}> {
+  const response = await api.get('/constants/institutions')
+  return response.data
+}
+
+/**
+ * Get investment source types for the user's country
+ */
+export async function getInvestmentSourceTypes(): Promise<{
+  sourceTypes: InvestmentSourceType[]
+  countryCode: string
+}> {
+  const response = await api.get('/constants/investment-sources')
   return response.data
 }

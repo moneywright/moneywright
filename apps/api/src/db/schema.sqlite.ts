@@ -162,6 +162,7 @@ export const accounts = sqliteTable(
 
 /**
  * Statements table - uploaded statement documents
+ * Supports both bank/credit card statements and investment statements
  */
 export const statements = sqliteTable(
   'statements',
@@ -169,15 +170,19 @@ export const statements = sqliteTable(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => nanoid()),
-    accountId: text('account_id')
-      .notNull()
-      .references(() => accounts.id, { onDelete: 'cascade' }),
+    // For bank/credit card statements
+    accountId: text('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+    // For investment statements
+    sourceId: text('source_id').references(() => investmentSources.id, { onDelete: 'cascade' }),
     profileId: text('profile_id')
       .notNull()
       .references(() => profiles.id, { onDelete: 'cascade' }),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Document type - determines which linking field is used
+    documentType: text('document_type').notNull().default('bank_statement'), // bank_statement, credit_card_statement, investment_statement
 
     // File info
     originalFilename: text('original_filename').notNull(),
@@ -201,6 +206,7 @@ export const statements = sqliteTable(
 
     // Stats
     transactionCount: integer('transaction_count').default(0),
+    holdingsCount: integer('holdings_count'), // For investment statements
 
     // Parse timing
     parseStartedAt: text('parse_started_at'), // ISO timestamp string
@@ -215,9 +221,11 @@ export const statements = sqliteTable(
   },
   (table) => [
     index('statements_account_id_idx').on(table.accountId),
+    index('statements_source_id_idx').on(table.sourceId),
     index('statements_profile_id_idx').on(table.profileId),
     index('statements_user_id_idx').on(table.userId),
     index('statements_status_idx').on(table.status),
+    index('statements_document_type_idx').on(table.documentType),
   ]
 )
 
@@ -257,6 +265,7 @@ export const transactions = sqliteTable(
     // Categorization
     category: text('category').notNull(),
     categoryConfidence: real('category_confidence'),
+    isSubscription: integer('is_subscription', { mode: 'boolean' }), // LLM-detected recurring subscription
 
     // Deduplication
     hash: text('hash').notNull(), // SHA256
@@ -284,10 +293,11 @@ export const transactions = sqliteTable(
 )
 
 /**
- * Investments table - manually declared investment holdings
+ * Investment Sources table - represents investment platforms/accounts
+ * Examples: Zerodha, Groww, MF Central, PPF account, etc.
  */
-export const investments = sqliteTable(
-  'investments',
+export const investmentSources = sqliteTable(
+  'investment_sources',
   {
     id: text('id')
       .primaryKey()
@@ -299,24 +309,19 @@ export const investments = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
 
-    // Investment details
-    type: text('type').notNull(), // country-specific
-    institution: text('institution'), // broker/AMC name
-    name: text('name').notNull(), // scheme/stock name
+    // Source identification
+    sourceType: text('source_type').notNull(), // zerodha, groww, mf_central, etc.
+    sourceName: text('source_name').notNull(), // Display name like "Zerodha - Equity"
+    institution: text('institution'), // Bank/broker name
+    accountIdentifier: text('account_identifier'), // Demat ID, folio, Client ID (encrypted)
 
-    // Holdings
-    units: real('units'),
-    purchaseValue: real('purchase_value'),
-    currentValue: real('current_value'),
-    currency: text('currency').notNull(),
+    // Location
+    countryCode: text('country_code').notNull().default('IN'), // IN, US
+    currency: text('currency').notNull().default('INR'),
 
-    // Additional info
-    folioNumber: text('folio_number'),
-    accountNumber: text('account_number'), // encrypted
-    maturityDate: text('maturity_date'), // ISO date string
-    interestRate: real('interest_rate'),
-
-    notes: text('notes'),
+    // Sync info
+    lastStatementDate: text('last_statement_date'), // ISO date string
+    lastSyncAt: text('last_sync_at'), // ISO timestamp string
 
     createdAt: text('created_at')
       .notNull()
@@ -326,9 +331,158 @@ export const investments = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index('investments_profile_id_idx').on(table.profileId),
-    index('investments_user_id_idx').on(table.userId),
-    index('investments_type_idx').on(table.type),
+    index('investment_sources_profile_id_idx').on(table.profileId),
+    index('investment_sources_user_id_idx').on(table.userId),
+    index('investment_sources_source_type_idx').on(table.sourceType),
+  ]
+)
+
+/**
+ * Investment Holdings table - current holdings extracted from statements
+ * One row per holding per source
+ */
+export const investmentHoldings = sqliteTable(
+  'investment_holdings',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sourceId: text('source_id').references(() => investmentSources.id, { onDelete: 'cascade' }),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Investment details
+    investmentType: text('investment_type').notNull(), // stock, mutual_fund, etf, etc.
+    symbol: text('symbol'), // Stock ticker, scheme code
+    name: text('name').notNull(), // Full name of instrument
+    isin: text('isin'), // ISIN code if available
+
+    // Holdings
+    units: real('units'), // Current units/shares (null for balance-based like PPF, EPF, FD)
+    averageCost: real('average_cost'), // Avg buy price per unit
+    currentPrice: real('current_price'), // Latest NAV/price
+    currentValue: real('current_value').notNull(), // units × current_price
+    investedValue: real('invested_value'), // units × average_cost
+    gainLoss: real('gain_loss'), // current - invested
+    gainLossPercent: real('gain_loss_percent'),
+
+    // Additional info
+    folioNumber: text('folio_number'), // For mutual funds
+    maturityDate: text('maturity_date'), // ISO date string - For FD, bonds
+    interestRate: real('interest_rate'), // For FD, PPF
+
+    currency: text('currency').notNull(),
+    asOfDate: text('as_of_date').notNull(), // ISO date string
+
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('investment_holdings_source_id_idx').on(table.sourceId),
+    index('investment_holdings_profile_id_idx').on(table.profileId),
+    index('investment_holdings_user_id_idx').on(table.userId),
+    index('investment_holdings_investment_type_idx').on(table.investmentType),
+  ]
+)
+
+/**
+ * Investment Transactions table - buy/sell/dividend transactions from statements
+ */
+export const investmentTransactions = sqliteTable(
+  'investment_transactions',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sourceId: text('source_id').references(() => investmentSources.id, { onDelete: 'cascade' }),
+    holdingId: text('holding_id').references(() => investmentHoldings.id, { onDelete: 'set null' }),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Transaction details
+    transactionType: text('transaction_type').notNull(), // buy, sell, dividend, etc.
+    symbol: text('symbol'),
+    name: text('name').notNull(),
+    units: real('units'), // Units bought/sold
+    pricePerUnit: real('price_per_unit'), // Price at transaction
+    amount: real('amount').notNull(), // Total transaction value
+    fees: real('fees'), // Brokerage, STT, etc.
+
+    transactionDate: text('transaction_date').notNull(), // ISO date string
+    settlementDate: text('settlement_date'), // ISO date string
+    description: text('description'), // Original description from statement
+
+    currency: text('currency').notNull(),
+    hash: text('hash').notNull(), // For deduplication
+
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('investment_transactions_source_id_idx').on(table.sourceId),
+    index('investment_transactions_holding_id_idx').on(table.holdingId),
+    index('investment_transactions_profile_id_idx').on(table.profileId),
+    index('investment_transactions_user_id_idx').on(table.userId),
+    index('investment_transactions_date_idx').on(table.transactionDate),
+    unique('investment_transactions_source_hash_unique').on(table.sourceId, table.hash),
+  ]
+)
+
+/**
+ * Investment Snapshots table - historical portfolio value snapshots per source
+ */
+export const investmentSnapshots = sqliteTable(
+  'investment_snapshots',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sourceId: text('source_id').references(() => investmentSources.id, { onDelete: 'cascade' }),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Snapshot details
+    snapshotDate: text('snapshot_date').notNull(), // ISO date string
+    snapshotType: text('snapshot_type').notNull(), // statement_import, manual, scheduled
+
+    // Portfolio totals
+    totalInvested: real('total_invested'),
+    totalCurrent: real('total_current').notNull(),
+    totalGainLoss: real('total_gain_loss'),
+    gainLossPercent: real('gain_loss_percent'),
+    holdingsCount: integer('holdings_count').notNull(),
+
+    // Snapshot of all holdings at this point (JSON string)
+    holdingsDetail: text('holdings_detail'), // JSON string
+
+    currency: text('currency').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('investment_snapshots_source_id_idx').on(table.sourceId),
+    index('investment_snapshots_profile_id_idx').on(table.profileId),
+    index('investment_snapshots_user_id_idx').on(table.userId),
+    index('investment_snapshots_date_idx').on(table.snapshotDate),
+    unique('investment_snapshots_source_date_unique').on(table.sourceId, table.snapshotDate),
   ]
 )
 
@@ -354,5 +508,14 @@ export type NewStatement = typeof statements.$inferInsert
 export type Transaction = typeof transactions.$inferSelect
 export type NewTransaction = typeof transactions.$inferInsert
 
-export type Investment = typeof investments.$inferSelect
-export type NewInvestment = typeof investments.$inferInsert
+export type InvestmentSource = typeof investmentSources.$inferSelect
+export type NewInvestmentSource = typeof investmentSources.$inferInsert
+
+export type InvestmentHolding = typeof investmentHoldings.$inferSelect
+export type NewInvestmentHolding = typeof investmentHoldings.$inferInsert
+
+export type InvestmentTransaction = typeof investmentTransactions.$inferSelect
+export type NewInvestmentTransaction = typeof investmentTransactions.$inferInsert
+
+export type InvestmentSnapshot = typeof investmentSnapshots.$inferSelect
+export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert

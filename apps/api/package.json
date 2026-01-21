@@ -48,6 +48,8 @@
     "ollama-ai-provider-v2": "^3.0.1",
     "pdf-parse": "^2.4.5",
     "postgres": "^3.4.7",
+    "xlsx": "^0.18.5",
+    "xlsx-populate": "^1.21.0",
     "zod": "^4.2.1"
   }
 }

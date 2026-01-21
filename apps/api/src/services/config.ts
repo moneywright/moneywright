@@ -6,7 +6,7 @@
 import { eq } from 'drizzle-orm'
 import { db, tables, dbType } from '../db'
 import { encrypt, decrypt } from '../lib/encryption'
-import { getDefaultParsingModelId, getProviderModels } from '../lib/constants'
+import { getDefaultParsingModelId, getProviderModels } from '../lib/ai'
 
 // Keys that should be encrypted
 const ENCRYPTED_KEYS = [

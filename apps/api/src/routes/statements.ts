@@ -8,10 +8,11 @@ import {
   deleteStatement,
   queueParseJob,
 } from '../services/statements'
-import { createAccount, getAccountByIdRaw, updateStatementPassword } from '../services/accounts'
+import { getAccountByIdRaw, updateStatementPassword } from '../services/accounts'
 import { getProfileById } from '../services/profiles'
 import { findUserById } from '../services/user'
-import { extractPdfText, extractCsvText } from '../lib/file-parser'
+import { extractPdfText, extractCsvText, extractXlsxText } from '../lib/file-parser'
+import type { FileType } from '../lib/constants'
 import { decryptOptional } from '../lib/encryption'
 import { SUPPORTED_FILE_TYPES, type CountryCode } from '../lib/constants'
 import { logger } from '../lib/logger'
@@ -76,7 +77,7 @@ statementRoutes.get('/:id/status', async (c) => {
 /**
  * POST /statements/upload
  * Upload a statement file
- * Form data: file, profileId, accountId (optional), password (optional)
+ * Form data: file, profileId, documentType, accountId (optional), sourceType (optional), password (optional)
  */
 statementRoutes.post('/upload', async (c) => {
   const userId = c.get('userId')
@@ -85,7 +86,12 @@ statementRoutes.post('/upload', async (c) => {
     const formData = await c.req.formData()
     const file = formData.get('file') as File | null
     const profileId = formData.get('profileId') as string | null
+    const documentType = formData.get('documentType') as
+      | 'bank_statement'
+      | 'investment_statement'
+      | null
     const accountId = formData.get('accountId') as string | null
+    const sourceType = formData.get('sourceType') as string | null // For investment statements
     const password = formData.get('password') as string | null
     const savePassword = formData.get('savePassword') === 'true'
     const parsingModel = formData.get('parsingModel') as string | null
@@ -189,9 +195,48 @@ statementRoutes.post('/upload', async (c) => {
     } else if (fileType === 'csv') {
       const text = await extractCsvText(buffer)
       pages = [text]
-    } else {
-      // TODO: Handle XLSX
-      return c.json({ error: 'not_implemented', message: 'XLSX parsing not yet implemented' }, 501)
+    } else if (fileType === 'xlsx') {
+      // Try to extract text, handling password-protected Excel files
+      let passwordToUse = password || undefined
+      let triedSavedPassword = false
+
+      // If no password provided, try saved account password
+      if (!passwordToUse && accountId) {
+        const account = await getAccountByIdRaw(accountId, userId)
+        if (account?.statementPassword) {
+          const savedPassword = decryptOptional(account.statementPassword)
+          if (savedPassword) {
+            passwordToUse = savedPassword
+            triedSavedPassword = true
+          }
+        }
+      }
+
+      try {
+        pages = await extractXlsxText(buffer, passwordToUse)
+        if (passwordToUse) usedPassword = passwordToUse
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+
+        // Check if password is required
+        if (message === 'PASSWORD_REQUIRED') {
+          const errorMessage = triedSavedPassword
+            ? 'The saved password did not work for this Excel file. Please enter the correct password.'
+            : 'This Excel file is password protected. Please provide the password.'
+
+          return c.json(
+            {
+              error: 'password_required',
+              message: errorMessage,
+              passwordRequired: true,
+              triedSavedPassword,
+            },
+            422
+          )
+        }
+
+        throw error
+      }
     }
 
     if (pages.length === 0 || pages.every((p) => p.trim() === '')) {
@@ -199,25 +244,12 @@ statementRoutes.post('/upload', async (c) => {
     }
 
     // Determine account ID
-    let finalAccountId = accountId
-    let isNewAccount = false
+    // If accountId provided, verify it belongs to user
+    // If not provided, leave it null - the parser will create the appropriate account/source
+    // based on document type detection
+    const finalAccountId = accountId || null
 
-    // If no account provided, we'll create one during parsing
-    // For now, create a placeholder account
-    if (!finalAccountId) {
-      // Create a temporary account - will be updated with real info during parsing
-      const tempAccount = await createAccount({
-        profileId,
-        userId,
-        type: 'other',
-        institution: null,
-        accountNumber: null,
-        accountName: `Pending - ${file.name}`,
-        currency: user.country === 'IN' ? 'INR' : 'USD',
-      })
-      finalAccountId = tempAccount.id
-      isNewAccount = true
-    } else {
+    if (finalAccountId) {
       // Verify account belongs to user
       const account = await getAccountByIdRaw(finalAccountId, userId)
       if (!account) {
@@ -226,12 +258,13 @@ statementRoutes.post('/upload', async (c) => {
     }
 
     // Save password if user opted to save it and it was successfully used
-    if (usedPassword && savePassword) {
+    if (usedPassword && savePassword && finalAccountId) {
       await updateStatementPassword(finalAccountId, userId, usedPassword)
       logger.info(`[Statement] Saved password for account ${finalAccountId}`)
     }
 
     // Create statement record
+    // accountId may be null - parser will create appropriate account/source based on document type
     const statement = await createStatement({
       accountId: finalAccountId,
       profileId,
@@ -239,6 +272,7 @@ statementRoutes.post('/upload', async (c) => {
       originalFilename: file.name,
       fileType,
       fileSizeBytes: buffer.length,
+      documentType: documentType || undefined,
     })
 
     // Queue parsing job
@@ -248,6 +282,9 @@ statementRoutes.post('/upload', async (c) => {
       userId,
       countryCode: user.country as CountryCode,
       pages,
+      fileType: fileType as FileType,
+      documentType: documentType || undefined,
+      sourceType: sourceType || undefined,
       parsingModel: parsingModel || undefined,
       categorizationModel: categorizationModel || undefined,
     })
@@ -258,7 +295,8 @@ statementRoutes.post('/upload', async (c) => {
       {
         statementId: statement.id,
         accountId: finalAccountId,
-        isNewAccount,
+        // isNewAccount will be determined after parsing based on document type
+        isNewAccount: !finalAccountId,
         status: 'pending',
         jobId,
       },

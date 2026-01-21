@@ -1,5 +1,5 @@
 /**
- * LLM-based parser code generation for PDF statements
+ * LLM-based parser code generation for PDF, CSV, and XLSX statements
  * Uses ToolLoopAgent for agentic retry: if code execution fails, agent sees error and fixes it
  * Includes validation against statement summary to catch parsing errors
  */
@@ -10,6 +10,7 @@ import { createLLMClientFromSettings } from '../../llm'
 import { logger } from '../logger'
 import { runParser } from './execute-parser'
 import type { ExpectedSummary, ExtractedTotals, RawPdfTransaction } from './types'
+import type { FileType } from '../constants'
 
 /**
  * Maximum retry attempts for fixing code errors
@@ -22,9 +23,9 @@ const MAX_STEPS = 8
 const AMOUNT_TOLERANCE = 10
 
 /**
- * Base system prompt for code generation
+ * Base system prompt for PDF code generation
  */
-const BASE_SYSTEM_PROMPT = `You are a bank statement parsing expert. Generate JavaScript code to extract transactions from bank/credit card statement text.
+const PDF_BASE_SYSTEM_PROMPT = `You are a bank statement parsing expert. Generate JavaScript code to extract transactions from bank/credit card statement text.
 
 IMPORTANT RULES:
 1. The code must be a function body (no function declaration) that:
@@ -43,6 +44,49 @@ IMPORTANT RULES:
 7. Skip summary rows, headers, totals, and opening/closing balance lines
 8. Return empty array if no transactions found
 9. IMPORTANT: Do not redeclare variables. Use unique variable names or reuse existing ones.
+
+=== CRITICAL - DATE YEAR EXTRACTION ===
+Many statements show dates WITHOUT the year (e.g., "November 26", "Dec 12", "12 Nov").
+You MUST extract the year from the STATEMENT PERIOD at the top of the document.
+
+STEP 1: Find the statement period (look for patterns like):
+- "Statement Period: 26 Nov 2024 to 26 Dec 2024"
+- "Statement Period From 27 Nov, 2024 to 26 Dec, 2024"
+- "Period: 01/11/2024 - 30/11/2024"
+- "From 01-Nov-24 To 30-Nov-24"
+
+STEP 2: Extract the year(s) from the statement period
+const periodMatch = text.match(/statement\\s*period[^\\d]*(\\d{4})[^\\d]*(\\d{4})?/i);
+const statementYear = periodMatch ? parseInt(periodMatch[2] || periodMatch[1]) : new Date().getFullYear();
+
+STEP 3: Handle year boundary (statements spanning Dec-Jan)
+If statement period spans two years (e.g., "26 Dec 2024 to 25 Jan 2025"):
+- December transactions → use the earlier year (2024)
+- January transactions → use the later year (2025)
+
+Example code for handling year:
+// Extract statement period year(s)
+let startYear, endYear;
+const periodMatch = text.match(/(?:statement\\s*period|period|from)[^\\d]*(\\d{1,2})[^\\d]*(\\w+)[^\\d]*(\\d{4})[^\\d]*(?:to|-)[^\\d]*(\\d{1,2})[^\\d]*(\\w+)[^\\d]*(\\d{4})/i);
+if (periodMatch) {
+  startYear = parseInt(periodMatch[3]);
+  endYear = parseInt(periodMatch[6]);
+} else {
+  // Fallback: try to find any 4-digit year near "statement" or "period"
+  const yearMatch = text.match(/(?:statement|period)[^\\d]*\\d{1,2}[^\\d]*\\w+[^\\d]*(\\d{4})/i);
+  startYear = endYear = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
+}
+
+// When parsing a transaction date like "November 26" or "Dec 12":
+function getYearForMonth(monthName) {
+  const month = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+    .indexOf(monthName.toLowerCase().substring(0,3));
+  // If December and we have two different years, use startYear
+  // If January and we have two different years, use endYear
+  if (month === 11) return startYear; // December
+  if (month === 0 && startYear !== endYear) return endYear; // January in cross-year statement
+  return endYear; // Default to end year
+}
 
 === CRITICAL - RETURN STATEMENT REQUIRED ===
 Your code MUST end with an explicit return statement that returns the transactions array.
@@ -175,7 +219,118 @@ WORKFLOW:
    - Wrong column identification for balance vs amount`
 
 /**
- * Institution-specific parsing hints
+ * Base system prompt for CSV/XLSX (spreadsheet) code generation
+ * CSV/XLSX data is already structured, making parsing much easier
+ */
+const SPREADSHEET_BASE_SYSTEM_PROMPT = `You are a bank statement parsing expert. Generate JavaScript code to extract transactions from CSV/spreadsheet bank statement data.
+
+IMPORTANT: The input is structured CSV data (comma-separated or converted from Excel), NOT raw PDF text.
+This is MUCH EASIER to parse than PDF - the data is already in columns!
+
+RULES:
+1. The code must be a function body (no function declaration) that:
+   - Receives the full CSV text as a variable named 'text'
+   - MUST return an array of transaction objects using an explicit 'return' statement
+2. Each transaction must have:
+   - date (YYYY-MM-DD string)
+   - amount (positive number)
+   - type ('credit' or 'debit')
+   - description (string)
+   - balance (number or null) - the running balance AFTER this transaction, if available
+3. Only use these built-ins: String, Number, Date, RegExp, Math, Array, Object, JSON, parseInt, parseFloat
+4. NO imports, require, fetch, process, Bun, setTimeout, setInterval
+5. Use simple string splitting and array operations for deterministic parsing
+6. Return empty array if no transactions found
+7. IMPORTANT: Do not redeclare variables. Use unique variable names or reuse existing ones.
+
+=== CSV PARSING STRATEGY ===
+1. Split by newlines to get rows: text.split('\\n')
+2. Skip header row(s) - first 1-3 rows are usually headers
+3. Split each row by comma: row.split(',')
+4. Map column indices to fields
+
+=== HANDLING QUOTED VALUES ===
+CSV files often have quoted values with commas inside. Simple approach:
+- If you see a quote, find the closing quote
+- Or use a simple state machine to handle quotes
+
+EXAMPLE CODE for CSV with columns: Date, Description, Debit, Credit, Balance
+const transactions = [];
+const lines = text.split('\\n');
+
+// Find the header row and column indices
+let headerIndex = 0;
+for (let i = 0; i < Math.min(5, lines.length); i++) {
+  if (lines[i].toLowerCase().includes('date') && lines[i].toLowerCase().includes('balance')) {
+    headerIndex = i;
+    break;
+  }
+}
+
+// Parse each data row (skip header)
+for (let i = headerIndex + 1; i < lines.length; i++) {
+  const line = lines[i].trim();
+  if (!line) continue;
+
+  // Simple CSV split (handle quoted values if needed)
+  const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+
+  // Assuming: Date, Description, Debit, Credit, Balance
+  const dateStr = cols[0];
+  const description = cols[1] || '';
+  const debit = parseFloat(cols[2]?.replace(/,/g, '')) || 0;
+  const credit = parseFloat(cols[3]?.replace(/,/g, '')) || 0;
+  const balance = parseFloat(cols[4]?.replace(/,/g, '')) || null;
+
+  // Determine type and amount
+  let type, amount;
+  if (debit > 0) {
+    type = 'debit';
+    amount = debit;
+  } else if (credit > 0) {
+    type = 'credit';
+    amount = credit;
+  } else {
+    continue; // Skip rows with no amount
+  }
+
+  // Parse date to YYYY-MM-DD
+  // (implement date parsing based on the format you see)
+  const date = formatDate(dateStr);
+  if (!date) continue;
+
+  transactions.push({ date, amount, type, description, balance });
+}
+
+return transactions;
+
+=== CREDIT/DEBIT DETECTION FOR CSV ===
+Most CSV bank exports have one of these patterns:
+
+PATTERN 1 - Separate Debit/Credit columns:
+Date, Description, Withdrawal, Deposit, Balance
+→ If Withdrawal has value → debit, If Deposit has value → credit
+
+PATTERN 2 - Single Amount column with Type indicator:
+Date, Description, Amount, Type, Balance
+→ Use the Type column (often "DR"/"CR" or "Debit"/"Credit")
+
+PATTERN 3 - Signed Amount:
+Date, Description, Amount, Balance
+→ Negative amount = debit, Positive amount = credit (or vice versa based on convention)
+
+PATTERN 4 - Balance-based (if no type indicator):
+Use balance comparison like PDF parsing:
+→ Balance increased = credit, Balance decreased = debit
+
+=== IMPORTANT TIPS ===
+- FIRST: Examine the header row to understand column positions
+- Look for columns with names like: "Debit", "Credit", "Withdrawal", "Deposit", "Dr", "Cr", "Amount"
+- Skip summary rows (usually have "Total", "Balance B/F", "Opening", "Closing")
+- Handle different date formats (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, DD-Mon-YY)`
+
+/**
+ * Institution-specific parsing hints for PDFs
  * Only added to prompt when the institution is detected
  */
 const INSTITUTION_HINTS: Record<string, string> = {
@@ -199,7 +354,23 @@ HDFC BANK STATEMENT SPECIFIC FORMAT:
 `,
   AMEX: `
 AMERICAN EXPRESS SPECIFIC FORMAT:
-1. DATE FORMAT: "Month Day" (e.g., "November 22") - extract year from "Statement Period From ... to ..., YEAR"
+
+1. DATE FORMAT - CRITICAL:
+   AMEX shows dates as "Month Day" WITHOUT year (e.g., "November 22", "December 12").
+   You MUST extract the year from the statement period header!
+
+   Look for: "Statement Period From 27 Nov, 2024 to 26 Dec, 2024"
+   Extract the year(s) and apply to transactions based on month:
+
+   // Extract years from statement period
+   const periodMatch = text.match(/Statement\\s*Period\\s*From\\s*\\d+\\s*\\w+,?\\s*(\\d{4})\\s*to\\s*\\d+\\s*\\w+,?\\s*(\\d{4})/i);
+   const startYear = periodMatch ? parseInt(periodMatch[1]) : new Date().getFullYear();
+   const endYear = periodMatch ? parseInt(periodMatch[2]) : startYear;
+
+   // For cross-year statements (Nov-Dec 2024 to Jan 2025):
+   // - November/December transactions → startYear (2024)
+   // - January transactions → endYear (2025)
+
 2. CR/DR INDICATOR: On the NEXT LINE after the transaction, not on same line!
    Example:
    "November 22 PAYMENT RECEIVED. THANK YOU 197,606.00"
@@ -217,18 +388,44 @@ AMERICAN EXPRESS SPECIFIC FORMAT:
 5. LOOK AHEAD FOR CR: After finding a transaction line, check the next 1-2 lines for "CR" to determine if credit:
    const combinedText = line + ' ' + (lines[i+1] || '') + ' ' + (lines[i+2] || '');
    const type = /\\bCR\\b/.test(combinedText) ? 'credit' : 'debit';
+
+EXAMPLE DATE PARSING FOR AMEX:
+const months = {january:0, february:1, march:2, april:3, may:4, june:5, july:6, august:7, september:8, october:9, november:10, december:11};
+
+function parseAmexDate(dateStr) {
+  // dateStr like "November 26" or "December 12"
+  const match = dateStr.match(/(\\w+)\\s+(\\d+)/);
+  if (!match) return null;
+  const monthName = match[1].toLowerCase();
+  const day = parseInt(match[2]);
+  const month = months[monthName];
+  if (month === undefined) return null;
+
+  // Use correct year based on month
+  const year = (month >= 10) ? startYear : endYear; // Nov, Dec use startYear
+  return \`\${year}-\${String(month + 1).padStart(2, '0')}-\${String(day).padStart(2, '0')}\`;
+}
 `,
 }
 
 /**
  * Get the full system prompt, with institution-specific hints if applicable
  */
-function getSystemPrompt(institutionId?: string, expectedSummary?: ExpectedSummary): string {
-  let prompt = BASE_SYSTEM_PROMPT
+function getSystemPrompt(
+  institutionId?: string,
+  expectedSummary?: ExpectedSummary,
+  fileType: FileType = 'pdf'
+): string {
+  // Use appropriate base prompt based on file type
+  const isSpreadsheet = fileType === 'csv' || fileType === 'xlsx'
+  let prompt = isSpreadsheet ? SPREADSHEET_BASE_SYSTEM_PROMPT : PDF_BASE_SYSTEM_PROMPT
 
-  const hints = institutionId ? INSTITUTION_HINTS[institutionId.toUpperCase()] : undefined
-  if (hints) {
-    prompt += '\n\n' + hints
+  // Add institution hints only for PDF (they're PDF-specific formats)
+  if (!isSpreadsheet) {
+    const hints = institutionId ? INSTITUTION_HINTS[institutionId.toUpperCase()] : undefined
+    if (hints) {
+      prompt += '\n\n' + hints
+    }
   }
 
   // Add validation context if we have expected summary
@@ -389,29 +586,34 @@ export interface AgenticParserResult {
  * Agent generates code, tests it via tool, and fixes errors automatically
  * Includes validation against expected statement summary to catch parsing errors
  *
- * @param pdfText - The full PDF text to parse
+ * @param statementText - The full statement text to parse (PDF text, CSV, or converted XLSX)
  * @param modelOverride - Optional model override
  * @param institutionId - Optional institution ID for institution-specific hints (e.g., "AMEX", "HDFC")
  * @param expectedSummary - Optional expected summary from statement for validation
+ * @param fileType - File type (pdf, csv, xlsx) - affects prompt and parsing strategy
  */
 export async function generateParserCode(
-  pdfText: string,
+  statementText: string,
   modelOverride?: string,
   institutionId?: string,
-  expectedSummary?: ExpectedSummary
+  expectedSummary?: ExpectedSummary,
+  fileType: FileType = 'pdf'
 ): Promise<AgenticParserResult> {
+  const isSpreadsheet = fileType === 'csv' || fileType === 'xlsx'
+  const formatLabel = isSpreadsheet ? 'CSV/Spreadsheet' : 'PDF'
+
   logger.info(
-    `[PDFParser] Generating parser code with agent, text length: ${pdfText.length} chars, institution: ${institutionId || 'unknown'}`
+    `[Parser] Generating parser code with agent, format: ${formatLabel}, text length: ${statementText.length} chars, institution: ${institutionId || 'unknown'}`
   )
   if (expectedSummary && hasValidationData(expectedSummary)) {
     logger.info(
-      `[PDFParser] Validation enabled: expecting ${expectedSummary.debitCount} debits, ${expectedSummary.creditCount} credits`
+      `[Parser] Validation enabled: expecting ${expectedSummary.debitCount} debits, ${expectedSummary.creditCount} credits`
     )
   }
 
   const model = await createLLMClientFromSettings(modelOverride)
-  const truncatedText = truncatePdfText(pdfText)
-  const systemPrompt = getSystemPrompt(institutionId, expectedSummary)
+  const truncatedText = truncatePdfText(statementText)
+  const systemPrompt = getSystemPrompt(institutionId, expectedSummary, fileType)
 
   // Track state across tool calls
   let lastCode = ''
@@ -453,7 +655,7 @@ export async function generateParserCode(
           logger.debug(`[PDFParser] Code:\n${parserCode}`)
 
           // Test the code using the same executor we'll use in production
-          const result = await runParser(parserCode, pdfText)
+          const result = await runParser(parserCode, statementText)
 
           if (result.success && result.transactions && result.transactions.length > 0) {
             lastSuccessfulTransactions = result.transactions
@@ -586,15 +788,22 @@ If something looks wrong (e.g., summary lines included, wrong amounts), fix the 
     stopWhen: [stepCountIs(MAX_STEPS), hasToolCall('done')],
   })
 
+  const dataTypeDescription = isSpreadsheet
+    ? 'This is CSV/spreadsheet data (structured, comma-separated). Parsing should be straightforward - split by lines and commas.'
+    : 'This is PDF-extracted text. Use regex patterns to find and parse transaction rows.'
+
   const userPrompt = `Analyze this bank/credit card statement and generate JavaScript code to parse all transactions.
 
-STATEMENT TEXT:
+FILE FORMAT: ${formatLabel}
+${dataTypeDescription}
+
+STATEMENT DATA:
 ---
 ${truncatedText}
 ---
 
 Generate a function body that extracts all transactions from this specific format.
-The code receives 'text' variable and must return array of: { date: 'YYYY-MM-DD', amount: number, type: 'credit'|'debit', description: string }
+The code receives 'text' variable and must return array of: { date: 'YYYY-MM-DD', amount: number, type: 'credit'|'debit', description: string, balance: number|null }
 
 Use the submitCode tool to test your code. If it fails or validation fails, fix and resubmit. When working AND validated, call done.`
 

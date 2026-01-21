@@ -54,14 +54,36 @@ export interface CategorizedTransaction {
   category: string
   confidence: number
   summary: string
+  isSubscription: boolean
+}
+
+/**
+ * Raw investment holding extracted from investment statement
+ */
+export interface RawInvestmentHolding {
+  investment_type: string
+  symbol: string | null
+  name: string
+  isin: string | null
+  units: number | null // null for balance-based holdings like PPF, EPF, FD
+  average_cost: number | null
+  current_price: number | null
+  current_value: number
+  invested_value: number | null
+  folio_number: string | null
+  maturity_date: string | null
+  interest_rate: number | null
+  currency: string | null // ISO currency code (USD, INR, etc.) - null uses source default
 }
 
 /**
  * Result from code execution
+ * Can contain either transactions (bank statements) or holdings (investment statements)
  */
 export interface ExecutionResult {
   success: boolean
   transactions?: RawPdfTransaction[]
+  holdings?: RawInvestmentHolding[]
   error?: string
   executionTimeMs: number
 }

@@ -2,26 +2,35 @@
  * Parser code caching using app_config table
  * Stores and retrieves generated parser code for reuse across statements
  *
- * Key format: parser_code:{bank_key}:v{version}
- * Example: parser_code:hdfc_bank_statement:v1
+ * Key format: parser_code:{bank_key}:{file_type}:v{version}
+ * Example: parser_code:hdfc_savings_account:pdf:v1
+ * Example: parser_code:hdfc_savings_account:csv:v1
+ * Example: parser_code:hdfc_savings_account:xlsx:v1
  */
 
 import { eq, like } from 'drizzle-orm'
 import { db, tables, dbType } from '../../db'
 import { logger } from '../logger'
 
+import type { FileType } from '../constants'
+
 /**
- * Generate a normalized bank key from institution ID and account type
- * e.g., "HDFC" + "savings_account" -> "hdfc_savings_account"
+ * Generate a normalized bank key from institution ID, account type, and file type
+ * e.g., "HDFC" + "savings_account" + "pdf" -> "hdfc_savings_account:pdf"
  *
  * @param institutionId - Institution ID code (e.g., HDFC, ICICI, SBI)
  * @param accountType - Account type code (e.g., savings_account, credit_card)
+ * @param fileType - File type (pdf, csv, xlsx)
  */
-export function generateBankKey(institutionId: string, accountType: string): string {
+export function generateBankKey(
+  institutionId: string,
+  accountType: string,
+  fileType: FileType = 'pdf'
+): string {
   const normalizedInstitution = institutionId.toLowerCase().replace(/[^a-z0-9]+/g, '_')
   const normalizedType = accountType.toLowerCase().replace(/[^a-z0-9]+/g, '_')
 
-  return `${normalizedInstitution}_${normalizedType}`
+  return `${normalizedInstitution}_${normalizedType}:${fileType}`
 }
 
 /**
@@ -40,7 +49,8 @@ export interface ParserCodeEntry {
 }
 
 /**
- * Get all parser code versions for a bank, sorted by version descending (latest first)
+ * Get all parser code versions for a bank key (includes file type), sorted by version descending (latest first)
+ * Note: bankKey now includes file type, e.g., "hdfc_savings_account:pdf"
  */
 export async function getParserCodes(bankKey: string): Promise<ParserCodeEntry[]> {
   const prefix = `parser_code:${bankKey}:`

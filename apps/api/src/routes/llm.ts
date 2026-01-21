@@ -5,7 +5,7 @@ import { getLLMSettings, setLLMSettings } from '../services/config'
 import { createLLMClient } from '../llm'
 import { generateText } from 'ai'
 import { logger } from '../lib/logger'
-import { AI_PROVIDERS, getDefaultParsingModelId } from '../lib/constants'
+import { AI_PROVIDERS, getDefaultParsingModelId } from '../lib/ai'
 import { listCachedBanks, clearParserCache, getParserCodes } from '../lib/pdf'
 
 const llmRoutes = new Hono<{ Variables: AuthVariables }>()

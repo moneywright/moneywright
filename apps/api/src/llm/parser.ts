@@ -2,23 +2,48 @@
  * Statement parsing using LLM with intelligent caching
  *
  * ARCHITECTURE:
- * 1. Send page 1 to LLM → get account info and bank
- * 2. Check app_config for cached parser code for this bank
- * 3. If cached: try all versions (latest first) until one works
- * 4. If no cache or all fail: generate new code, save as new version
- * 5. Insert transactions with category=null
- * 6. Stream categorization in real-time with mini-batches
+ * 1. Detect document type (bank/credit card OR investment statement)
+ * 2. Branch to appropriate parsing flow:
+ *
+ * For bank/credit card statements:
+ *   - Send full PDF to LLM → get account info and bank
+ *   - Check app_config for cached parser code for this bank
+ *   - If cached: try all versions (latest first) until one works
+ *   - If no cache or all fail: generate new code, save as new version
+ *   - Insert transactions with category=null
+ *   - Stream categorization in real-time with mini-batches
+ *
+ * For investment statements:
+ *   - Delegate to investment-parser.ts
+ *   - Extract holdings, create/update source
+ *   - Replace holdings (replace-all strategy)
+ *   - Create snapshot
  */
 
 import { generateObject } from 'ai'
 import { createLLMClientFromSettings } from './index'
-import { accountInfoSchema, type AccountInfo } from './schemas'
-import { getAccountTypesForCountry, type CountryCode } from '../lib/constants'
-import { formatInstitutionsForLLM, getInstitutionName } from '../lib/institutions'
+import {
+  accountInfoSchema,
+  documentInfoSchema,
+  type AccountInfo,
+  type DocumentInfo,
+} from './schemas'
+import {
+  getAccountTypesForCountry,
+  getInvestmentSourceTypesForCountry,
+  formatInstitutionsForLLM,
+  getInstitutionName,
+  type CountryCode,
+  type FileType,
+} from '../lib/constants'
 import { db, tables, dbType } from '../db'
 import { eq } from 'drizzle-orm'
 import { getAccountByIdRaw, findAccountByNumber } from '../services/accounts'
-import { updateStatementResults, type StatementSummary } from '../services/statements'
+import {
+  updateStatementResults,
+  updateStatementStatus,
+  type StatementSummary,
+} from '../services/statements'
 import { encryptOptional } from '../lib/encryption'
 import { logger } from '../lib/logger'
 import {
@@ -31,6 +56,7 @@ import {
   generateBankKey,
   type RawPdfTransaction,
 } from '../lib/pdf'
+import { parseInvestmentStatement } from './investment-parser'
 
 /**
  * Maximum characters for account info extraction (full PDF)
@@ -116,6 +142,111 @@ function truncateText(text: string, maxLength: number): string {
   }
 
   return truncated + '...[truncated]'
+}
+
+/**
+ * Detect document type and extract basic info from the statement
+ * This determines which parsing flow to use (bank/credit card vs investment)
+ */
+async function detectDocumentType(
+  fullText: string,
+  countryCode: CountryCode,
+  modelOverride?: string
+): Promise<DocumentInfo> {
+  logger.info(
+    `[Parser] Detecting document type, model: ${modelOverride || 'default'}, text length: ${fullText.length}`
+  )
+
+  const truncatedText = truncateText(fullText, MAX_ACCOUNT_INFO_LENGTH)
+  if (truncatedText.length < fullText.length) {
+    logger.debug(
+      `[Parser] Document text truncated from ${fullText.length} to ${truncatedText.length} chars`
+    )
+  }
+
+  const model = await createLLMClientFromSettings(modelOverride)
+  const accountTypes = getAccountTypesForCountry(countryCode)
+  const accountTypeList = accountTypes.map((t) => t.code).join(', ')
+  const institutionList = formatInstitutionsForLLM(countryCode)
+  const sourceTypes = getInvestmentSourceTypesForCountry(countryCode)
+  const sourceTypeList = sourceTypes.map((t) => `${t.code}: ${t.label}`).join(', ')
+
+  const prompt = `Analyze this financial document and extract information.
+
+DOCUMENT TEXT:
+${truncatedText}
+
+=== STEP 1: DETECT DOCUMENT TYPE ===
+Determine what type of document this is:
+
+1. **bank_statement**: A statement from a bank showing transactions in a savings, current, or checking account.
+   - Has transaction history with dates, descriptions, amounts
+   - Shows running balance
+   - From banks like HDFC, ICICI, SBI, etc.
+
+2. **credit_card_statement**: A credit card billing statement.
+   - Shows card transactions, total due, minimum due
+   - Has payment due date
+   - From credit card issuers
+
+3. **investment_statement**: A portfolio/holdings statement showing investments.
+   - Shows stocks, mutual funds, ETFs, bonds, PPF, EPF, NPS, FD holdings
+   - From brokers like Zerodha, Groww, or fund houses
+   - Has units/shares, current value, NAV
+   - CAS (Consolidated Account Statement) from CAMS/KFintech/MF Central
+   - Passbooks for PPF, EPF
+   - NPS statements
+
+=== STEP 2: EXTRACT INFORMATION BASED ON TYPE ===
+
+**For bank_statement / credit_card_statement:**
+- Extract bank name from: ${institutionList}
+- Account type from: ${accountTypeList}
+- Extract account number, account type
+- Extract statement period dates
+- Extract summary (opening/closing balance, transaction counts, totals)
+- Leave investment fields as null
+
+**For investment_statement:**
+- Identify the source platform from: ${sourceTypeList}
+- Extract source name (human readable like "Zerodha Holdings")
+- Extract account identifier (Demat ID, Client ID, PAN, Folio number)
+- Extract statement date (as-of date for holdings)
+- Identify if it has holdings table and/or transaction history
+- Extract portfolio summary if shown (total invested, current value, holdings count)
+- Leave bank/credit card fields as null
+
+=== IMPORTANT RULES ===
+- All dates should be in YYYY-MM-DD format
+- All amounts should be numbers (not strings), remove commas
+- For nullable fields, return null if not found
+- Be accurate - the document type determines which parsing flow to use`
+
+  logger.debug(`[Parser] Document type detection prompt length: ${prompt.length} chars`)
+
+  try {
+    const { object } = await generateObject({
+      model,
+      schema: documentInfoSchema,
+      prompt,
+    })
+
+    logger.info(`[Parser] Document type detected: ${object.document_type}`)
+    if (object.document_type === 'investment_statement') {
+      logger.info(
+        `[Parser] Investment source: ${object.source_type}, identifier: ${object.account_identifier}`
+      )
+    } else {
+      logger.info(
+        `[Parser] Bank: ${object.institution_id} (${object.institution_name}) - ${object.account_type}`
+      )
+    }
+    logger.debug(`[Parser] Document info:`, JSON.stringify(object, null, 2))
+    return object
+  } catch (error) {
+    logger.error(`[Parser] Error detecting document type:`, error)
+    throw error
+  }
 }
 
 /**
@@ -237,11 +368,14 @@ If you cannot find certain information, use null for nullable fields or make you
  * Parse a full statement (main entry point)
  *
  * Flow:
- * 1. Extract account info from page 1
- * 2. Check for cached parser code for this bank
- * 3. Try cached versions (latest first) or generate new
- * 4. Insert transactions with null category
- * 5. Stream categorization with mini-batches
+ * 1. Detect document type (bank/credit card vs investment)
+ * 2. For investments: delegate to parseInvestmentStatement
+ * 3. For bank/credit card:
+ *    - Extract account info
+ *    - Check for cached parser code
+ *    - Try cached versions or generate new
+ *    - Insert transactions with null category
+ *    - Stream categorization
  */
 export async function parseStatement(options: {
   statementId: string
@@ -249,13 +383,29 @@ export async function parseStatement(options: {
   userId: string
   countryCode: CountryCode
   pages: string[]
+  /** File type (pdf, csv, xlsx) - affects cache key and parsing strategy */
+  fileType: FileType
+  /** Document type specified by user (skips auto-detection if provided) */
+  documentType?: 'bank_statement' | 'investment_statement'
+  /** For investment statements: source type specified by user */
+  sourceType?: string
   /** Model for statement parsing (code generation) */
   parsingModel?: string
   /** Model for transaction categorization */
   categorizationModel?: string
 }): Promise<void> {
-  const { statementId, profileId, userId, countryCode, pages, parsingModel, categorizationModel } =
-    options
+  const {
+    statementId,
+    profileId,
+    userId,
+    countryCode,
+    pages,
+    fileType,
+    documentType,
+    sourceType,
+    parsingModel,
+    categorizationModel,
+  } = options
 
   // Use specific models if provided
   const effectiveParsingModel = parsingModel
@@ -266,7 +416,9 @@ export async function parseStatement(options: {
   )
 
   const parseStartTime = Date.now()
-  logger.info(`[Parser] Starting parse for statement ${statementId} with ${pages.length} pages`)
+  logger.info(
+    `[Parser] Starting parse for statement ${statementId} with ${pages.length} pages, docType: ${documentType || 'auto-detect'}`
+  )
 
   // Get statement to find account
   const [statement] = await db
@@ -279,21 +431,130 @@ export async function parseStatement(options: {
     throw new Error('Statement not found')
   }
 
-  // Combine all pages first (needed for account info extraction)
+  // Combine all pages first (needed for document type detection)
   const fullText = combinePages(pages)
   logger.info(`[Parser] Combined ${pages.length} pages into ${fullText.length} chars`)
 
+  // Step 0: Detect document type (skip if user already specified)
+  let documentInfo: DocumentInfo | null = null
+  const effectiveDocumentType = documentType || null
+
+  if (!effectiveDocumentType) {
+    // Auto-detect document type
+    try {
+      documentInfo = await detectDocumentType(fullText, countryCode, effectiveParsingModel)
+      logger.info(`[Parser] Auto-detected document type: ${documentInfo.document_type}`)
+    } catch (error) {
+      logger.warn(`[Parser] Could not detect document type, defaulting to bank_statement:`, error)
+    }
+  } else {
+    logger.info(`[Parser] Using user-specified document type: ${effectiveDocumentType}`)
+  }
+
+  // Determine which flow to use
+  const isInvestment =
+    effectiveDocumentType === 'investment_statement' ||
+    documentInfo?.document_type === 'investment_statement'
+
+  // Branch based on document type
+  if (isInvestment) {
+    logger.info(`[Parser] Routing to investment statement parser`)
+
+    try {
+      const result = await parseInvestmentStatement({
+        statementId,
+        profileId,
+        userId,
+        countryCode,
+        pages,
+        fileType,
+        documentInfo,
+        sourceType, // User-specified source type
+        parsingModel: effectiveParsingModel,
+      })
+
+      logger.info(
+        `[Parser] Investment parsing complete: sourceId=${result.sourceId}, holdings=${result.holdingsCount}, snapshotId=${result.snapshotId}`
+      )
+      return
+    } catch (error) {
+      logger.error(`[Parser] Investment parsing failed:`, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      await updateStatementStatus(statementId, 'failed', errorMessage)
+      throw error
+    }
+  }
+
+  // Continue with bank/credit card statement parsing
+  logger.info(`[Parser] Processing as bank/credit card statement`)
+
+  // For bank/credit card statements without accountId, we need to create a placeholder
+  // that will be updated with real info during parsing
+  let accountIdToUse = statement.accountId
+  if (!accountIdToUse) {
+    // Import createAccount to create placeholder
+    const { createAccount } = await import('../services/accounts')
+    const [user] = await db.select().from(tables.users).where(eq(tables.users.id, userId)).limit(1)
+
+    const tempAccount = await createAccount({
+      profileId,
+      userId,
+      type: 'other',
+      institution: null,
+      accountNumber: null,
+      accountName: `Pending - ${statement.originalFilename}`,
+      currency: user?.country === 'IN' ? 'INR' : 'USD',
+    })
+    accountIdToUse = tempAccount.id
+
+    // Update statement with the new account ID
+    const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
+    await db
+      .update(tables.statements)
+      .set({ accountId: accountIdToUse, updatedAt: now as Date })
+      .where(eq(tables.statements.id, statementId))
+
+    logger.info(`[Parser] Created placeholder account ${accountIdToUse} for bank statement`)
+  }
+
   // Step 1: Extract account info and statement summary from FULL PDF
+  // We can use documentInfo if available, otherwise extract fresh
   let accountInfo: AccountInfo | null = null
-  try {
-    accountInfo = await extractAccountInfo(fullText, countryCode, effectiveParsingModel)
-    logger.debug(`[Parser] Extracted account info:`, accountInfo)
-  } catch (error) {
-    logger.warn(`[Parser] Could not extract account info:`, error)
+  if (documentInfo && documentInfo.institution_id && documentInfo.account_number) {
+    // Convert documentInfo to AccountInfo format
+    accountInfo = {
+      account_type: documentInfo.account_type || 'other',
+      institution_id: documentInfo.institution_id,
+      institution_name: documentInfo.institution_name || documentInfo.institution_id,
+      account_number: documentInfo.account_number,
+      account_holder_name: documentInfo.account_holder_name,
+      product_name: documentInfo.product_name,
+      period_start: documentInfo.period_start,
+      period_end: documentInfo.period_end,
+      summary: documentInfo.bank_summary || {
+        debit_count: null,
+        credit_count: null,
+        total_debits: null,
+        total_credits: null,
+        opening_balance: null,
+        closing_balance: null,
+      },
+      total_dues: documentInfo.total_dues,
+      minimum_dues: documentInfo.minimum_dues,
+      payment_due_date: documentInfo.payment_due_date,
+    }
+    logger.debug(`[Parser] Using account info from document detection:`, accountInfo)
+  } else {
+    try {
+      accountInfo = await extractAccountInfo(fullText, countryCode, effectiveParsingModel)
+      logger.debug(`[Parser] Extracted account info:`, accountInfo)
+    } catch (error) {
+      logger.warn(`[Parser] Could not extract account info:`, error)
+    }
   }
 
   // Handle account - either update placeholder or link to existing account
-  const account = await getAccountByIdRaw(statement.accountId, userId)
+  const account = await getAccountByIdRaw(accountIdToUse, userId)
   if (account && account.accountName?.startsWith('Pending -') && accountInfo) {
     const existingAccount = await findAccountByNumber(profileId, accountInfo.account_number)
 
@@ -307,49 +568,56 @@ export async function parseStatement(options: {
         .set({ accountId: existingAccount.id })
         .where(eq(tables.statements.id, statementId))
 
-      await db.delete(tables.accounts).where(eq(tables.accounts.id, statement.accountId))
-      statement.accountId = existingAccount.id
+      await db.delete(tables.accounts).where(eq(tables.accounts.id, accountIdToUse))
+      accountIdToUse = existingAccount.id
 
       logger.debug(
         `[Parser] Deleted placeholder account ${account.id}, using existing account ${existingAccount.id}`
       )
     } else {
       const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
-      // Use institution_name for display, institution_id for storage
-      const institutionDisplayName = getInstitutionName(countryCode, accountInfo.institution_id)
-      const accountTypeName = accountInfo.account_type
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase())
+      // Lowercase institution ID for consistent storage
+      const institutionId = accountInfo.institution_id.toLowerCase()
+      // Use institution_name for display
+      const institutionDisplayName = getInstitutionName(countryCode, institutionId)
 
-      // For credit cards with product name, use "Institution ProductName" format
-      // For bank accounts, use "Institution - AccountType" format
-      let accountName = `${institutionDisplayName} - ${accountTypeName}`
-      if (accountInfo.account_type === 'credit_card' && accountInfo.product_name) {
-        accountName = `${institutionDisplayName} ${accountInfo.product_name}`
+      // Get last 4 digits of account number for display
+      const accountNumber = accountInfo.account_number
+      const last4Digits = accountNumber.slice(-4)
+
+      // For credit cards: "Institution ProductName" (e.g., "HDFC Bank Regalia")
+      // For bank accounts: "Institution Name (last 4)" (e.g., "HDFC Bank (5955)")
+      let accountName: string
+      if (accountInfo.account_type === 'credit_card') {
+        accountName = accountInfo.product_name
+          ? `${institutionDisplayName} ${accountInfo.product_name}`
+          : `${institutionDisplayName} Credit Card (${last4Digits})`
+      } else {
+        accountName = `${institutionDisplayName} (${last4Digits})`
       }
 
       await db
         .update(tables.accounts)
         .set({
           type: accountInfo.account_type,
-          institution: accountInfo.institution_id, // Store ID for consistent lookups
+          institution: institutionId, // Store lowercase ID for consistent lookups
           accountNumber: encryptOptional(accountInfo.account_number),
           accountName,
-          productName: accountInfo.product_name || null, // Stores product name for both cards and bank accounts
+          productName: accountInfo.product_name || null,
           updatedAt: now as Date,
         })
-        .where(eq(tables.accounts.id, statement.accountId))
+        .where(eq(tables.accounts.id, accountIdToUse))
 
-      logger.debug(`[Parser] Updated account ${statement.accountId} with extracted info`)
+      logger.debug(`[Parser] Updated account ${accountIdToUse} with extracted info`)
     }
   }
 
-  // Generate bank key for caching using institution ID
+  // Generate bank key for caching using institution ID and file type
   const bankKey = accountInfo
-    ? generateBankKey(accountInfo.institution_id, accountInfo.account_type)
-    : 'unknown_unknown'
+    ? generateBankKey(accountInfo.institution_id, accountInfo.account_type, fileType)
+    : `unknown_unknown:${fileType}`
 
-  logger.info(`[Parser] Bank key: ${bankKey}`)
+  logger.info(`[Parser] Bank key: ${bankKey} (file type: ${fileType})`)
 
   // Build expected summary for validation (from Step 1 account info extraction)
   const expectedSummary = accountInfo?.summary
@@ -400,7 +668,8 @@ export async function parseStatement(options: {
       fullText,
       effectiveParsingModel,
       accountInfo?.institution_id,
-      expectedSummary
+      expectedSummary,
+      fileType
     )
 
     logger.info(
@@ -498,7 +767,7 @@ export async function parseStatement(options: {
   logger.info(`[Parser] Inserting transactions...`)
   const insertResult = await insertRawTransactions(rawTransactions, {
     statementId,
-    accountId: statement.accountId,
+    accountId: accountIdToUse,
     profileId,
     userId,
     currency,

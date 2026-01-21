@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'motion/react'
 import {
   getSetupStatus,
   getLLMProviders,
@@ -11,20 +12,10 @@ import {
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Loader2,
-  ExternalLink,
-  Copy,
-  Check,
-  Lock,
-  Github,
-  Zap,
-  ArrowRight,
-  ArrowLeft,
-} from 'lucide-react'
+import { Loader2, ExternalLink, Copy, Check, Lock, Zap, ArrowRight, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { AuthLayout, type AuthStep } from '@/components/auth/auth-layout'
 
 export const Route = createFileRoute('/setup')({
   component: SetupPage,
@@ -41,17 +32,14 @@ const providerLogos: Record<string, string> = {
   vercel: '/vercel.svg',
 }
 
-// Provider colors for selection ring
-const providerColors: Record<string, string> = {
-  openai: 'ring-emerald-500/50',
-  anthropic: 'ring-orange-500/50',
-  google: 'ring-blue-500/50',
-  ollama: 'ring-purple-500/50',
-  vercel: 'ring-white/50',
-}
-
 // Providers that need white fill (dark logos)
 const invertedLogos = ['openai', 'vercel', 'ollama']
+
+// Step definitions for AuthLayout
+const SETUP_STEPS: AuthStep[] = [
+  { id: 'llm', label: 'AI Provider' },
+  { id: 'google', label: 'Authentication' },
+]
 
 function SetupPage() {
   const navigate = useNavigate()
@@ -130,8 +118,11 @@ function SetupPage() {
   const completeMutation = useMutation({
     mutationFn: completeSetup,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['setupStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['setup-status'] })
       toast.success('Setup complete!')
-      navigate({ to: setupStatus?.authEnabled ? '/login' : '/', replace: true })
+      // If auth is enabled, go to login. Otherwise, go to onboarding.
+      navigate({ to: setupStatus?.authEnabled ? '/login' : '/onboarding/country', replace: true })
     },
   })
 
@@ -209,138 +200,144 @@ function SetupPage() {
 
   if (statusLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      <div className="min-h-screen flex items-center justify-center bg-[#030303]">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
       </div>
     )
   }
 
   const redirectUri = `${appUrl}/auth/google/callback`
+  const currentStepIndex = currentStep === 'llm' ? 1 : 2
 
   return (
-    <div className="min-h-screen flex bg-[#09090b]">
-      {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 relative overflow-hidden border-r border-zinc-800/50">
-        {/* Gradient orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
-
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <img src="/logo.png" alt="Moneywright" className="h-9 w-9" />
-          <span className="text-lg font-semibold text-white">Moneywright</span>
-        </div>
-
-        {/* Center content */}
-        <div className="relative z-10 flex flex-col items-center justify-center flex-1">
-          {/* Logo with glow */}
-          <div className="relative mb-10">
-            <div className="absolute inset-0 blur-[80px] bg-gradient-to-r from-emerald-500/40 via-cyan-500/40 to-teal-500/40 rounded-full scale-150" />
-            <img src="/logo.png" alt="Moneywright" className="relative h-40 w-40" />
-          </div>
-
-          {/* Tagline */}
-          <h1 className="text-4xl font-bold text-white text-center mb-3 tracking-tight">
-            Take control of
-          </h1>
-          <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-teal-400 text-center mb-5">
-            your finances
-          </h2>
-          <p className="text-zinc-500 text-center max-w-sm text-[15px] leading-relaxed">
-            AI-powered expense tracking, investment analysis, and personalized financial insights.
-          </p>
-        </div>
-
-        {/* GitHub link */}
-        <div className="relative z-10">
-          <a
-            href="https://github.com/moneywright/moneywright"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors text-sm"
+    <AuthLayout
+      currentStep={currentStepIndex}
+      steps={setupStatus?.authEnabled ? SETUP_STEPS : [SETUP_STEPS[0]]}
+      title="Get started"
+      subtitle="in minutes"
+    >
+      <AnimatePresence mode="wait">
+        {/* LLM Setup */}
+        {currentStep === 'llm' && (
+          <motion.div
+            key="llm"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
-            <Github className="h-4 w-4" />
-            <span>Star on GitHub</span>
-          </a>
-        </div>
-      </div>
+            {/* Header */}
+            <div className="mb-8">
+              <motion.h1
+                className="text-2xl font-semibold text-white tracking-tight font-display mb-2"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                Choose your AI provider
+              </motion.h1>
+              <motion.p
+                className="text-zinc-500 text-[15px]"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
+                Select the AI provider for expense categorization and analysis.
+              </motion.p>
+            </div>
 
-      {/* Right Panel - Setup Form */}
-      <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-12 relative">
-        <div className="w-full max-w-lg mx-auto">
-          {/* LLM Setup */}
-          {currentStep === 'llm' && (
-            <>
-              <div className="mb-10">
-                <h1 className="text-2xl font-semibold text-white mb-2">Choose your AI provider</h1>
-                <p className="text-zinc-500 text-[15px]">
-                  Select the AI provider you'd like to use for expense categorization and analysis.
-                </p>
-              </div>
-
-              <form onSubmit={handleLLMSubmit} className="space-y-8">
+            <form onSubmit={handleLLMSubmit} className="space-y-6">
+              {/* Error message */}
+              <AnimatePresence mode="wait">
                 {error && (
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                    {error}
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                      {error}
+                    </div>
+                  </motion.div>
                 )}
+              </AnimatePresence>
 
-                {/* Provider Selection - Card Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {providers?.map((p) => (
-                    <button
-                      key={p.code}
-                      type="button"
-                      onClick={() => handleProviderSelect(p.code)}
+              {/* Provider Selection - Grid */}
+              <motion.div
+                className="grid grid-cols-3 gap-2.5"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                {providers?.map((p, index) => (
+                  <motion.button
+                    key={p.code}
+                    type="button"
+                    onClick={() => handleProviderSelect(p.code)}
+                    className={cn(
+                      'group relative flex flex-col items-center gap-2.5 p-4 rounded-xl border transition-all duration-200',
+                      provider === p.code
+                        ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/20'
+                        : 'bg-zinc-900/50 border-zinc-800/80 hover:bg-zinc-800/50 hover:border-zinc-700'
+                    )}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 + index * 0.03 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="h-9 w-9 flex items-center justify-center">
+                      <img
+                        src={providerLogos[p.code]}
+                        alt={p.label}
+                        className={cn(
+                          'h-7 w-7 object-contain transition-all',
+                          provider === p.code ? 'opacity-100' : 'opacity-50 group-hover:opacity-70',
+                          invertedLogos.includes(p.code) && 'invert brightness-0 invert'
+                        )}
+                      />
+                    </div>
+                    <span
                       className={cn(
-                        'group relative flex flex-col items-center gap-3 p-5 rounded-xl border transition-all duration-200',
+                        'text-xs font-medium transition-colors',
                         provider === p.code
-                          ? `bg-zinc-800/80 border-zinc-600 ring-2 ${providerColors[p.code] || 'ring-emerald-500/50'}`
-                          : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700'
+                          ? 'text-white'
+                          : 'text-zinc-500 group-hover:text-zinc-300'
                       )}
                     >
-                      <div className="h-10 w-10 flex items-center justify-center">
-                        <img
-                          src={providerLogos[p.code]}
-                          alt={p.label}
-                          className={cn(
-                            'h-8 w-8 object-contain transition-all',
-                            provider === p.code
-                              ? 'opacity-100'
-                              : 'opacity-60 group-hover:opacity-80',
-                            invertedLogos.includes(p.code) && 'invert brightness-0 invert'
-                          )}
-                        />
-                      </div>
-                      <span
-                        className={cn(
-                          'text-sm font-medium transition-colors',
-                          provider === p.code
-                            ? 'text-white'
-                            : 'text-zinc-400 group-hover:text-zinc-300'
-                        )}
+                      {p.label}
+                    </span>
+                    {provider === p.code && (
+                      <motion.div
+                        className="absolute top-2 right-2"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                       >
-                        {p.label}
-                      </span>
-                      {provider === p.code && (
-                        <div className="absolute top-2 right-2">
-                          <Check className="h-4 w-4 text-emerald-400" />
+                        <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
                         </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                      </motion.div>
+                    )}
+                  </motion.button>
+                ))}
+              </motion.div>
 
-                {/* API Key - Show after provider selection */}
+              {/* API Key - Show after provider selection */}
+              <AnimatePresence mode="wait">
                 {provider && (
-                  <div className="space-y-5 pt-2">
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-4 overflow-hidden"
+                  >
                     {/* API Key */}
                     {selectedProvider?.requiresApiKey && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="apiKey" className="text-zinc-400 text-sm">
-                            API Key
-                          </Label>
+                          <label className="text-sm font-medium text-zinc-400">API Key</label>
                           <a
                             href={
                               provider === 'openai'
@@ -355,14 +352,13 @@ function SetupPage() {
                             }
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
+                            className="text-xs text-zinc-500 hover:text-emerald-400 flex items-center gap-1 transition-colors"
                           >
                             Get API key
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                         <Input
-                          id="apiKey"
                           type="password"
                           value={apiKey}
                           onChange={(e) => setApiKey(e.target.value)}
@@ -375,7 +371,7 @@ function SetupPage() {
                                   ? 'AIza...'
                                   : 'Enter API key'
                           }
-                          className="bg-zinc-900 border-zinc-800 text-white h-11 placeholder:text-zinc-600 focus:ring-emerald-500/20 focus:border-zinc-600"
+                          className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                         />
                       </div>
                     )}
@@ -383,30 +379,22 @@ function SetupPage() {
                     {/* API Base URL (for Ollama) */}
                     {provider === 'ollama' && (
                       <div className="space-y-2">
-                        <Label htmlFor="apiBaseUrl" className="text-zinc-400 text-sm">
-                          API Base URL
-                        </Label>
+                        <label className="text-sm font-medium text-zinc-400">API Base URL</label>
                         <Input
-                          id="apiBaseUrl"
                           type="text"
                           value={apiBaseUrl}
                           onChange={(e) => setApiBaseUrl(e.target.value)}
                           placeholder="http://localhost:11434/api"
-                          className="bg-zinc-900 border-zinc-800 text-white h-11 placeholder:text-zinc-600 focus:ring-emerald-500/20 focus:border-zinc-600"
+                          className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                         />
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Actions */}
-                {provider && (
-                  <div className="space-y-3 pt-2">
                     {/* Test Connection */}
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full h-11 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50 hover:border-zinc-700"
+                      className="w-full h-11 rounded-xl border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50 hover:border-zinc-700"
                       onClick={() => testMutation.mutate()}
                       disabled={
                         testMutation.isPending || (!apiKey && selectedProvider?.requiresApiKey)
@@ -424,128 +412,168 @@ function SetupPage() {
                         </>
                       )}
                     </Button>
-
-                    {/* Continue Button */}
-                    <Button
-                      type="submit"
-                      className="w-full h-11 bg-white text-black hover:bg-zinc-200 font-medium"
-                      disabled={llmMutation.isPending}
-                    >
-                      {llmMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          Continue
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
-
-                    {/* Security note */}
-                    <p className="text-center text-zinc-600 text-xs flex items-center justify-center gap-1.5 pt-2">
-                      <Lock className="h-3 w-3" />
-                      API keys are encrypted and stored locally
-                    </p>
-                  </div>
+                  </motion.div>
                 )}
-              </form>
-            </>
-          )}
+              </AnimatePresence>
 
-          {/* Google OAuth Setup */}
-          {currentStep === 'google' && (
-            <>
-              <div className="mb-10">
-                <h1 className="text-2xl font-semibold text-white mb-2">Configure Google OAuth</h1>
-                <p className="text-zinc-500 text-[15px]">
-                  Set up Google authentication for secure user login.
-                </p>
-              </div>
-
-              <form onSubmit={handleGoogleSubmit} className="space-y-6">
-                {error && (
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                    {error}
-                  </div>
-                )}
-
-                {/* Help link */}
-                <a
-                  href="https://console.cloud.google.com/apis/credentials"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 transition-all"
+              {/* Continue Button */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Button
+                  type="submit"
+                  disabled={!provider || llmMutation.isPending}
+                  className={cn(
+                    'w-full h-12 rounded-xl text-[15px] font-medium transition-all duration-300',
+                    provider
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25'
+                      : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                  )}
                 >
-                  <div className="h-10 w-10 rounded-lg bg-zinc-800 flex items-center justify-center">
-                    <img src="/google.svg" alt="Google" className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white text-sm font-medium">Google Cloud Console</p>
-                    <p className="text-zinc-500 text-xs">Create OAuth 2.0 credentials</p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 text-zinc-600" />
-                </a>
+                  {llmMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
 
+                {/* Security note */}
+                <p className="text-center text-zinc-600 text-xs flex items-center justify-center gap-1.5 mt-4">
+                  <Lock className="h-3 w-3" />
+                  API keys are encrypted and stored locally
+                </p>
+              </motion.div>
+            </form>
+          </motion.div>
+        )}
+
+        {/* Google OAuth Setup */}
+        {currentStep === 'google' && (
+          <motion.div
+            key="google"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {/* Header */}
+            <div className="mb-8">
+              <motion.h1
+                className="text-2xl font-semibold text-white tracking-tight font-display mb-2"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                Configure Google OAuth
+              </motion.h1>
+              <motion.p
+                className="text-zinc-500 text-[15px]"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
+                Set up Google authentication for secure user login.
+              </motion.p>
+            </div>
+
+            <form onSubmit={handleGoogleSubmit} className="space-y-5">
+              {/* Error message */}
+              <AnimatePresence mode="wait">
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                      {error}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Help link */}
+              <motion.a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/50 transition-all group"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                whileHover={{ scale: 1.01 }}
+              >
+                <div className="h-10 w-10 rounded-lg bg-zinc-800 flex items-center justify-center group-hover:bg-zinc-700 transition-colors">
+                  <img src="/google.svg" alt="Google" className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-sm font-medium">Google Cloud Console</p>
+                  <p className="text-zinc-500 text-xs">Create OAuth 2.0 credentials</p>
+                </div>
+                <ExternalLink className="h-4 w-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+              </motion.a>
+
+              {/* Form fields */}
+              <motion.div
+                className="space-y-4"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+              >
                 {/* Google Client ID */}
                 <div className="space-y-2">
-                  <Label htmlFor="clientId" className="text-zinc-400 text-sm">
-                    Client ID
-                  </Label>
+                  <label className="text-sm font-medium text-zinc-400">Client ID</label>
                   <Input
-                    id="clientId"
                     type="text"
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
                     placeholder="123456789-abc.apps.googleusercontent.com"
-                    className="bg-zinc-900 border-zinc-800 text-white h-11 placeholder:text-zinc-600 focus:ring-emerald-500/20 focus:border-zinc-600"
+                    className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                   />
                 </div>
 
                 {/* Google Client Secret */}
                 <div className="space-y-2">
-                  <Label htmlFor="clientSecret" className="text-zinc-400 text-sm">
-                    Client Secret
-                  </Label>
+                  <label className="text-sm font-medium text-zinc-400">Client Secret</label>
                   <Input
-                    id="clientSecret"
                     type="password"
                     value={clientSecret}
                     onChange={(e) => setClientSecret(e.target.value)}
                     placeholder="GOCSPX-..."
-                    className="bg-zinc-900 border-zinc-800 text-white h-11 placeholder:text-zinc-600 focus:ring-emerald-500/20 focus:border-zinc-600"
+                    className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                   />
                 </div>
 
                 {/* App URL */}
                 <div className="space-y-2">
-                  <Label htmlFor="appUrl" className="text-zinc-400 text-sm">
-                    Application URL
-                  </Label>
+                  <label className="text-sm font-medium text-zinc-400">Application URL</label>
                   <Input
-                    id="appUrl"
                     type="text"
                     value={appUrl}
                     onChange={(e) => setAppUrl(e.target.value)}
                     placeholder="http://localhost:7777"
-                    className="bg-zinc-900 border-zinc-800 text-white h-11 placeholder:text-zinc-600 focus:ring-emerald-500/20 focus:border-zinc-600"
+                    className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
                   />
                 </div>
 
                 {/* OAuth Redirect URI */}
                 <div className="space-y-2">
-                  <Label className="text-zinc-400 text-sm">Redirect URI</Label>
+                  <label className="text-sm font-medium text-zinc-400">Redirect URI</label>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-emerald-400 font-mono text-sm truncate">
+                    <div className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-emerald-400 font-mono text-sm truncate">
                       {redirectUri}
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-11 w-11 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50 hover:border-zinc-700 shrink-0"
+                      className="h-11 w-11 rounded-xl border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50 hover:border-zinc-700 shrink-0"
                       onClick={copyRedirectUri}
                     >
                       {copied ? (
@@ -559,55 +587,51 @@ function SetupPage() {
                     Add this URL to your Google OAuth authorized redirect URIs
                   </p>
                 </div>
+              </motion.div>
 
-                {/* Actions */}
-                <div className="space-y-3 pt-4">
-                  <Button
-                    type="submit"
-                    className="w-full h-11 bg-white text-black hover:bg-zinc-200 font-medium"
-                    disabled={googleMutation.isPending}
-                  >
-                    {googleMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Complete Setup
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
+              {/* Actions */}
+              <motion.div
+                className="space-y-3 pt-2"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Button
+                  type="submit"
+                  disabled={googleMutation.isPending}
+                  className="w-full h-12 rounded-xl text-[15px] font-medium bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300"
+                >
+                  {googleMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      Complete Setup
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
 
-                  {/* Back button */}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full h-11 text-zinc-500 hover:text-white hover:bg-zinc-800/50"
-                    onClick={() => setCurrentStep('llm')}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to AI Setup
-                  </Button>
+                {/* Back button */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full h-11 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800/50"
+                  onClick={() => setCurrentStep('llm')}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to AI Setup
+                </Button>
 
-                  {/* Security note */}
-                  <p className="text-center text-zinc-600 text-xs flex items-center justify-center gap-1.5 pt-2">
-                    <Lock className="h-3 w-3" />
-                    Credentials are encrypted and stored locally
-                  </p>
-                </div>
-              </form>
-            </>
-          )}
-        </div>
-
-        {/* Mobile logo */}
-        <div className="lg:hidden absolute top-6 left-6 flex items-center gap-2">
-          <img src="/logo.png" alt="Moneywright" className="h-8 w-8" />
-          <span className="text-white font-semibold">Moneywright</span>
-        </div>
-      </div>
-    </div>
+                {/* Security note */}
+                <p className="text-center text-zinc-600 text-xs flex items-center justify-center gap-1.5 pt-2">
+                  <Lock className="h-3 w-3" />
+                  Credentials are encrypted and stored locally
+                </p>
+              </motion.div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </AuthLayout>
   )
 }

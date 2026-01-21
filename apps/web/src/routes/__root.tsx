@@ -60,27 +60,25 @@ function RootComponent() {
   // Onboarding routes
   const isOnboardingRoute = location.pathname.startsWith('/onboarding')
 
-  // Redirect to setup if required (only when auth is enabled)
+  // Redirect to setup if required (LLM must always be configured)
   useEffect(() => {
     if (setupLoading || authLoading) return
-
-    // Setup only applies when auth is enabled
-    if (!authEnabled) return
 
     const isSetupRoute = location.pathname === '/setup'
 
     // If setup is required and we're not on setup page, redirect
+    // Setup is required if LLM is not configured, or if auth is enabled and Google OAuth is not configured
     if (setupStatus?.setupRequired && !isSetupRoute) {
       navigate({ to: '/setup', replace: true })
     }
-  }, [setupLoading, authLoading, authEnabled, setupStatus, location.pathname, navigate])
+  }, [setupLoading, authLoading, setupStatus, location.pathname, navigate])
 
   // Redirect unauthenticated users to login (only when auth is enabled)
   useEffect(() => {
     if (setupLoading || authLoading) return
 
     // Don't redirect if setup is required
-    if (authEnabled && setupStatus?.setupRequired) return
+    if (setupStatus?.setupRequired) return
 
     // If auth is disabled, user is always "authenticated" via default user
     if (!authEnabled) return
@@ -98,8 +96,8 @@ function RootComponent() {
     // Don't redirect if on public routes or already on onboarding
     if (isPublicRoute || isOnboardingRoute) return
 
-    // Don't redirect if setup is required (auth enabled case)
-    if (authEnabled && setupStatus?.setupRequired) return
+    // Don't redirect if setup is required
+    if (setupStatus?.setupRequired) return
 
     // Redirect to country selection if needed
     if (needsCountry) {
@@ -155,8 +153,8 @@ function RootComponent() {
     )
   }
 
-  // If setup is required (auth enabled), render setup route only
-  if (authEnabled && setupStatus?.setupRequired) {
+  // If setup is required (LLM not configured, or auth enabled without Google OAuth), render setup route only
+  if (setupStatus?.setupRequired) {
     const isSetupRoute = location.pathname === '/setup'
 
     if (!isSetupRoute) {
@@ -173,7 +171,7 @@ function RootComponent() {
     return (
       <AuthContext.Provider value={{ user: null, authEnabled, isAuthenticated: false, logout }}>
         <Outlet />
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster position="bottom-right" richColors closeButton />
       </AuthContext.Provider>
     )
   }
@@ -195,7 +193,7 @@ function RootComponent() {
     return (
       <AuthContext.Provider value={{ user: null, authEnabled, isAuthenticated: false, logout }}>
         <Outlet />
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster position="bottom-right" richColors closeButton />
       </AuthContext.Provider>
     )
   }
@@ -216,7 +214,7 @@ function RootComponent() {
   return (
     <AuthContext.Provider value={{ user, authEnabled, isAuthenticated: authenticated, logout }}>
       <Outlet />
-      <Toaster position="top-center" richColors closeButton />
+      <Toaster position="bottom-right" richColors closeButton />
     </AuthContext.Provider>
   )
 }

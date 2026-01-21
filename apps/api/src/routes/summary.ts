@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { auth, type AuthVariables } from '../middleware/auth'
 import { calculateNetWorth } from '../services/accounts'
-import { getInvestmentSummary } from '../services/investments'
+import { getInvestmentSummary } from '../services/investment-holdings'
 import { getTransactionStats } from '../services/transactions'
+import { fetchFxRates, getConversionRate } from '../services/fx-rates'
 
 const summaryRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -27,17 +28,10 @@ summaryRoutes.get('/', async (c) => {
     return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
   }
 
-  // Calculate current month date range if not provided
-  const now = new Date()
-  const defaultStartDate = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .split('T')[0]
-  const defaultEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    .toISOString()
-    .split('T')[0]
-
-  const effectiveStartDate = startDate || defaultStartDate
-  const effectiveEndDate = endDate || defaultEndDate
+  // Only apply date filters if explicitly provided
+  // If no dates provided, fetch all time data
+  const effectiveStartDate = startDate || undefined
+  const effectiveEndDate = endDate || undefined
 
   // Fetch all summaries in parallel
   const [netWorth, investments, transactionStats] = await Promise.all([
@@ -63,10 +57,12 @@ summaryRoutes.get('/', async (c) => {
 
     // Investment portfolio summary
     investments: {
-      totalPurchaseValue: investments.totalPurchaseValue,
-      totalCurrentValue: investments.totalCurrentValue,
+      totalInvested: investments.totalInvested,
+      totalCurrent: investments.totalCurrent,
       totalGainLoss: investments.totalGainLoss,
-      gainLossPercentage: investments.gainLossPercentage,
+      gainLossPercent: investments.gainLossPercent,
+      holdingsCount: investments.holdingsCount,
+      sourcesCount: investments.sourcesCount,
       byType: investments.byType,
       byCurrency: investments.byCurrency,
     },
@@ -89,10 +85,80 @@ summaryRoutes.get('/', async (c) => {
     // Combined totals
     totals: {
       // Total wealth = net worth from accounts + current investment value
-      totalWealth: netWorth.netWorth + investments.totalCurrentValue,
+      totalWealth: netWorth.netWorth + investments.totalCurrent,
       currency: netWorth.currency,
     },
   })
+})
+
+/**
+ * GET /summary/fx-rates
+ * Get foreign exchange rates
+ * Query params:
+ *   - base (optional): Base currency (default: USD)
+ */
+summaryRoutes.get('/fx-rates', async (c) => {
+  const base = c.req.query('base') || 'usd'
+
+  try {
+    const rates = await fetchFxRates(base)
+
+    return c.json({
+      success: true,
+      data: {
+        date: rates.date,
+        baseCurrency: rates.baseCurrency.toUpperCase(),
+        rates: {
+          // Return commonly used currencies
+          INR: rates.rates['inr'],
+          USD: rates.rates['usd'] ?? 1,
+          EUR: rates.rates['eur'],
+          GBP: rates.rates['gbp'],
+          JPY: rates.rates['jpy'],
+          AUD: rates.rates['aud'],
+          CAD: rates.rates['cad'],
+          SGD: rates.rates['sgd'],
+          AED: rates.rates['aed'],
+        },
+        fetchedAt: rates.fetchedAt,
+      },
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch FX rates'
+    return c.json({ success: false, error: message }, 500)
+  }
+})
+
+/**
+ * GET /summary/fx-rate
+ * Get conversion rate between two currencies
+ * Query params:
+ *   - from (required): Source currency (e.g., USD)
+ *   - to (required): Target currency (e.g., INR)
+ */
+summaryRoutes.get('/fx-rate', async (c) => {
+  const from = c.req.query('from')
+  const to = c.req.query('to')
+
+  if (!from || !to) {
+    return c.json({ success: false, error: 'Both "from" and "to" query params are required' }, 400)
+  }
+
+  try {
+    const rate = await getConversionRate(from, to)
+
+    return c.json({
+      success: true,
+      data: {
+        from: from.toUpperCase(),
+        to: to.toUpperCase(),
+        rate,
+      },
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to get conversion rate'
+    return c.json({ success: false, error: message }, 500)
+  }
 })
 
 export default summaryRoutes

@@ -25,6 +25,7 @@ export interface TransactionResponse {
   summary: string | null
   category: string
   categoryConfidence: number | null
+  isSubscription: boolean
   linkedTransactionId: string | null
   linkType: string | null
   createdAt: string | Date
@@ -36,7 +37,7 @@ export interface TransactionResponse {
  */
 export interface TransactionFilters {
   profileId?: string
-  accountId?: string
+  accountId?: string | string[]
   statementId?: string | string[]
   category?: string | string[]
   type?: 'credit' | 'debit'
@@ -45,6 +46,7 @@ export interface TransactionFilters {
   search?: string
   minAmount?: number
   maxAmount?: number
+  isSubscription?: boolean
 }
 
 /**
@@ -79,6 +81,7 @@ function toTransactionResponse(txn: Transaction): TransactionResponse {
         ? parseFloat(txn.categoryConfidence)
         : Number(txn.categoryConfidence)
       : null,
+    isSubscription: txn.isSubscription ?? false,
     linkedTransactionId: txn.linkedTransactionId,
     linkType: txn.linkType,
     createdAt: txn.createdAt,
@@ -108,7 +111,12 @@ export async function getTransactions(
   }
 
   if (filters?.accountId) {
-    conditions.push(eq(tables.transactions.accountId, filters.accountId))
+    const accountIds = Array.isArray(filters.accountId) ? filters.accountId : [filters.accountId]
+    if (accountIds.length === 1) {
+      conditions.push(eq(tables.transactions.accountId, accountIds[0]!))
+    } else if (accountIds.length > 1) {
+      conditions.push(or(...accountIds.map((id) => eq(tables.transactions.accountId, id)))!)
+    }
   }
 
   if (filters?.statementId) {
@@ -151,6 +159,10 @@ export async function getTransactions(
         like(tables.transactions.summary, searchTerm)
       )!
     )
+  }
+
+  if (filters?.isSubscription !== undefined) {
+    conditions.push(eq(tables.transactions.isSubscription, filters.isSubscription))
   }
 
   // Build sort
@@ -394,13 +406,14 @@ export async function getTransactionStats(
   userId: string,
   filters?: {
     profileId?: string
-    accountId?: string
+    accountId?: string | string[]
     statementId?: string | string[]
     startDate?: string
     endDate?: string
     category?: string | string[]
     type?: 'credit' | 'debit'
     search?: string
+    isSubscription?: boolean
   }
 ): Promise<{
   totalCredits: number
@@ -418,7 +431,12 @@ export async function getTransactionStats(
   }
 
   if (filters?.accountId) {
-    conditions.push(eq(tables.transactions.accountId, filters.accountId))
+    const accountIds = Array.isArray(filters.accountId) ? filters.accountId : [filters.accountId]
+    if (accountIds.length === 1) {
+      conditions.push(eq(tables.transactions.accountId, accountIds[0]!))
+    } else if (accountIds.length > 1) {
+      conditions.push(or(...accountIds.map((id) => eq(tables.transactions.accountId, id)))!)
+    }
   }
 
   if (filters?.statementId) {
@@ -463,6 +481,10 @@ export async function getTransactionStats(
     )
   }
 
+  if (filters?.isSubscription !== undefined) {
+    conditions.push(eq(tables.transactions.isSubscription, filters.isSubscription))
+  }
+
   // Get all matching transactions
   const transactions = await db
     .select()
@@ -474,7 +496,8 @@ export async function getTransactionStats(
   let totalDebits = 0
   let creditCount = 0
   let debitCount = 0
-  const categoryMap = new Map<string, { total: number; count: number }>()
+  // Track both debits and credits per category to calculate net spending
+  const categoryMap = new Map<string, { debits: number; credits: number; count: number }>()
 
   for (const txn of transactions) {
     const amount = typeof txn.amount === 'string' ? parseFloat(txn.amount) : Number(txn.amount)
@@ -487,15 +510,26 @@ export async function getTransactionStats(
       debitCount++
     }
 
-    // Category breakdown
-    const existing = categoryMap.get(txn.category) || { total: 0, count: 0 }
-    existing.total += amount
+    // Track both debits and credits per category
+    const existing = categoryMap.get(txn.category) || { debits: 0, credits: 0, count: 0 }
+    if (txn.type === 'credit') {
+      existing.credits += amount
+    } else {
+      existing.debits += amount
+    }
     existing.count++
     categoryMap.set(txn.category, existing)
   }
 
+  // Calculate net spending (debits - credits) per category
+  // Only include categories where net spending is positive
   const categoryBreakdown = Array.from(categoryMap.entries())
-    .map(([category, data]) => ({ category, ...data }))
+    .map(([category, data]) => ({
+      category,
+      total: data.debits - data.credits, // Net spending
+      count: data.count,
+    }))
+    .filter((c) => c.total > 0) // Only show categories with positive net spending
     .sort((a, b) => b.total - a.total)
 
   // Get currency from transactions (default to INR if no transactions)

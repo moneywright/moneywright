@@ -3,7 +3,7 @@ import { db, tables, dbType } from '../db'
 import type { Statement } from '../db'
 import { logger } from '../lib/logger'
 import { nanoid } from '../lib/id'
-import type { CountryCode } from '../lib/constants'
+import type { CountryCode, FileType } from '../lib/constants'
 
 /**
  * Statement service
@@ -52,12 +52,14 @@ export type StatementSummary = BankStatementSummary | CreditCardStatementSummary
  */
 export interface StatementResponse {
   id: string
-  accountId: string
+  accountId: string | null
+  sourceId: string | null // For investment statements
   profileId: string
   userId: string
   originalFilename: string
   fileType: string
   fileSizeBytes: number | null
+  documentType: string // bank_statement, credit_card_statement, investment_statement
   periodStart: string | null
   periodEnd: string | null
   openingBalance: number | null
@@ -66,6 +68,7 @@ export interface StatementResponse {
   errorMessage: string | null
   summary: StatementSummary | null
   transactionCount: number
+  holdingsCount: number | null // For investment statements
   parseStartedAt: string | Date | null
   parseCompletedAt: string | Date | null
   parseDurationMs: number | null
@@ -83,6 +86,12 @@ export interface ParseJob {
   userId: string
   countryCode: CountryCode
   pages: string[]
+  /** File type (pdf, csv, xlsx) - affects cache key and parsing strategy */
+  fileType: FileType
+  /** Document type specified by user (bank_statement or investment_statement) */
+  documentType?: 'bank_statement' | 'investment_statement'
+  /** For investment statements: source type specified by user (e.g., zerodha, groww, mf_central) */
+  sourceType?: string
   /** Model for statement parsing (code generation) */
   parsingModel?: string
   /** Model for transaction categorization */
@@ -130,11 +139,13 @@ function toStatementResponse(statement: Statement): StatementResponse {
   return {
     id: statement.id,
     accountId: statement.accountId,
+    sourceId: statement.sourceId || null,
     profileId: statement.profileId,
     userId: statement.userId,
     originalFilename: statement.originalFilename,
     fileType: statement.fileType,
     fileSizeBytes: statement.fileSizeBytes,
+    documentType: statement.documentType || 'bank_statement',
     periodStart: statement.periodStart,
     periodEnd: statement.periodEnd,
     openingBalance: statement.openingBalance != null ? Number(statement.openingBalance) : null,
@@ -143,6 +154,7 @@ function toStatementResponse(statement: Statement): StatementResponse {
     errorMessage: statement.errorMessage,
     summary,
     transactionCount: statement.transactionCount || 0,
+    holdingsCount: statement.holdingsCount || null,
     parseStartedAt: statement.parseStartedAt || null,
     parseCompletedAt: statement.parseCompletedAt || null,
     parseDurationMs,
@@ -250,14 +262,16 @@ export async function getStatementStatus(
 
 /**
  * Create a statement record (called after file upload validation)
+ * accountId is optional - for investment statements, the parser will set sourceId instead
  */
 export async function createStatement(data: {
-  accountId: string
+  accountId: string | null
   profileId: string
   userId: string
   originalFilename: string
   fileType: string
   fileSizeBytes: number
+  documentType?: 'bank_statement' | 'investment_statement'
 }): Promise<Statement> {
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
@@ -270,6 +284,7 @@ export async function createStatement(data: {
       originalFilename: data.originalFilename,
       fileType: data.fileType,
       fileSizeBytes: data.fileSizeBytes,
+      documentType: data.documentType || 'bank_statement',
       status: 'pending',
       transactionCount: 0,
       createdAt: now as Date,
@@ -407,6 +422,12 @@ export function queueParseJob(data: {
   userId: string
   countryCode: CountryCode
   pages: string[]
+  /** File type (pdf, csv, xlsx) - affects cache key and parsing strategy */
+  fileType: FileType
+  /** Document type specified by user (bank_statement or investment_statement) */
+  documentType?: 'bank_statement' | 'investment_statement'
+  /** For investment statements: source type specified by user (e.g., zerodha, groww, mf_central) */
+  sourceType?: string
   /** Model for statement parsing (code generation) */
   parsingModel?: string
   /** Model for transaction categorization */
@@ -420,6 +441,9 @@ export function queueParseJob(data: {
     userId: data.userId,
     countryCode: data.countryCode,
     pages: data.pages,
+    fileType: data.fileType,
+    documentType: data.documentType,
+    sourceType: data.sourceType,
     parsingModel: data.parsingModel,
     categorizationModel: data.categorizationModel,
     status: 'pending',
@@ -459,6 +483,9 @@ async function processNextJob(): Promise<void> {
       userId: pendingJob.userId,
       countryCode: pendingJob.countryCode,
       pages: pendingJob.pages,
+      fileType: pendingJob.fileType,
+      documentType: pendingJob.documentType,
+      sourceType: pendingJob.sourceType,
       parsingModel: pendingJob.parsingModel,
       categorizationModel: pendingJob.categorizationModel,
     })

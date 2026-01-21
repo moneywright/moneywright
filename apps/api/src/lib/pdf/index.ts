@@ -13,7 +13,7 @@ export type { ExpectedSummary, ExtractedTotals } from './types'
 export { generateParserCode } from './generate-parser-code'
 export { validateCode, checkSyntax } from './validate-code'
 export { runParser, runParserWithVersions } from './execute-parser'
-export { isE2BConfigured, runParserInE2B } from './e2b-executor'
+export { isE2BConfigured, runParserInE2B, type ParsingMode } from './e2b-executor'
 export { insertRawTransactions, updateTransactionCategories } from './insert-transactions'
 export {
   categorizeTransactionsByIds,
@@ -29,3 +29,24 @@ export {
   clearParserCache,
   listCachedBanks,
 } from './parser-code-cache'
+
+// Investment statement parsing
+export {
+  generateInvestmentParserCode,
+  type RawInvestmentHolding,
+  type ExpectedInvestmentSummary,
+  type ExtractedInvestmentTotals,
+  type AgenticInvestmentParserResult,
+} from './generate-investment-parser-code'
+export {
+  generateInvestmentSourceKey,
+  getInvestmentParserCodes,
+  getInvestmentLatestVersion,
+  saveInvestmentParserCode,
+  recordInvestmentSuccess,
+  recordInvestmentFailure,
+  clearInvestmentParserCache,
+  listCachedInvestmentSources,
+  runInvestmentParserWithVersions,
+  type InvestmentParserCodeEntry,
+} from './investment-parser-cache'

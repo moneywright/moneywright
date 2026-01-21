@@ -15,7 +15,7 @@ import {
   type LLMProvider,
   getDefaultParsingModelId,
   getProviderModels,
-} from '../lib/constants'
+} from '../lib/ai'
 
 /**
  * Check if DevTools should be enabled (development only)

@@ -153,6 +153,7 @@ export const accounts = pgTable(
 
 /**
  * Statements table - uploaded statement documents
+ * Supports both bank/credit card statements and investment statements
  */
 export const statements = pgTable(
   'statements',
@@ -160,15 +161,23 @@ export const statements = pgTable(
     id: varchar('id', { length: 21 })
       .primaryKey()
       .$defaultFn(() => nanoid()),
-    accountId: varchar('account_id', { length: 21 })
-      .notNull()
-      .references(() => accounts.id, { onDelete: 'cascade' }),
+    // For bank/credit card statements
+    accountId: varchar('account_id', { length: 21 }).references(() => accounts.id, {
+      onDelete: 'cascade',
+    }),
+    // For investment statements
+    sourceId: varchar('source_id', { length: 21 }).references(() => investmentSources.id, {
+      onDelete: 'cascade',
+    }),
     profileId: varchar('profile_id', { length: 21 })
       .notNull()
       .references(() => profiles.id, { onDelete: 'cascade' }),
     userId: varchar('user_id', { length: 21 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Document type - determines which linking field is used
+    documentType: varchar('document_type', { length: 30 }).notNull().default('bank_statement'), // bank_statement, credit_card_statement, investment_statement
 
     // File info
     originalFilename: text('original_filename').notNull(),
@@ -192,6 +201,7 @@ export const statements = pgTable(
 
     // Stats
     transactionCount: integer('transaction_count').default(0),
+    holdingsCount: integer('holdings_count'), // For investment statements
 
     // Parse timing
     parseStartedAt: timestamp('parse_started_at', { withTimezone: true }),
@@ -202,9 +212,11 @@ export const statements = pgTable(
   },
   (table) => [
     index('statements_account_id_idx').on(table.accountId),
+    index('statements_source_id_idx').on(table.sourceId),
     index('statements_profile_id_idx').on(table.profileId),
     index('statements_user_id_idx').on(table.userId),
     index('statements_status_idx').on(table.status),
+    index('statements_document_type_idx').on(table.documentType),
   ]
 )
 
@@ -244,6 +256,7 @@ export const transactions = pgTable(
     // Categorization
     category: varchar('category', { length: 50 }).notNull(),
     categoryConfidence: decimal('category_confidence', { precision: 3, scale: 2 }),
+    isSubscription: boolean('is_subscription'), // LLM-detected recurring subscription
 
     // Deduplication
     hash: varchar('hash', { length: 64 }).notNull(), // SHA256
@@ -267,10 +280,11 @@ export const transactions = pgTable(
 )
 
 /**
- * Investments table - manually declared investment holdings
+ * Investment Sources table - represents investment platforms/accounts
+ * Examples: Zerodha, Groww, MF Central, PPF account, etc.
  */
-export const investments = pgTable(
-  'investments',
+export const investmentSources = pgTable(
+  'investment_sources',
   {
     id: varchar('id', { length: 21 })
       .primaryKey()
@@ -282,32 +296,176 @@ export const investments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
 
-    // Investment details
-    type: varchar('type', { length: 50 }).notNull(), // country-specific
-    institution: text('institution'), // broker/AMC name
-    name: text('name').notNull(), // scheme/stock name
+    // Source identification
+    sourceType: varchar('source_type', { length: 50 }).notNull(), // zerodha, groww, mf_central, etc.
+    sourceName: text('source_name').notNull(), // Display name like "Zerodha - Equity"
+    institution: text('institution'), // Bank/broker name
+    accountIdentifier: text('account_identifier'), // Demat ID, folio, Client ID (encrypted)
 
-    // Holdings
-    units: decimal('units', { precision: 15, scale: 4 }),
-    purchaseValue: decimal('purchase_value', { precision: 15, scale: 2 }),
-    currentValue: decimal('current_value', { precision: 15, scale: 2 }),
-    currency: varchar('currency', { length: 3 }).notNull(),
+    // Location
+    countryCode: varchar('country_code', { length: 2 }).notNull().default('IN'), // IN, US
+    currency: varchar('currency', { length: 3 }).notNull().default('INR'),
 
-    // Additional info
-    folioNumber: text('folio_number'),
-    accountNumber: text('account_number'), // encrypted
-    maturityDate: date('maturity_date'),
-    interestRate: decimal('interest_rate', { precision: 5, scale: 2 }),
-
-    notes: text('notes'),
+    // Sync info
+    lastStatementDate: date('last_statement_date'), // Date of most recent statement
+    lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('investments_profile_id_idx').on(table.profileId),
-    index('investments_user_id_idx').on(table.userId),
-    index('investments_type_idx').on(table.type),
+    index('investment_sources_profile_id_idx').on(table.profileId),
+    index('investment_sources_user_id_idx').on(table.userId),
+    index('investment_sources_source_type_idx').on(table.sourceType),
+  ]
+)
+
+/**
+ * Investment Holdings table - current holdings extracted from statements
+ * One row per holding per source
+ */
+export const investmentHoldings = pgTable(
+  'investment_holdings',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sourceId: varchar('source_id', { length: 21 }).references(() => investmentSources.id, {
+      onDelete: 'cascade',
+    }),
+    profileId: varchar('profile_id', { length: 21 })
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Investment details
+    investmentType: varchar('investment_type', { length: 50 }).notNull(), // stock, mutual_fund, etf, etc.
+    symbol: varchar('symbol', { length: 50 }), // Stock ticker, scheme code
+    name: text('name').notNull(), // Full name of instrument
+    isin: varchar('isin', { length: 20 }), // ISIN code if available
+
+    // Holdings
+    units: decimal('units', { precision: 18, scale: 6 }), // Current units/shares (null for balance-based like PPF, EPF, FD)
+    averageCost: decimal('average_cost', { precision: 15, scale: 4 }), // Avg buy price per unit
+    currentPrice: decimal('current_price', { precision: 15, scale: 4 }), // Latest NAV/price
+    currentValue: decimal('current_value', { precision: 15, scale: 2 }).notNull(), // units × current_price
+    investedValue: decimal('invested_value', { precision: 15, scale: 2 }), // units × average_cost
+    gainLoss: decimal('gain_loss', { precision: 15, scale: 2 }), // current - invested
+    gainLossPercent: decimal('gain_loss_percent', { precision: 8, scale: 4 }),
+
+    // Additional info
+    folioNumber: text('folio_number'), // For mutual funds
+    maturityDate: date('maturity_date'), // For FD, bonds
+    interestRate: decimal('interest_rate', { precision: 6, scale: 3 }), // For FD, PPF
+
+    currency: varchar('currency', { length: 3 }).notNull(),
+    asOfDate: date('as_of_date').notNull(), // Date this holding data is from
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('investment_holdings_source_id_idx').on(table.sourceId),
+    index('investment_holdings_profile_id_idx').on(table.profileId),
+    index('investment_holdings_user_id_idx').on(table.userId),
+    index('investment_holdings_investment_type_idx').on(table.investmentType),
+  ]
+)
+
+/**
+ * Investment Transactions table - buy/sell/dividend transactions from statements
+ */
+export const investmentTransactions = pgTable(
+  'investment_transactions',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sourceId: varchar('source_id', { length: 21 }).references(() => investmentSources.id, {
+      onDelete: 'cascade',
+    }),
+    holdingId: varchar('holding_id', { length: 21 }).references(() => investmentHoldings.id, {
+      onDelete: 'set null',
+    }),
+    profileId: varchar('profile_id', { length: 21 })
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Transaction details
+    transactionType: varchar('transaction_type', { length: 20 }).notNull(), // buy, sell, dividend, etc.
+    symbol: varchar('symbol', { length: 50 }),
+    name: text('name').notNull(),
+    units: decimal('units', { precision: 18, scale: 6 }), // Units bought/sold
+    pricePerUnit: decimal('price_per_unit', { precision: 15, scale: 4 }), // Price at transaction
+    amount: decimal('amount', { precision: 15, scale: 2 }).notNull(), // Total transaction value
+    fees: decimal('fees', { precision: 15, scale: 2 }), // Brokerage, STT, etc.
+
+    transactionDate: date('transaction_date').notNull(),
+    settlementDate: date('settlement_date'),
+    description: text('description'), // Original description from statement
+
+    currency: varchar('currency', { length: 3 }).notNull(),
+    hash: varchar('hash', { length: 64 }).notNull(), // For deduplication
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('investment_transactions_source_id_idx').on(table.sourceId),
+    index('investment_transactions_holding_id_idx').on(table.holdingId),
+    index('investment_transactions_profile_id_idx').on(table.profileId),
+    index('investment_transactions_user_id_idx').on(table.userId),
+    index('investment_transactions_date_idx').on(table.transactionDate),
+    unique('investment_transactions_source_hash_unique').on(table.sourceId, table.hash),
+  ]
+)
+
+/**
+ * Investment Snapshots table - historical portfolio value snapshots per source
+ */
+export const investmentSnapshots = pgTable(
+  'investment_snapshots',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sourceId: varchar('source_id', { length: 21 }).references(() => investmentSources.id, {
+      onDelete: 'cascade',
+    }),
+    profileId: varchar('profile_id', { length: 21 })
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Snapshot details
+    snapshotDate: date('snapshot_date').notNull(),
+    snapshotType: varchar('snapshot_type', { length: 20 }).notNull(), // statement_import, manual, scheduled
+
+    // Portfolio totals
+    totalInvested: decimal('total_invested', { precision: 15, scale: 2 }),
+    totalCurrent: decimal('total_current', { precision: 15, scale: 2 }).notNull(),
+    totalGainLoss: decimal('total_gain_loss', { precision: 15, scale: 2 }),
+    gainLossPercent: decimal('gain_loss_percent', { precision: 8, scale: 4 }),
+    holdingsCount: integer('holdings_count').notNull(),
+
+    // Snapshot of all holdings at this point
+    holdingsDetail: jsonb('holdings_detail'), // [{symbol, name, units, value}, ...]
+
+    currency: varchar('currency', { length: 3 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('investment_snapshots_source_id_idx').on(table.sourceId),
+    index('investment_snapshots_profile_id_idx').on(table.profileId),
+    index('investment_snapshots_user_id_idx').on(table.userId),
+    index('investment_snapshots_date_idx').on(table.snapshotDate),
+    unique('investment_snapshots_source_date_unique').on(table.sourceId, table.snapshotDate),
   ]
 )
 
@@ -333,5 +491,14 @@ export type NewStatement = typeof statements.$inferInsert
 export type Transaction = typeof transactions.$inferSelect
 export type NewTransaction = typeof transactions.$inferInsert
 
-export type Investment = typeof investments.$inferSelect
-export type NewInvestment = typeof investments.$inferInsert
+export type InvestmentSource = typeof investmentSources.$inferSelect
+export type NewInvestmentSource = typeof investmentSources.$inferInsert
+
+export type InvestmentHolding = typeof investmentHoldings.$inferSelect
+export type NewInvestmentHolding = typeof investmentHoldings.$inferInsert
+
+export type InvestmentTransaction = typeof investmentTransactions.$inferSelect
+export type NewInvestmentTransaction = typeof investmentTransactions.$inferInsert
+
+export type InvestmentSnapshot = typeof investmentSnapshots.$inferSelect
+export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert

@@ -64,12 +64,14 @@ transactionRoutes.get('/', async (c) => {
   const search = c.req.query('search')
   const minAmount = c.req.query('minAmount')
   const maxAmount = c.req.query('maxAmount')
+  const isSubscription = c.req.query('isSubscription')
   const page = parseInt(c.req.query('page') || '1', 10)
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100)
   const sortBy = c.req.query('sortBy') as 'date' | 'amount' | 'createdAt' | undefined
   const sortOrder = c.req.query('sortOrder') as 'asc' | 'desc' | undefined
 
   // Parse multi-value filters (comma-separated)
+  const accountIds = parseMultiValue(accountId)
   const statementIds = parseMultiValue(statementId)
   const categories = parseMultiValue(category)
 
@@ -77,7 +79,7 @@ transactionRoutes.get('/', async (c) => {
     userId,
     {
       profileId: profileId || undefined,
-      accountId: accountId || undefined,
+      accountId: accountIds,
       statementId: statementIds,
       category: categories,
       type: type && ['credit', 'debit'].includes(type) ? type : undefined,
@@ -86,6 +88,8 @@ transactionRoutes.get('/', async (c) => {
       search: search || undefined,
       minAmount: minAmount ? parseFloat(minAmount) : undefined,
       maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+      isSubscription:
+        isSubscription === 'true' ? true : isSubscription === 'false' ? false : undefined,
     },
     {
       page,
@@ -113,20 +117,24 @@ transactionRoutes.get('/stats', async (c) => {
   const statementId = c.req.query('statementId')
   const type = c.req.query('type')
   const search = c.req.query('search')
+  const isSubscription = c.req.query('isSubscription')
 
   // Parse multi-value filters
+  const accountIds = parseMultiValue(accountId)
   const categories = parseMultiValue(category)
   const statementIds = parseMultiValue(statementId)
 
   const stats = await getTransactionStats(userId, {
     profileId: profileId || undefined,
-    accountId: accountId || undefined,
+    accountId: accountIds,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     category: categories,
     statementId: statementIds,
     type: type && ['credit', 'debit'].includes(type) ? (type as 'credit' | 'debit') : undefined,
     search: search || undefined,
+    isSubscription:
+      isSubscription === 'true' ? true : isSubscription === 'false' ? false : undefined,
   })
 
   return c.json(stats)

@@ -522,27 +522,42 @@ For PPF, FD, EPF:
 
 ## Implementation Order
 
-### Phase 1: Core Infrastructure
-- [ ] Delete existing `investments` table and related code
-- [ ] Create new database tables (sources, holdings, transactions, snapshots)
-- [ ] Modify `statements` table (add document_type, source_id, holdings_count)
-- [ ] Modify `accountInfoSchema` to unified `documentInfoSchema`
-- [ ] Create investment holdings/transactions extraction schemas
-- [ ] Implement LLM-based parser code generation for investments
-- [ ] Implement parser caching in `app_config`
-- [ ] Modify upload endpoint to branch based on document_type
-- [ ] Implement investment parsing flow
-- [ ] Implement replace-all update strategy for sources
-- [ ] Implement snapshot creation on successful parse
+### Phase 1: Core Infrastructure ✅ COMPLETE
+- [x] Delete existing `investments` table and related code
+- [x] Create new database tables (sources, holdings, transactions, snapshots)
+- [x] Modify `statements` table (add document_type, source_id, holdings_count)
+- [x] Create investment services (sources, holdings, snapshots)
+- [x] Create investment routes (`/investments/sources`, `/investments/holdings`, `/investments/snapshots`)
+- [x] Update summary route for new investment structure
+- [x] Generate database migrations
+- [x] Modify `accountInfoSchema` to unified `documentInfoSchema`
+- [x] Create investment holdings/transactions extraction schemas
+- [x] Implement LLM-based parser code generation for investments
+- [x] Implement parser caching in `app_config`
+- [x] Modify upload endpoint to branch based on document_type
+- [x] Implement investment parsing flow
+- [x] Implement replace-all update strategy for sources
+- [x] Implement snapshot creation on successful parse
 
-### Phase 2: Frontend Integration
-- [ ] Update statements page to show both bank and investment statements
-- [ ] Update investments page with sources view and holdings display
-- [ ] Add snapshot history UI
-- [ ] Manual entry support (create "Manual" source type)
-- [ ] Integrate with dashboard net worth
+### Phase 2: Frontend Integration ✅ COMPLETE
+- [x] Update statements page to show both bank and investment statements
+- [x] Update investments page with sources view and holdings display
+- [x] Add snapshot history UI
+- [x] Integrate with dashboard net worth
+- [ ] Manual entry support (create "Manual" source type) - moved to Phase 3
+
+### Phase 2.5: CSV/XLSX Support ✅ COMPLETE
+- [x] Add xlsx library dependency for spreadsheet parsing
+- [x] Implement extractXlsxText() to convert XLSX to CSV format
+- [x] Update statements route to handle CSV and XLSX files
+- [x] Update cache key format to include file type (e.g., `hdfc_savings_account:csv:v1`)
+- [x] Update parser.ts to pass file type through the flow
+- [x] Update investment-parser.ts to pass file type through the flow
+- [x] Add spreadsheet-specific prompts for bank statement parsing
+- [x] Add spreadsheet-specific prompts for investment statement parsing
 
 ### Phase 3: Advanced Features
+- [ ] Manual entry support (create "Manual" source type)
 - [ ] Transaction history extraction from statements
 - [ ] Manual snapshot creation
 - [ ] Gain/loss reports
@@ -554,7 +569,207 @@ For PPF, FD, EPF:
 ## Implementation Progress
 
 ### Phase 1 Progress
-_Not started_
+
+**Completed:**
+
+1. **Database Schema Changes:**
+   - Deleted old `investments` table from both `schema.pg.ts` and `schema.sqlite.ts`
+   - Created 4 new tables: `investment_sources`, `investment_holdings`, `investment_transactions`, `investment_snapshots`
+   - Modified `statements` table: added `documentType`, `sourceId`, `holdingsCount` columns; made `accountId` nullable
+   - Updated `db/index.ts` to export new tables and types
+   - Generated fresh migrations (deleted old migrations per user request)
+
+2. **Constants & Types:**
+   - Added `INVESTMENT_SOURCE_TYPES` (per country: zerodha, groww, mf_central, etc.)
+   - Added `INVESTMENT_HOLDING_TYPES` (stock, mutual_fund, etf, bond, ppf, etc.)
+   - Added `INVESTMENT_TRANSACTION_TYPES` (buy, sell, dividend, interest, etc.)
+   - Added `SNAPSHOT_TYPES` and `DOCUMENT_TYPES`
+   - Added helper function `getInvestmentSourceTypesForCountry()`
+
+3. **Services:**
+   - `investment-sources.ts`: CRUD for investment sources (platforms)
+   - `investment-holdings.ts`: CRUD for holdings, `replaceHoldingsForSource()`, `getInvestmentSummary()`
+   - `investment-snapshots.ts`: CRUD for snapshots, `upsertSnapshot()`, `getLatestSnapshotPerSource()`
+
+4. **Routes:**
+   - Created unified `/investments` route with nested structure:
+     - `/investments/types` - Get available types
+     - `/investments/summary` - Get portfolio summary
+     - `/investments/sources` - CRUD for sources
+     - `/investments/sources/:id/holdings` - Holdings for a source
+     - `/investments/sources/:id/snapshots` - Snapshots for a source
+     - `/investments/holdings` - CRUD for holdings
+     - `/investments/snapshots` - CRUD for snapshots
+
+5. **Updated:**
+   - `summary.ts` route to use new `getInvestmentSummary()` from holdings service
+
+6. **LLM Schemas (schemas.ts):**
+   - Added `documentInfoSchema` - unified schema for document type detection
+   - Added `investmentStatementSummarySchema` - portfolio summary extraction
+   - Added `investmentHoldingSchema` - single holding extraction
+   - Added `investmentHoldingsResultSchema` - complete holdings extraction result
+   - Added `investmentTransactionSchema` - investment transaction extraction
+   - Added `investmentTransactionsResultSchema` - complete transactions extraction
+   - Added type exports: `DocumentInfo`, `InvestmentHoldingParsed`, `InvestmentHoldingsResult`, etc.
+
+7. **Investment Parser Code Generation (generate-investment-parser-code.ts):**
+   - Created `generateInvestmentParserCode()` - agentic LLM-based parser generation
+   - Source-specific hints for: zerodha, groww, mf_central, ppf, epf, nps, vested, fd
+   - Validation against expected summary (holdings count, total values)
+   - Iterative refinement via ToolLoopAgent
+
+8. **Investment Parser Caching (investment-parser-cache.ts):**
+   - Created `generateInvestmentSourceKey()` - normalize source type to cache key
+   - Created `getInvestmentParserCodes()` - retrieve cached parsers
+   - Created `saveInvestmentParserCode()` - cache new parser versions
+   - Created `runInvestmentParserWithVersions()` - try cached parsers with validation
+   - Success/failure tracking for cached parsers
+
+9. **Investment Parsing Flow (investment-parser.ts):**
+   - Created `extractDocumentInfo()` - unified document type detection
+   - Created `parseInvestmentStatement()` - main investment parsing flow
+   - Source creation/matching via `findSourceByTypeAndIdentifier()`
+   - Holdings replacement using `replaceHoldingsForSource()` (replace-all strategy)
+   - Automatic snapshot creation via `upsertSnapshot()` on successful parse
+   - Update of `statements` table with `sourceId`, `documentType`, `holdingsCount`
+
+10. **Parser Integration (parser.ts):**
+    - Added `detectDocumentType()` function using `documentInfoSchema`
+    - Modified `parseStatement()` to first detect document type
+    - Routes to `parseInvestmentStatement()` for investment statements
+    - Continues with existing bank/credit card flow otherwise
+    - Added null check for `accountId` (required for bank statements)
+
+11. **Type Updates:**
+    - Updated `StatementResponse.accountId` to be nullable
+    - Fixed type issues in investment parser
+
+**Phase 1 Complete!** All core infrastructure is in place. The system now:
+- Detects document type (bank/credit card vs investment) automatically
+- Routes to appropriate parsing flow
+- Generates and caches parser code for investment statements
+- Replaces holdings with replace-all strategy
+- Creates snapshots on successful parse
+
+### Phase 2 Progress
+
+**Completed:**
+
+1. **Statements Page Updates (statements.tsx):**
+   - Added `TrendingUp` icon for investment statements
+   - Added `getInvestmentSources` API call to fetch investment sources
+   - Updated `StatementCard` component to:
+     - Accept `source` prop for investment statements
+     - Detect investment statements via `documentType === 'investment_statement'`
+     - Show appropriate icon (TrendingUp for investments, CreditCard for credit cards, Building2 for bank accounts)
+     - Display source name instead of account name for investment statements
+     - Show "Holdings" count instead of "Transactions" count
+     - Use "As of" label instead of "Period" for investment statements
+     - Update delete confirmation text for investment statements
+   - Updated empty state and upload dialog descriptions to include investment statements
+
+2. **Investments Page Complete Rewrite (investments.tsx):**
+   - Replaced old single-investment model with new sources/holdings model
+   - New features:
+     - **Sources View**: Shows investment sources (Zerodha, Groww, etc.) in expandable cards
+     - **Holdings View**: Shows all holdings grouped by source or as a flat list
+     - **Tabs**: "By Source", "All Holdings", and "History" views
+     - **Collapsible cards**: Click to expand/collapse source holdings
+     - **Add Source dialog**: Create new investment sources with type, name, institution, currency
+     - **Add Holding dialog**: Add holdings to sources with full form (type, name, symbol, ISIN, units, costs, values)
+     - **Auto-calculations**: Current value calculated from units × price, invested value from units × average cost
+     - **Summary cards**: Total current value, invested amount, gain/loss, returns percentage
+     - **Source logos**: Institution logos displayed based on source institution field
+     - **Edit/Delete**: Both sources and holdings can be edited or deleted
+     - **Link to import**: Button to navigate to statements page for importing statements
+     - **Snapshot History**: View portfolio snapshots over time with expandable details
+
+3. **Created Collapsible Component (collapsible.tsx):**
+   - Added Radix UI Collapsible component
+   - Installed `@radix-ui/react-collapsible` dependency
+
+4. **Fixed Dashboard Investment Summary (index.tsx):**
+   - Fixed field names: `totalCurrentValue` → `totalCurrent`, `gainLossPercentage` → `gainLossPercent`
+
+5. **Updated API Types (api.ts):**
+   - Updated `Statement` interface with new fields: `documentType`, `sourceId`, `holdingsCount`
+   - Made `accountId` nullable
+   - Replaced old `Investment` types with new: `InvestmentSource`, `InvestmentHolding`, `InvestmentSnapshot`
+   - Added new API functions for sources, holdings, snapshots
+   - Updated `FinancialSummary.investments` to match new structure
+
+6. **Dashboard Net Worth Integration (index.tsx):**
+   - Updated Net Worth card to show combined total wealth (accounts + investments)
+   - Subtitle now shows breakdown: "X cash + Y investments"
+   - Backend summary route already calculates `totals.totalWealth` = netWorth + investments
+
+7. **Backend Summary Route Fix (summary.ts):**
+   - Added missing `sourcesCount` field to investments response
+
+**Phase 2 Complete!** Frontend integration is fully implemented:
+- Statements page shows both bank and investment statements with appropriate UI
+- Investments page completely rebuilt with sources/holdings model, tabs for different views, and snapshot history
+- Dashboard net worth now includes investments in the total
+- All API types match the backend structure
+
+---
+
+## CSV/XLSX Support
+
+### Overview
+
+Investment statements from many brokers are available as CSV or Excel (XLSX) exports, which are much easier to parse than PDFs. CSV/XLSX files have structured, tabular data that doesn't require complex regex patterns.
+
+### Supported File Types
+
+| File Type | Extension | Parsing Method |
+|-----------|-----------|----------------|
+| PDF | `.pdf` | Extract text via pdf-parse, LLM generates regex-based parser |
+| CSV | `.csv` | Read as text directly, LLM generates column-splitting parser |
+| Excel | `.xlsx`, `.xls` | Convert to CSV via xlsx library, then parse like CSV |
+
+### Cache Key Format
+
+Parser code is cached separately for each file type since the parsing approach is different:
+
+**Bank Statements:**
+```
+parser_code:{institution}_{account_type}:{file_type}:v{version}
+```
+Examples:
+- `parser_code:hdfc_savings_account:pdf:v1`
+- `parser_code:hdfc_savings_account:csv:v1`
+- `parser_code:icici_credit_card:xlsx:v1`
+
+**Investment Statements:**
+```
+inv_parser_code:{source_type}:{file_type}:v{version}
+```
+Examples:
+- `inv_parser_code:zerodha:pdf:v1`
+- `inv_parser_code:zerodha:csv:v1`
+- `inv_parser_code:groww:xlsx:v1`
+
+### Parsing Flow
+
+1. **Upload**: User uploads PDF, CSV, or XLSX file
+2. **Text Extraction**:
+   - PDF: `extractPdfText()` - page by page
+   - CSV: `extractCsvText()` - read as UTF-8 text
+   - XLSX: `extractXlsxText()` - convert each sheet to CSV format
+3. **Document Detection**: LLM detects document type (bank/credit card/investment)
+4. **Parser Generation**: LLM generates file-type-specific parser code
+   - CSV/XLSX get simpler prompts focused on column splitting
+   - PDF gets prompts with regex guidance
+5. **Caching**: Parser code cached with file type in key
+
+### Benefits of CSV/XLSX
+
+- **Higher accuracy**: Structured data means less parsing ambiguity
+- **Faster parsing**: Simpler code generation, fewer retries needed
+- **Better column mapping**: Headers clearly identify columns
+- **No OCR issues**: No text extraction errors from PDFs
 
 ---
 

@@ -30,12 +30,29 @@ SALARY in India is ONLY paid via NEFT/RTGS/IMPS from employer, NEVER via UPI!
 - Just because credits are regular/monthly does NOT make them salary
 - Credits from individuals (person names) = transfer, NOT salary
 
+=== SOFTWARE & SERVICES (software) ===
+- AI tools: Claude AI, Anthropic, OpenAI, ChatGPT, Midjourney, Perplexity = software
+- Cloud/Hosting: AWS, Google Cloud, Azure, Vercel, Netlify, Heroku, DigitalOcean, Render, Railway = software
+- Domains/DNS: Namecheap, GoDaddy, Cloudflare, Google Domains = software
+- Dev tools: GitHub, GitLab, JetBrains, Figma, Linear, Notion, Slack, Postman = software
+- SaaS: Zoom, Dropbox, Google Workspace, Microsoft 365, Adobe, Canva, Grammarly = software
+- VPN/Security: NordVPN, ExpressVPN, 1Password, LastPass, Bitwarden = software
+
+=== PERSONAL CARE & FITNESS (personal_care) ===
+- Gym, fitness: Cult.fit, Gold's Gym, fitness center, yoga studio = personal_care
+- Salon, grooming: Naturals, Lakme, Urban Company, barber, haircut, spa = personal_care
+- Wellness: massage, spa, beauty treatments = personal_care
+
+=== GIFTS & FLOWERS (gifts) ===
+- Flower delivery: FNP, Ferns N Petals, IGP, FlowerAura, Bloomsvilla = gifts
+- Gift shops, gift cards, presents, occasion gifts = gifts
+
 === OTHER CATEGORIES ===
 - NoBroker, Housing.com, 99acres, rent-related = rent
 - Swiggy, Zomato, restaurant names, food delivery = food_dining
 - BigBasket, Zepto, Blinkit, DMart, grocery stores = groceries
-- Amazon, Flipkart, Myntra, Ajio, Meesho = shopping
-- Netflix, Spotify, Prime Video, Hotstar, JioCinema = entertainment
+- Amazon, Flipkart, Myntra, Ajio, Meesho = shopping (unless clearly software/digital)
+- Netflix, Spotify, Prime Video, Hotstar, JioCinema, YouTube Premium = entertainment
 - CRED, credit card payments, card bill = credit_card_payment
 - Person names via UPI (P2P transfers) = transfer (even if recurring monthly!)
 - ATM, cash withdrawal, CWDR = atm_withdrawal
@@ -55,8 +72,8 @@ SALARY in India is ONLY paid via NEFT/RTGS/IMPS from employer, NEVER via UPI!
 - Mortgage, home loan, Wells Fargo Mortgage, Chase Home = mortgage
 - DoorDash, Uber Eats, Grubhub, restaurants = food_dining
 - Whole Foods, Trader Joe's, Kroger, Walmart Grocery = groceries
-- Amazon, Target, Walmart, Best Buy, Costco = shopping
-- Netflix, Spotify, HBO Max, Disney+, Hulu, Apple TV = entertainment
+- Amazon, Target, Walmart, Best Buy, Costco = shopping (unless clearly software/digital)
+- Netflix, Spotify, HBO Max, Disney+, Hulu, Apple TV, YouTube Premium = entertainment
 - Credit card payment, card services = credit_card_payment
 - Venmo, Zelle, PayPal, Cash App (person names) = transfer
 - ATM withdrawal, cash back = atm_withdrawal
@@ -69,7 +86,24 @@ SALARY in India is ONLY paid via NEFT/RTGS/IMPS from employer, NEVER via UPI!
 - Shell, Chevron, ExxonMobil, gas station = gas
 - Daycare, preschool, childcare, nanny = childcare
 - Tuition, student loan, college, university = education
-- Petco, PetSmart, vet, veterinary = pet`,
+- Petco, PetSmart, vet, veterinary = pet
+
+=== SOFTWARE & SERVICES (software) ===
+- AI tools: Claude AI, Anthropic, OpenAI, ChatGPT, Midjourney, Perplexity = software
+- Cloud/Hosting: AWS, Google Cloud, Azure, Vercel, Netlify, Heroku, DigitalOcean, Render, Railway = software
+- Domains/DNS: Namecheap, GoDaddy, Cloudflare, Google Domains = software
+- Dev tools: GitHub, GitLab, JetBrains, Figma, Linear, Notion, Slack, Postman = software
+- SaaS: Zoom, Dropbox, Google Workspace, Microsoft 365, Adobe, Canva, Grammarly = software
+- VPN/Security: NordVPN, ExpressVPN, 1Password, LastPass, Bitwarden = software
+
+=== PERSONAL CARE & FITNESS (personal_care) ===
+- Gym, fitness: Planet Fitness, LA Fitness, Equinox, Orange Theory, yoga studio = personal_care
+- Salon, grooming: Great Clips, Supercuts, salon, barber, haircut, spa = personal_care
+- Wellness: massage, spa, beauty treatments = personal_care
+
+=== GIFTS & FLOWERS (gifts) ===
+- Flower delivery: 1-800-Flowers, ProFlowers, FTD, Teleflora = gifts
+- Gift shops, gift cards, Hallmark, presents = gifts`,
 }
 
 /**
@@ -115,8 +149,14 @@ GOOD SUMMARIES (specific, mention merchant/recipient):
 - "Zomato restaurant order"
 - "Amazon electronics purchase" or "Amazon order"
 - "Flipkart fashion purchase"
-- "Netflix monthly subscription"
+- "Netflix subscription"
 - "Spotify subscription"
+- "Claude AI subscription"
+- "ChatGPT Plus subscription"
+- "Vercel hosting"
+- "Namecheap domain renewal"
+- "GitHub Pro subscription"
+- "Figma subscription"
 - "ATM cash withdrawal"
 - "BESCOM electricity bill"
 - "Airtel mobile recharge"
@@ -129,6 +169,10 @@ GOOD SUMMARIES (specific, mention merchant/recipient):
 - "Credit card bill payment"
 - "Uber cab ride"
 - "Ola auto ride"
+- "Cult.fit gym membership"
+- "Urban Company salon service"
+- "FNP flower delivery"
+- "IGP gift order"
 
 Extract the MERCHANT NAME or RECIPIENT NAME from the description. Don't use generic terms.`,
 
@@ -146,6 +190,13 @@ GOOD SUMMARIES (specific, mention merchant/recipient):
 - "Target grocery shopping"
 - "Netflix subscription"
 - "Spotify premium"
+- "Claude AI subscription"
+- "ChatGPT Plus subscription"
+- "Vercel Pro hosting"
+- "Namecheap domain renewal"
+- "AWS services"
+- "GitHub subscription"
+- "Figma subscription"
 - "ATM cash withdrawal"
 - "PG&E electric bill"
 - "Verizon phone bill"
@@ -160,6 +211,10 @@ GOOD SUMMARIES (specific, mention merchant/recipient):
 - "Credit card bill payment"
 - "Uber ride"
 - "Lyft ride"
+- "Planet Fitness gym"
+- "Supercuts haircut"
+- "1-800-Flowers delivery"
+- "Hallmark gift"
 
 Extract the MERCHANT NAME or RECIPIENT NAME from the description. Don't use generic terms.`,
 }
@@ -222,12 +277,12 @@ function parseCategoryCSV(
     if (!line.trim() || line.toLowerCase().startsWith('id,')) continue
 
     const fields = parseCSVLine(line)
-    if (fields.length < 4) {
+    if (fields.length < 5) {
       logger.warn(`[Categorize] Skipping malformed CSV line: ${line}`)
       continue
     }
 
-    const [id, category, confidenceStr, summary] = fields
+    const [id, category, confidenceStr, summary, isSubStr] = fields
 
     if (!id) continue
 
@@ -238,11 +293,15 @@ function parseCategoryCSV(
     // Parse confidence
     const confidence = parseFloat(confidenceStr || '0.8')
 
+    // Parse is_subscription (1 or 0)
+    const isSubscription = isSubStr?.trim() === '1'
+
     result.set(id.trim(), {
       id: id.trim(),
       category: finalCategory,
       confidence: isNaN(confidence) ? 0.8 : Math.min(1, Math.max(0, confidence)),
       summary: summary?.trim() || '',
+      isSubscription,
     })
   }
 
@@ -276,23 +335,28 @@ CATEGORIES:
 ${categoryList}
 
 OUTPUT FORMAT (CSV):
-id,category,confidence,summary
+id,category,confidence,summary,is_subscription
 
 RULES:
 - id: exact ID from input
 - category: code from categories list
 - confidence: 0.0 to 1.0 (higher for recurring patterns you're sure about)
 - summary: 2-5 word description (e.g., "Monthly salary", "Netflix subscription", "ATM withdrawal")
+- is_subscription: 1 if recurring subscription/service, 0 otherwise
 
-PATTERN DETECTION:
-- Same amount on similar dates = likely recurring (salary, rent, subscription)
-- Same merchant = same category
-- Regular intervals = subscription or bill
+SUBSCRIPTION DETECTION (is_subscription=1):
+- Streaming services: Netflix, Spotify, YouTube Premium, etc.
+- Software/SaaS: Claude AI, ChatGPT, GitHub, Figma, Adobe, etc.
+- Cloud services: AWS, Vercel, hosting, domains
+- Recurring memberships: gym, clubs, premium services
+- Monthly/annual service fees
+- NOT one-time purchases, NOT salary, NOT rent, NOT utilities
 
 Example:
-abc123,salary,1.0,"Monthly salary deposit"
-def456,entertainment,0.95,"Netflix subscription"
-ghi789,utilities,0.9,"Monthly electricity bill"`
+abc123,salary,1.0,"Monthly salary deposit",0
+def456,entertainment,0.95,"Netflix subscription",1
+ghi789,utilities,0.9,"Monthly electricity bill",0
+jkl012,software,0.95,"Claude AI subscription",1`
 
   try {
     const { text } = await generateText({
@@ -416,6 +480,7 @@ export async function categorizeTransactionsByIds(
           category: 'other',
           confidence: 0.5,
           summary: txn.description.slice(0, 50),
+          isSubscription: false,
         })
       }
     }
@@ -441,6 +506,7 @@ async function updateTransactionCategory(cat: CategorizedTransaction): Promise<b
       category: cat.category,
       categoryConfidence: cat.confidence.toString(),
       summary,
+      isSubscription: cat.isSubscription,
       updatedAt: now as Date,
     })
     .where(eq(tables.transactions.id, cat.id))
@@ -489,7 +555,7 @@ CATEGORIES:
 ${categoryList}
 
 OUTPUT FORMAT - CSV ONLY, one line per transaction:
-id,category,confidence,summary
+id,category,confidence,summary,is_subscription
 
 RULES:
 - Output EXACTLY ${transactions.length} CSV lines, one per transaction
@@ -498,6 +564,14 @@ RULES:
 - category: code from categories list
 - confidence: 0.0 to 1.0
 - summary: Short, meaningful description (see examples below)
+- is_subscription: 1 if recurring subscription/service, 0 otherwise
+
+SUBSCRIPTION DETECTION (is_subscription=1):
+- Streaming: Netflix, Spotify, YouTube Premium, Prime Video, etc.
+- Software/SaaS: Claude AI, ChatGPT, GitHub, Figma, Adobe, Notion, etc.
+- Cloud/Hosting: AWS, Vercel, Netlify, Namecheap, domains, etc.
+- Memberships: gym, premium services, recurring fees
+- NOT one-time purchases, NOT salary, NOT rent, NOT utilities
 
 ${categoryHints}
 
@@ -538,12 +612,12 @@ START OUTPUT NOW:`
         if (!line.trim() || line.toLowerCase().startsWith('id,')) continue
 
         const fields = parseCSVLine(line)
-        if (fields.length < 4) {
+        if (fields.length < 5) {
           failed++
           continue
         }
 
-        const [id, category, confidenceStr, summary] = fields
+        const [id, category, confidenceStr, summary, isSubStr] = fields
         if (!id) {
           failed++
           continue
@@ -552,6 +626,7 @@ START OUTPUT NOW:`
         const categoryCode = category?.toLowerCase().trim() || 'other'
         const finalCategory = validCategories.includes(categoryCode) ? categoryCode : 'other'
         const confidence = parseFloat(confidenceStr || '0.8')
+        const isSubscription = isSubStr?.trim() === '1'
 
         try {
           await onCategorized({
@@ -559,6 +634,7 @@ START OUTPUT NOW:`
             category: finalCategory,
             confidence: isNaN(confidence) ? 0.8 : Math.min(1, Math.max(0, confidence)),
             summary: summary?.trim() || '',
+            isSubscription,
           })
           success++
           linesProcessed++
@@ -577,11 +653,12 @@ START OUTPUT NOW:`
     // Process remaining buffer (last line without newline)
     if (buffer.trim() && !buffer.toLowerCase().startsWith('id,')) {
       const fields = parseCSVLine(buffer)
-      if (fields.length >= 4 && fields[0]) {
-        const [id, category, confidenceStr, summary] = fields
+      if (fields.length >= 5 && fields[0]) {
+        const [id, category, confidenceStr, summary, isSubStr] = fields
         const categoryCode = category?.toLowerCase().trim() || 'other'
         const finalCategory = validCategories.includes(categoryCode) ? categoryCode : 'other'
         const confidence = parseFloat(confidenceStr || '0.8')
+        const isSubscription = isSubStr?.trim() === '1'
 
         try {
           await onCategorized({
@@ -589,6 +666,7 @@ START OUTPUT NOW:`
             category: finalCategory,
             confidence: isNaN(confidence) ? 0.8 : Math.min(1, Math.max(0, confidence)),
             summary: summary?.trim() || '',
+            isSubscription,
           })
           success++
         } catch {

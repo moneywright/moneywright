@@ -25,6 +25,488 @@ export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number]
  */
 export const DEFAULT_USER_ID = 'default'
 
+// ============================================================================
+// INSTITUTIONS (Banks, NBFCs, etc.)
+// ============================================================================
+
+/**
+ * Institution definition
+ */
+export interface Institution {
+  id: string
+  name: string
+  logo: string
+  website?: string
+}
+
+/**
+ * India institutions - Banks, NBFCs, Payment Banks, Small Finance Banks
+ * All IDs are lowercase for consistency
+ */
+const INSTITUTIONS_IN: Institution[] = [
+  // Large public sector & private banks
+  {
+    id: 'sbi',
+    name: 'State Bank of India',
+    logo: '/institutions/in/sbi.svg',
+    website: 'https://sbi.co.in',
+  },
+  {
+    id: 'hdfc',
+    name: 'HDFC Bank',
+    logo: '/institutions/in/hdfc.svg',
+    website: 'https://hdfcbank.com',
+  },
+  {
+    id: 'icici',
+    name: 'ICICI Bank',
+    logo: '/institutions/in/icici.svg',
+    website: 'https://icicibank.com',
+  },
+  {
+    id: 'axis',
+    name: 'Axis Bank',
+    logo: '/institutions/in/axis.svg',
+    website: 'https://axisbank.com',
+  },
+  {
+    id: 'kotak',
+    name: 'Kotak Mahindra Bank',
+    logo: '/institutions/in/kotak.svg',
+    website: 'https://kotak.com',
+  },
+  {
+    id: 'indusind',
+    name: 'IndusInd Bank',
+    logo: '/institutions/in/indusind.svg',
+    website: 'https://indusind.com',
+  },
+  { id: 'yes', name: 'Yes Bank', logo: '/institutions/in/yes.svg', website: 'https://yesbank.in' },
+  {
+    id: 'idfc',
+    name: 'IDFC First Bank',
+    logo: '/institutions/in/idfc.svg',
+    website: 'https://idfcfirstbank.com',
+  },
+  {
+    id: 'federal',
+    name: 'Federal Bank',
+    logo: '/institutions/in/federal.svg',
+    website: 'https://federalbank.co.in',
+  },
+  { id: 'rbl', name: 'RBL Bank', logo: '/institutions/in/rbl.svg', website: 'https://rblbank.com' },
+  {
+    id: 'bob',
+    name: 'Bank of Baroda',
+    logo: '/institutions/in/bob.svg',
+    website: 'https://bankofbaroda.in',
+  },
+  {
+    id: 'pnb',
+    name: 'Punjab National Bank',
+    logo: '/institutions/in/pnb.svg',
+    website: 'https://pnbindia.in',
+  },
+  {
+    id: 'canara',
+    name: 'Canara Bank',
+    logo: '/institutions/in/canara.svg',
+    website: 'https://canarabank.com',
+  },
+  {
+    id: 'union',
+    name: 'Union Bank of India',
+    logo: '/institutions/in/union.svg',
+    website: 'https://unionbankofindia.co.in',
+  },
+  {
+    id: 'boi',
+    name: 'Bank of India',
+    logo: '/institutions/in/boi.svg',
+    website: 'https://bankofindia.co.in',
+  },
+  {
+    id: 'indian',
+    name: 'Indian Bank',
+    logo: '/institutions/in/indian.svg',
+    website: 'https://indianbank.in',
+  },
+  {
+    id: 'cbi',
+    name: 'Central Bank of India',
+    logo: '/institutions/in/cbi.svg',
+    website: 'https://centralbankofindia.co.in',
+  },
+  {
+    id: 'iob',
+    name: 'Indian Overseas Bank',
+    logo: '/institutions/in/iob.svg',
+    website: 'https://iob.in',
+  },
+  { id: 'uco', name: 'UCO Bank', logo: '/institutions/in/uco.svg', website: 'https://ucobank.com' },
+  {
+    id: 'idbi',
+    name: 'IDBI Bank',
+    logo: '/institutions/in/idbi.svg',
+    website: 'https://idbibank.in',
+  },
+  {
+    id: 'bandhan',
+    name: 'Bandhan Bank',
+    logo: '/institutions/in/bandhan.svg',
+    website: 'https://bandhanbank.com',
+  },
+  {
+    id: 'bom',
+    name: 'Bank of Maharashtra',
+    logo: '/institutions/in/bom.svg',
+    website: 'https://bankofmaharashtra.in',
+  },
+  {
+    id: 'psb',
+    name: 'Punjab & Sind Bank',
+    logo: '/institutions/in/psb.svg',
+    website: 'https://psbindia.com',
+  },
+  {
+    id: 'jk',
+    name: 'Jammu & Kashmir Bank',
+    logo: '/institutions/in/jk.svg',
+    website: 'https://jkbank.com',
+  },
+  {
+    id: 'karnataka',
+    name: 'Karnataka Bank',
+    logo: '/institutions/in/karnataka.svg',
+    website: 'https://karnatakabank.com',
+  },
+  {
+    id: 'sib',
+    name: 'South Indian Bank',
+    logo: '/institutions/in/sib.svg',
+    website: 'https://southindianbank.com',
+  },
+  { id: 'csb', name: 'CSB Bank', logo: '/institutions/in/csb.svg', website: 'https://csb.co.in' },
+  {
+    id: 'cub',
+    name: 'City Union Bank',
+    logo: '/institutions/in/cub.svg',
+    website: 'https://cityunionbank.com',
+  },
+  {
+    id: 'tmb',
+    name: 'Tamilnad Mercantile Bank',
+    logo: '/institutions/in/tmb.svg',
+    website: 'https://tmb.in',
+  },
+  { id: 'dcb', name: 'DCB Bank', logo: '/institutions/in/dcb.svg', website: 'https://dcbbank.com' },
+  {
+    id: 'dhanlaxmi',
+    name: 'Dhanlaxmi Bank',
+    logo: '/institutions/in/dhanlaxmi.svg',
+    website: 'https://dfrancis.com',
+  },
+  {
+    id: 'nainital',
+    name: 'Nainital Bank',
+    logo: '/institutions/in/nainital.svg',
+    website: 'https://nainitalbank.co.in',
+  },
+
+  // Small Finance Banks
+  {
+    id: 'au_sfb',
+    name: 'AU Small Finance Bank',
+    logo: '/institutions/in/au_sfb.svg',
+    website: 'https://aubank.in',
+  },
+  {
+    id: 'equitas_sfb',
+    name: 'Equitas Small Finance Bank',
+    logo: '/institutions/in/equitas_sfb.svg',
+    website: 'https://equitasbank.com',
+  },
+  {
+    id: 'ujjivan_sfb',
+    name: 'Ujjivan Small Finance Bank',
+    logo: '/institutions/in/ujjivan_sfb.svg',
+    website: 'https://ujjivansfb.in',
+  },
+  {
+    id: 'suryoday_sfb',
+    name: 'Suryoday Small Finance Bank',
+    logo: '/institutions/in/suryoday_sfb.svg',
+    website: 'https://suryodaybank.com',
+  },
+  {
+    id: 'utkarsh_sfb',
+    name: 'Utkarsh Small Finance Bank',
+    logo: '/institutions/in/utkarsh_sfb.svg',
+    website: 'https://utkarsh.bank',
+  },
+  {
+    id: 'esaf_sfb',
+    name: 'ESAF Small Finance Bank',
+    logo: '/institutions/in/esaf_sfb.svg',
+    website: 'https://esafbank.com',
+  },
+  {
+    id: 'jana_sfb',
+    name: 'Jana Small Finance Bank',
+    logo: '/institutions/in/jana_sfb.svg',
+    website: 'https://janabank.com',
+  },
+  {
+    id: 'capital_sfb',
+    name: 'Capital Small Finance Bank',
+    logo: '/institutions/in/capital_sfb.svg',
+    website: 'https://capitalbank.co.in',
+  },
+  {
+    id: 'north_east_sfb',
+    name: 'North East Small Finance Bank',
+    logo: '/institutions/in/north_east_sfb.svg',
+    website: 'https://nesfb.com',
+  },
+  {
+    id: 'shivalik_sfb',
+    name: 'Shivalik Small Finance Bank',
+    logo: '/institutions/in/shivalik_sfb.svg',
+    website: 'https://shivalikbank.com',
+  },
+  {
+    id: 'unity_sfb',
+    name: 'Unity Small Finance Bank',
+    logo: '/institutions/in/unity_sfb.svg',
+    website: 'https://theunitybank.com',
+  },
+
+  // Payments Banks
+  {
+    id: 'airtel_pb',
+    name: 'Airtel Payments Bank',
+    logo: '/institutions/in/airtel_pb.svg',
+    website: 'https://airtel.in/bank',
+  },
+  {
+    id: 'paytm_pb',
+    name: 'Paytm Payments Bank',
+    logo: '/institutions/in/paytm_pb.svg',
+    website: 'https://paytmbank.com',
+  },
+  {
+    id: 'ippb',
+    name: 'India Post Payments Bank',
+    logo: '/institutions/in/ippb.svg',
+    website: 'https://ippbonline.com',
+  },
+  {
+    id: 'fino_pb',
+    name: 'Fino Payments Bank',
+    logo: '/institutions/in/fino_pb.svg',
+    website: 'https://finobank.com',
+  },
+  {
+    id: 'jio_pb',
+    name: 'Jio Payments Bank',
+    logo: '/institutions/in/jio_pb.svg',
+    website: 'https://jiopaymentsbank.com',
+  },
+  {
+    id: 'nsdl_pb',
+    name: 'NSDL Payments Bank',
+    logo: '/institutions/in/nsdl_pb.svg',
+    website: 'https://nsdlbank.com',
+  },
+
+  // Foreign banks operating in India
+  {
+    id: 'sbm',
+    name: 'SBM Bank India',
+    logo: '/institutions/in/sbm.svg',
+    website: 'https://sbmbank.co.in',
+  },
+  {
+    id: 'amex',
+    name: 'American Express',
+    logo: '/institutions/in/amex.svg',
+    website: 'https://www.americanexpress.com/in/',
+  },
+  {
+    id: 'scb',
+    name: 'Standard Chartered Bank',
+    logo: '/institutions/in/scb.svg',
+    website: 'https://sc.com/in',
+  },
+  {
+    id: 'hsbc',
+    name: 'HSBC Bank',
+    logo: '/institutions/in/hsbc.svg',
+    website: 'https://hsbc.co.in',
+  },
+  {
+    id: 'citi',
+    name: 'Citibank',
+    logo: '/institutions/in/citi.svg',
+    website: 'https://citibank.co.in',
+  },
+  {
+    id: 'db',
+    name: 'Deutsche Bank',
+    logo: '/institutions/in/db.svg',
+    website: 'https://deutschebank.co.in',
+  },
+  {
+    id: 'barclays',
+    name: 'Barclays Bank',
+    logo: '/institutions/in/barclays.svg',
+    website: 'https://barclays.in',
+  },
+  {
+    id: 'bofa',
+    name: 'Bank of America',
+    logo: '/institutions/in/bofa.svg',
+    website: 'https://bofaml.com/india',
+  },
+  { id: 'dbs', name: 'DBS Bank', logo: '/institutions/in/dbs.svg', website: 'https://dbs.com/in' },
+  {
+    id: 'bnp',
+    name: 'BNP Paribas',
+    logo: '/institutions/in/bnp.svg',
+    website: 'https://bnpparibas.co.in',
+  },
+  {
+    id: 'jpmorgan',
+    name: 'JPMorgan Chase',
+    logo: '/institutions/in/jpmorgan.svg',
+    website: 'https://jpmorgan.com/in',
+  },
+
+  // Generic
+  { id: 'other', name: 'Other', logo: '/institutions/in/other.svg' },
+]
+
+/**
+ * US institutions
+ */
+const INSTITUTIONS_US: Institution[] = [
+  { id: 'chase', name: 'Chase', logo: '/institutions/us/chase.svg', website: 'https://chase.com' },
+  {
+    id: 'bofa',
+    name: 'Bank of America',
+    logo: '/institutions/us/bofa.svg',
+    website: 'https://bankofamerica.com',
+  },
+  {
+    id: 'wells_fargo',
+    name: 'Wells Fargo',
+    logo: '/institutions/us/wells_fargo.svg',
+    website: 'https://wellsfargo.com',
+  },
+  { id: 'citi', name: 'Citibank', logo: '/institutions/us/citi.svg', website: 'https://citi.com' },
+  {
+    id: 'capital_one',
+    name: 'Capital One',
+    logo: '/institutions/us/capital_one.svg',
+    website: 'https://capitalone.com',
+  },
+  {
+    id: 'amex',
+    name: 'American Express',
+    logo: '/institutions/us/amex.svg',
+    website: 'https://americanexpress.com',
+  },
+  {
+    id: 'discover',
+    name: 'Discover',
+    logo: '/institutions/us/discover.svg',
+    website: 'https://discover.com',
+  },
+  {
+    id: 'us_bank',
+    name: 'U.S. Bank',
+    logo: '/institutions/us/us_bank.svg',
+    website: 'https://usbank.com',
+  },
+  { id: 'pnc', name: 'PNC Bank', logo: '/institutions/us/pnc.svg', website: 'https://pnc.com' },
+  {
+    id: 'truist',
+    name: 'Truist',
+    logo: '/institutions/us/truist.svg',
+    website: 'https://truist.com',
+  },
+  { id: 'td', name: 'TD Bank', logo: '/institutions/us/td.svg', website: 'https://td.com' },
+  {
+    id: 'schwab',
+    name: 'Charles Schwab',
+    logo: '/institutions/us/schwab.svg',
+    website: 'https://schwab.com',
+  },
+  {
+    id: 'fidelity',
+    name: 'Fidelity',
+    logo: '/institutions/us/fidelity.svg',
+    website: 'https://fidelity.com',
+  },
+  { id: 'ally', name: 'Ally Bank', logo: '/institutions/us/ally.svg', website: 'https://ally.com' },
+  {
+    id: 'marcus',
+    name: 'Marcus by Goldman Sachs',
+    logo: '/institutions/us/marcus.svg',
+    website: 'https://marcus.com',
+  },
+
+  // Generic
+  { id: 'other', name: 'Other', logo: '/institutions/us/other.svg' },
+]
+
+/**
+ * All institutions by country
+ */
+const INSTITUTIONS: Record<CountryCode, Institution[]> = {
+  IN: INSTITUTIONS_IN,
+  US: INSTITUTIONS_US,
+}
+
+/**
+ * Get institutions for a country
+ */
+export function getInstitutionsForCountry(countryCode: CountryCode): Institution[] {
+  return INSTITUTIONS[countryCode] || []
+}
+
+/**
+ * Get institution by ID for a country
+ */
+export function getInstitutionById(
+  countryCode: CountryCode,
+  institutionId: string
+): Institution | undefined {
+  const institutions = getInstitutionsForCountry(countryCode)
+  return institutions.find((i) => i.id === institutionId)
+}
+
+/**
+ * Get institution name by ID (returns ID if not found)
+ */
+export function getInstitutionName(countryCode: CountryCode, institutionId: string): string {
+  const institution = getInstitutionById(countryCode, institutionId)
+  return institution?.name || institutionId
+}
+
+/**
+ * Format institution list for LLM prompt
+ * Returns a string like "hdfc: HDFC Bank\nicici: ICICI Bank\n..."
+ */
+export function formatInstitutionsForLLM(countryCode: CountryCode): string {
+  const institutions = getInstitutionsForCountry(countryCode)
+  return institutions.map((i) => `${i.id}: ${i.name}`).join('\n')
+}
+
+// ============================================================================
+// ACCOUNT TYPES
+// ============================================================================
+
 /**
  * Account types by country
  */
@@ -54,75 +536,88 @@ export const ACCOUNT_TYPES = {
 
 export type AccountTypeCode = (typeof ACCOUNT_TYPES)[CountryCode][number]['code']
 
+// ============================================================================
+// TRANSACTION CATEGORIES
+// ============================================================================
+
 /**
  * Transaction categories by country
  */
 export const TRANSACTION_CATEGORIES = {
   IN: [
-    { code: 'food_dining', label: 'Food & Dining' },
-    { code: 'groceries', label: 'Groceries' },
-    { code: 'shopping', label: 'Shopping' },
-    { code: 'utilities', label: 'Utilities (Electricity, Water, Gas)' },
-    { code: 'mobile_internet', label: 'Mobile & Internet' },
-    { code: 'emi', label: 'EMI / Loan Payment' },
-    { code: 'rent', label: 'Rent' },
-    { code: 'fuel', label: 'Fuel' },
-    { code: 'entertainment', label: 'Entertainment' },
-    { code: 'travel', label: 'Travel' },
-    { code: 'healthcare', label: 'Healthcare' },
-    { code: 'education', label: 'Education' },
-    { code: 'insurance', label: 'Insurance' },
-    { code: 'investment', label: 'Investment' },
-    { code: 'transfer', label: 'Transfer' },
-    { code: 'atm_withdrawal', label: 'ATM Withdrawal' },
-    { code: 'salary', label: 'Salary / Income' },
-    { code: 'refund', label: 'Refund' },
-    { code: 'cashback', label: 'Cashback / Rewards' },
-    { code: 'tax', label: 'Tax Payment' },
-    { code: 'government', label: 'Government Services' },
-    { code: 'charity', label: 'Charity / Donations' },
-    { code: 'dividend', label: 'Dividend' },
-    { code: 'interest', label: 'Interest' },
-    { code: 'credit_card_payment', label: 'Credit Card Payment' },
-    { code: 'bank_charges', label: 'Bank Charges / Fees' },
-    { code: 'forex', label: 'Foreign Exchange' },
-    { code: 'other', label: 'Other' },
+    { code: 'food_dining', label: 'Food & Dining', color: 'orange' },
+    { code: 'groceries', label: 'Groceries', color: 'lime' },
+    { code: 'shopping', label: 'Shopping', color: 'blue' },
+    { code: 'utilities', label: 'Utilities (Electricity, Water, Gas)', color: 'cyan' },
+    { code: 'mobile_internet', label: 'Mobile & Internet', color: 'cyan' },
+    { code: 'emi', label: 'EMI / Loan Payment', color: 'rose' },
+    { code: 'rent', label: 'Rent', color: 'purple' },
+    { code: 'fuel', label: 'Fuel', color: 'amber' },
+    { code: 'entertainment', label: 'Entertainment', color: 'pink' },
+    { code: 'travel', label: 'Travel', color: 'sky' },
+    { code: 'healthcare', label: 'Healthcare', color: 'red' },
+    { code: 'personal_care', label: 'Personal Care & Fitness', color: 'pink' },
+    { code: 'gifts', label: 'Gifts & Flowers', color: 'fuchsia' },
+    { code: 'education', label: 'Education', color: 'indigo' },
+    { code: 'insurance', label: 'Insurance', color: 'slate' },
+    { code: 'investment', label: 'Investment', color: 'amber' },
+    { code: 'software', label: 'Software & Services', color: 'violet' },
+    { code: 'transfer', label: 'Transfer', color: 'sky' },
+    { code: 'atm_withdrawal', label: 'ATM Withdrawal', color: 'zinc' },
+    { code: 'salary', label: 'Salary / Income', color: 'emerald' },
+    { code: 'refund', label: 'Refund', color: 'emerald' },
+    { code: 'cashback', label: 'Cashback / Rewards', color: 'emerald' },
+    { code: 'tax', label: 'Tax Payment', color: 'red' },
+    { code: 'government', label: 'Government Services', color: 'slate' },
+    { code: 'charity', label: 'Charity / Donations', color: 'teal' },
+    { code: 'dividend', label: 'Dividend', color: 'emerald' },
+    { code: 'interest', label: 'Interest', color: 'emerald' },
+    { code: 'credit_card_payment', label: 'Credit Card Payment', color: 'sky' },
+    { code: 'bank_charges', label: 'Bank Charges / Fees', color: 'rose' },
+    { code: 'forex', label: 'Foreign Exchange', color: 'indigo' },
+    { code: 'other', label: 'Other', color: 'zinc' },
   ],
   US: [
-    { code: 'food_dining', label: 'Food & Dining' },
-    { code: 'groceries', label: 'Groceries' },
-    { code: 'shopping', label: 'Shopping' },
-    { code: 'utilities', label: 'Utilities' },
-    { code: 'phone_internet', label: 'Phone & Internet' },
-    { code: 'mortgage', label: 'Mortgage' },
-    { code: 'rent', label: 'Rent' },
-    { code: 'gas', label: 'Gas / Fuel' },
-    { code: 'entertainment', label: 'Entertainment' },
-    { code: 'travel', label: 'Travel' },
-    { code: 'healthcare', label: 'Healthcare' },
-    { code: 'education', label: 'Education' },
-    { code: 'insurance', label: 'Insurance' },
-    { code: 'investment', label: 'Investment' },
-    { code: 'transfer', label: 'Transfer' },
-    { code: 'atm_withdrawal', label: 'ATM Withdrawal' },
-    { code: 'paycheck', label: 'Paycheck / Income' },
-    { code: 'refund', label: 'Refund' },
-    { code: 'cashback', label: 'Cashback / Rewards' },
-    { code: 'tax', label: 'Tax Payment' },
-    { code: 'subscription', label: 'Subscriptions' },
-    { code: 'childcare', label: 'Childcare' },
-    { code: 'pet', label: 'Pet Expenses' },
-    { code: 'charity', label: 'Charity / Donations' },
-    { code: 'dividend', label: 'Dividend' },
-    { code: 'interest', label: 'Interest' },
-    { code: 'credit_card_payment', label: 'Credit Card Payment' },
-    { code: 'bank_charges', label: 'Bank Charges / Fees' },
-    { code: 'forex', label: 'Foreign Exchange' },
-    { code: 'other', label: 'Other' },
+    { code: 'food_dining', label: 'Food & Dining', color: 'orange' },
+    { code: 'groceries', label: 'Groceries', color: 'lime' },
+    { code: 'shopping', label: 'Shopping', color: 'blue' },
+    { code: 'utilities', label: 'Utilities', color: 'cyan' },
+    { code: 'phone_internet', label: 'Phone & Internet', color: 'cyan' },
+    { code: 'mortgage', label: 'Mortgage', color: 'purple' },
+    { code: 'rent', label: 'Rent', color: 'purple' },
+    { code: 'gas', label: 'Gas / Fuel', color: 'amber' },
+    { code: 'entertainment', label: 'Entertainment', color: 'pink' },
+    { code: 'travel', label: 'Travel', color: 'sky' },
+    { code: 'healthcare', label: 'Healthcare', color: 'red' },
+    { code: 'personal_care', label: 'Personal Care & Fitness', color: 'pink' },
+    { code: 'gifts', label: 'Gifts & Flowers', color: 'fuchsia' },
+    { code: 'education', label: 'Education', color: 'indigo' },
+    { code: 'insurance', label: 'Insurance', color: 'slate' },
+    { code: 'investment', label: 'Investment', color: 'amber' },
+    { code: 'software', label: 'Software & Services', color: 'violet' },
+    { code: 'transfer', label: 'Transfer', color: 'sky' },
+    { code: 'atm_withdrawal', label: 'ATM Withdrawal', color: 'zinc' },
+    { code: 'paycheck', label: 'Paycheck / Income', color: 'emerald' },
+    { code: 'refund', label: 'Refund', color: 'emerald' },
+    { code: 'cashback', label: 'Cashback / Rewards', color: 'emerald' },
+    { code: 'tax', label: 'Tax Payment', color: 'red' },
+    { code: 'childcare', label: 'Childcare', color: 'teal' },
+    { code: 'pet', label: 'Pet Expenses', color: 'amber' },
+    { code: 'charity', label: 'Charity / Donations', color: 'teal' },
+    { code: 'dividend', label: 'Dividend', color: 'emerald' },
+    { code: 'interest', label: 'Interest', color: 'emerald' },
+    { code: 'credit_card_payment', label: 'Credit Card Payment', color: 'sky' },
+    { code: 'bank_charges', label: 'Bank Charges / Fees', color: 'rose' },
+    { code: 'forex', label: 'Foreign Exchange', color: 'indigo' },
+    { code: 'other', label: 'Other', color: 'zinc' },
   ],
 } as const
 
 export type CategoryCode = (typeof TRANSACTION_CATEGORIES)[CountryCode][number]['code']
+
+// ============================================================================
+// INVESTMENT TYPES
+// ============================================================================
 
 /**
  * Investment types by country
@@ -156,6 +651,118 @@ export const INVESTMENT_TYPES = {
 export type InvestmentTypeCode = (typeof INVESTMENT_TYPES)[CountryCode][number]['code']
 
 /**
+ * Investment source types - platforms/providers where investments are held
+ */
+export const INVESTMENT_SOURCE_TYPES = {
+  IN: [
+    // Domestic brokers
+    { code: 'zerodha', label: 'Zerodha', logo: '/institutions/in/zerodha.svg' },
+    { code: 'groww', label: 'Groww', logo: '/institutions/in/groww.svg' },
+    { code: 'upstox', label: 'Upstox', logo: '/institutions/in/upstox.svg' },
+    { code: 'angel_one', label: 'Angel One', logo: '/institutions/in/angelone.jpg' },
+    { code: 'icici_direct', label: 'ICICI Direct', logo: '/institutions/in/icici.svg' },
+    { code: 'hdfc_securities', label: 'HDFC Securities', logo: '/institutions/in/hdfc.svg' },
+    { code: 'kotak_securities', label: 'Kotak Securities', logo: '/institutions/in/kotak.svg' },
+    // Mutual fund platforms
+    { code: 'mf_central', label: 'MF Central', logo: '/institutions/in/mfcentral.svg' },
+    { code: 'cams', label: 'CAMS', logo: '/institutions/in/cams.svg' },
+    { code: 'kfintech', label: 'KFintech', logo: '/institutions/in/kfintech.svg' },
+    // US stocks for Indian investors
+    { code: 'vested', label: 'Vested', logo: '/institutions/in/vested.svg' },
+    { code: 'indmoney', label: 'INDmoney', logo: '/institutions/in/indmoney.svg' },
+    // Fixed income
+    { code: 'ppf', label: 'PPF', logo: '/institutions/in/ppf.png' },
+    { code: 'epf', label: 'EPF', logo: '/institutions/in/epf.png' },
+    { code: 'nps', label: 'NPS', logo: '' },
+    { code: 'fd', label: 'Fixed Deposit', logo: '' },
+    // Manual/other
+    { code: 'manual', label: 'Manual Entry', logo: '' },
+    { code: 'other', label: 'Other', logo: '' },
+  ],
+  US: [
+    // Brokers
+    { code: 'schwab', label: 'Charles Schwab', logo: '' },
+    { code: 'fidelity', label: 'Fidelity', logo: '' },
+    { code: 'vanguard', label: 'Vanguard', logo: '' },
+    { code: 'td_ameritrade', label: 'TD Ameritrade', logo: '' },
+    { code: 'robinhood', label: 'Robinhood', logo: '' },
+    { code: 'etrade', label: 'E*TRADE', logo: '' },
+    { code: 'interactive_brokers', label: 'Interactive Brokers', logo: '' },
+    // Retirement
+    { code: '401k_provider', label: '401(k) Provider', logo: '' },
+    { code: 'ira_provider', label: 'IRA Provider', logo: '' },
+    // Manual/other
+    { code: 'manual', label: 'Manual Entry', logo: '' },
+    { code: 'other', label: 'Other', logo: '' },
+  ],
+} as const
+
+export type InvestmentSourceTypeCode = (typeof INVESTMENT_SOURCE_TYPES)[CountryCode][number]['code']
+
+/**
+ * Investment holding types - types of securities/instruments
+ */
+export const INVESTMENT_HOLDING_TYPES = [
+  { code: 'stock', label: 'Stock' },
+  { code: 'mutual_fund', label: 'Mutual Fund' },
+  { code: 'etf', label: 'ETF' },
+  { code: 'bond', label: 'Bond' },
+  { code: 'ppf', label: 'PPF' },
+  { code: 'epf', label: 'EPF' },
+  { code: 'nps', label: 'NPS' },
+  { code: 'fd', label: 'Fixed Deposit' },
+  { code: 'gold', label: 'Gold' },
+  { code: 'reit', label: 'REIT' },
+  { code: 'other', label: 'Other' },
+] as const
+
+export type InvestmentHoldingTypeCode = (typeof INVESTMENT_HOLDING_TYPES)[number]['code']
+
+/**
+ * Investment transaction types
+ */
+export const INVESTMENT_TRANSACTION_TYPES = [
+  { code: 'buy', label: 'Buy' },
+  { code: 'sell', label: 'Sell' },
+  { code: 'dividend', label: 'Dividend' },
+  { code: 'interest', label: 'Interest' },
+  { code: 'sip', label: 'SIP' },
+  { code: 'switch_in', label: 'Switch In' },
+  { code: 'switch_out', label: 'Switch Out' },
+  { code: 'contribution', label: 'Contribution' },
+  { code: 'withdrawal', label: 'Withdrawal' },
+] as const
+
+export type InvestmentTransactionTypeCode = (typeof INVESTMENT_TRANSACTION_TYPES)[number]['code']
+
+/**
+ * Snapshot types
+ */
+export const SNAPSHOT_TYPES = ['statement_import', 'manual', 'scheduled'] as const
+export type SnapshotType = (typeof SNAPSHOT_TYPES)[number]
+
+/**
+ * Document types for statements
+ */
+export const DOCUMENT_TYPES = [
+  'bank_statement',
+  'credit_card_statement',
+  'investment_statement',
+] as const
+export type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
+/**
+ * Get investment source types for a country
+ */
+export function getInvestmentSourceTypesForCountry(countryCode: CountryCode) {
+  return INVESTMENT_SOURCE_TYPES[countryCode] || INVESTMENT_SOURCE_TYPES.US
+}
+
+// ============================================================================
+// STATEMENT & TRANSACTION TYPES
+// ============================================================================
+
+/**
  * Statement parsing status
  */
 export const STATEMENT_STATUS = ['pending', 'parsing', 'completed', 'failed'] as const
@@ -179,296 +786,9 @@ export type TransactionLinkType = (typeof TRANSACTION_LINK_TYPES)[number]
 export const SUPPORTED_FILE_TYPES = ['pdf', 'csv', 'xlsx'] as const
 export type FileType = (typeof SUPPORTED_FILE_TYPES)[number]
 
-/**
- * LLM Providers
- */
-export const LLM_PROVIDERS = ['openai', 'anthropic', 'google', 'ollama', 'vercel'] as const
-export type LLMProvider = (typeof LLM_PROVIDERS)[number]
-
-/**
- * AI Model definition
- */
-export interface AIModel {
-  id: string
-  name: string
-  /** Model is capable of parsing statements (requires tool use, code generation) */
-  supportsParsing?: boolean
-  /** Recommended model for parsing statements */
-  recommendedForParsing?: boolean
-  /** Recommended model for categorization */
-  recommendedForCategorization?: boolean
-  supportsThinking?: boolean
-  reasoningBuiltIn?: boolean
-}
-
-/**
- * AI Provider configuration
- */
-export interface AIProviderConfig {
-  id: LLMProvider
-  name: string
-  models: AIModel[]
-}
-
-/**
- * Available AI providers and their models
- * Updated January 2026
- *
- * Sources:
- * - OpenAI: https://platform.openai.com/docs/models
- * - Anthropic: https://docs.anthropic.com/en/docs/about-claude/models/overview
- * - Google: https://ai.google.dev/gemini-api/docs/models
- */
-export const AI_PROVIDERS: AIProviderConfig[] = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    models: [
-      {
-        id: 'gpt-5.2',
-        name: 'GPT-5.2',
-        supportsParsing: true,
-        recommendedForParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'gpt-5-mini',
-        name: 'GPT-5 Mini',
-        supportsParsing: true,
-        recommendedForCategorization: true,
-        supportsThinking: true,
-      },
-      { id: 'gpt-5-nano', name: 'GPT-5 Nano', supportsThinking: true },
-      { id: 'gpt-4.1', name: 'GPT-4.1', supportsParsing: true, supportsThinking: true },
-    ],
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    models: [
-      {
-        id: 'claude-opus-4-5',
-        name: 'Claude Opus 4.5',
-        supportsParsing: true,
-        recommendedForParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'claude-sonnet-4-5',
-        name: 'Claude Sonnet 4.5',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'claude-haiku-4-5',
-        name: 'Claude Haiku 4.5',
-        recommendedForCategorization: true,
-        supportsThinking: true,
-      },
-    ],
-  },
-  {
-    id: 'google',
-    name: 'Google',
-    models: [
-      {
-        id: 'gemini-3-pro-preview',
-        name: 'Gemini 3 Pro',
-        supportsParsing: true,
-        recommendedForParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'gemini-3-flash-preview',
-        name: 'Gemini 3 Flash',
-        supportsParsing: true,
-        recommendedForCategorization: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'gemini-2.5-pro',
-        name: 'Gemini 2.5 Pro',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'gemini-2.5-flash',
-        name: 'Gemini 2.5 Flash',
-        recommendedForCategorization: true,
-        supportsThinking: true,
-      },
-    ],
-  },
-  {
-    id: 'ollama',
-    name: 'Ollama (Local)',
-    models: [
-      { id: 'llama3.2', name: 'Llama 3.2', supportsParsing: true, recommendedForParsing: true },
-      { id: 'llama3.1', name: 'Llama 3.1', supportsParsing: true },
-      { id: 'mixtral', name: 'Mixtral', supportsParsing: true },
-      { id: 'qwen2.5', name: 'Qwen 2.5', supportsParsing: true },
-      { id: 'mistral', name: 'Mistral', recommendedForCategorization: true },
-      { id: 'phi3', name: 'Phi-3' },
-    ],
-  },
-  {
-    id: 'vercel',
-    name: 'Vercel AI Gateway',
-    models: [
-      // Anthropic models via Gateway
-      {
-        id: 'anthropic/claude-opus-4-5',
-        name: 'Claude Opus 4.5',
-        supportsParsing: true,
-        recommendedForParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'anthropic/claude-sonnet-4-5',
-        name: 'Claude Sonnet 4.5',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      { id: 'anthropic/claude-haiku-4-5', name: 'Claude Haiku 4.5', supportsThinking: true },
-      // OpenAI models via Gateway
-      { id: 'openai/gpt-5.2', name: 'GPT-5.2', supportsParsing: true, supportsThinking: true },
-      {
-        id: 'openai/gpt-5-mini',
-        name: 'GPT-5 Mini',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      { id: 'openai/gpt-5-nano', name: 'GPT-5 Nano', supportsThinking: true },
-      { id: 'openai/gpt-4.1', name: 'GPT-4.1', supportsParsing: true, supportsThinking: true },
-      // Google models via Gateway
-      {
-        id: 'google/gemini-3-pro-preview',
-        name: 'Gemini 3 Pro',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'google/gemini-3-flash-preview',
-        name: 'Gemini 3 Flash',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      {
-        id: 'google/gemini-2.5-pro',
-        name: 'Gemini 2.5 Pro',
-        supportsParsing: true,
-        supportsThinking: true,
-      },
-      { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', supportsThinking: true },
-      // xAI Grok models via Gateway
-      { id: 'xai/grok-4', name: 'Grok 4', supportsParsing: true },
-      {
-        id: 'xai/grok-4.1-fast-reasoning',
-        name: 'Grok 4.1 Fast Reasoning',
-        supportsThinking: true,
-        reasoningBuiltIn: true,
-      },
-      {
-        id: 'xai/grok-4.1-fast-non-reasoning',
-        name: 'Grok 4.1 Fast',
-        recommendedForCategorization: true,
-      },
-      // Minimax models via Gateway (reasoning is built-in)
-      {
-        id: 'minimax/minimax-m2.1',
-        name: 'Minimax M2.1',
-        supportsParsing: true,
-        supportsThinking: true,
-        reasoningBuiltIn: true,
-      },
-      {
-        id: 'minimax/minimax-m2',
-        name: 'Minimax M2',
-        supportsParsing: true,
-        supportsThinking: true,
-        reasoningBuiltIn: true,
-      },
-    ],
-  },
-]
-
-/**
- * Get provider configuration by ID
- */
-export function getProviderConfig(providerId: LLMProvider): AIProviderConfig | undefined {
-  return AI_PROVIDERS.find((p) => p.id === providerId)
-}
-
-/**
- * Get provider name by ID
- */
-export function getProviderName(providerId: LLMProvider): string {
-  return getProviderConfig(providerId)?.name ?? providerId
-}
-
-/**
- * Check if a model ID is valid for a given provider
- */
-export function isValidModel(providerId: LLMProvider, modelId: string): boolean {
-  const provider = getProviderConfig(providerId)
-  if (!provider) return false
-  return provider.models.some((m) => m.id === modelId)
-}
-
-/**
- * Get the recommended model for parsing statements
- */
-export function getRecommendedParsingModel(providerId: LLMProvider): AIModel | undefined {
-  const provider = getProviderConfig(providerId)
-  if (!provider) return undefined
-  // First try to find recommended parsing model, then any parsing-capable model
-  return (
-    provider.models.find((m) => m.recommendedForParsing && m.supportsParsing) ??
-    provider.models.find((m) => m.supportsParsing) ??
-    provider.models[0]
-  )
-}
-
-/**
- * Get the recommended model for categorization
- */
-export function getRecommendedCategorizationModel(providerId: LLMProvider): AIModel | undefined {
-  const provider = getProviderConfig(providerId)
-  if (!provider) return undefined
-  return provider.models.find((m) => m.recommendedForCategorization) ?? provider.models[0]
-}
-
-/**
- * Get all models that support parsing for a provider
- */
-export function getParsingModels(providerId: LLMProvider): AIModel[] {
-  const provider = getProviderConfig(providerId)
-  if (!provider) return []
-  return provider.models.filter((m) => m.supportsParsing)
-}
-
-/**
- * Get all models for a provider
- */
-export function getProviderModels(providerId: LLMProvider): AIModel[] {
-  return getProviderConfig(providerId)?.models ?? []
-}
-
-/**
- * Get the default parsing model ID for a provider
- */
-export function getDefaultParsingModelId(provider: LLMProvider): string {
-  const recommended = getRecommendedParsingModel(provider)
-  return recommended?.id ?? 'gpt-5-mini'
-}
-
-/**
- * Get the default categorization model ID for a provider
- */
-export function getDefaultCategorizationModelId(provider: LLMProvider): string {
-  const recommended = getRecommendedCategorizationModel(provider)
-  return recommended?.id ?? 'gpt-5-mini'
-}
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 /**
  * Check if a country code is supported

@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useProfiles } from '@/hooks/useAuthStatus'
+import { useProfiles, useCategories } from '@/hooks'
 import { AppLayout } from '@/components/domain/app-layout'
 import { ProfileSelector } from '@/components/domain/profile-selector'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatCard, StatCardGrid } from '@/components/ui/stat-card'
+import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { InlineEmptyState, EmptyState as SharedEmptyState } from '@/components/ui/empty-state'
 import {
   Upload,
   TrendingUp,
@@ -14,12 +17,19 @@ import {
   CreditCard,
   Banknote,
   PieChart,
-  Sparkles,
   ArrowUpRight,
   ArrowDownRight,
   ChevronRight,
   Building2,
+  Calendar,
+  ChevronDown,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getSummary, getTransactions, getAccounts } from '@/lib/api'
 import type { Profile, Transaction, FinancialSummary } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -57,65 +67,106 @@ function formatDate(dateStr: string): string {
   })
 }
 
-// Category labels mapping
-const categoryLabels: Record<string, string> = {
-  food_dining: 'Food & Dining',
-  shopping: 'Shopping',
-  transportation: 'Transport',
-  utilities: 'Utilities',
-  entertainment: 'Entertainment',
-  healthcare: 'Healthcare',
-  education: 'Education',
-  travel: 'Travel',
-  personal_care: 'Personal Care',
-  home: 'Home',
-  insurance: 'Insurance',
-  investments: 'Investments',
-  salary: 'Salary',
-  business_income: 'Business',
-  interest_income: 'Interest',
-  refund: 'Refund',
-  transfer: 'Transfer',
-  other: 'Other',
-  emi_loan: 'EMI/Loan',
-  rent: 'Rent',
-  groceries: 'Groceries',
-  subscriptions: 'Subscriptions',
-}
+// Timeframe options
+type TimeframeKey =
+  | 'this_month'
+  | 'this_year'
+  | 'last_7d'
+  | 'last_30d'
+  | 'last_3m'
+  | 'last_6m'
+  | 'last_1y'
+  | 'last_3y'
+  | 'all_time'
 
-// Category colors for the breakdown chart
-const categoryColors: Record<string, string> = {
-  food_dining: 'bg-orange-500',
-  shopping: 'bg-pink-500',
-  transportation: 'bg-blue-500',
-  utilities: 'bg-yellow-500',
-  entertainment: 'bg-purple-500',
-  healthcare: 'bg-red-500',
-  education: 'bg-indigo-500',
-  travel: 'bg-cyan-500',
-  personal_care: 'bg-rose-500',
-  home: 'bg-amber-500',
-  insurance: 'bg-emerald-500',
-  investments: 'bg-teal-500',
-  emi_loan: 'bg-red-600',
-  rent: 'bg-violet-500',
-  groceries: 'bg-lime-500',
-  subscriptions: 'bg-fuchsia-500',
-  other: 'bg-slate-500',
+const TIMEFRAME_OPTIONS: { key: TimeframeKey; label: string; shortLabel: string }[] = [
+  { key: 'this_month', label: 'This Month', shortLabel: 'This Month' },
+  { key: 'this_year', label: 'This Year', shortLabel: 'This Year' },
+  { key: 'last_7d', label: 'Last 7 Days', shortLabel: 'Last 7d' },
+  { key: 'last_30d', label: 'Last 30 Days', shortLabel: 'Last 30d' },
+  { key: 'last_3m', label: 'Last 3 Months', shortLabel: 'Last 3m' },
+  { key: 'last_6m', label: 'Last 6 Months', shortLabel: 'Last 6m' },
+  { key: 'last_1y', label: 'Last 1 Year', shortLabel: 'Last 1y' },
+  { key: 'last_3y', label: 'Last 3 Years', shortLabel: 'Last 3y' },
+  { key: 'all_time', label: 'All Time', shortLabel: 'All Time' },
+]
+
+function getDateRange(timeframe: TimeframeKey): { startDate?: string; endDate?: string } {
+  const now = new Date()
+  const formatDate = (d: Date) => d.toISOString().split('T')[0]
+
+  switch (timeframe) {
+    case 'this_month': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      return { startDate: formatDate(start), endDate: formatDate(end) }
+    }
+    case 'this_year': {
+      const start = new Date(now.getFullYear(), 0, 1)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'last_7d': {
+      const start = new Date(now)
+      start.setDate(start.getDate() - 7)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'last_30d': {
+      const start = new Date(now)
+      start.setDate(start.getDate() - 30)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'last_3m': {
+      const start = new Date(now)
+      start.setMonth(start.getMonth() - 3)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'last_6m': {
+      const start = new Date(now)
+      start.setMonth(start.getMonth() - 6)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'last_1y': {
+      const start = new Date(now)
+      start.setFullYear(start.getFullYear() - 1)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'last_3y': {
+      const start = new Date(now)
+      start.setFullYear(start.getFullYear() - 3)
+      return { startDate: formatDate(start), endDate: formatDate(now) }
+    }
+    case 'all_time':
+      return {} // No date filter
+  }
 }
 
 function DashboardPage() {
   const { defaultProfile } = useProfiles()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [showFamilyView, setShowFamilyView] = useState(false)
+  const [timeframe, setTimeframe] = useState<TimeframeKey>('this_month')
 
   const selectedProfile = selectedProfileId ? { id: selectedProfileId } : defaultProfile
   const profileId = selectedProfile?.id
 
-  // Fetch summary data
+  // Get date range for selected timeframe
+  const dateRange = getDateRange(timeframe)
+  const selectedTimeframeOption = TIMEFRAME_OPTIONS.find((t) => t.key === timeframe)!
+
+  // Fetch categories for proper labels
+  const { data: categoriesData } = useCategories()
+  const categories = categoriesData?.categories || []
+
+  // Helper to get category label
+  const getCategoryLabel = (code: string) => {
+    const cat = categories.find((c) => c.code === code)
+    return cat?.label || code.replace(/_/g, ' ')
+  }
+
+  // Fetch summary data with timeframe
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['summary', profileId],
-    queryFn: () => getSummary(profileId!),
+    queryKey: ['summary', profileId, timeframe],
+    queryFn: () => getSummary(profileId!, dateRange),
     enabled: !!profileId,
   })
 
@@ -146,65 +197,68 @@ function DashboardPage() {
   return (
     <AppLayout>
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">Your financial overview</p>
-        </div>
-        <ProfileSelector
-          selectedProfileId={selectedProfile?.id || null}
-          onProfileChange={handleProfileChange}
-          showFamilyView={showFamilyView}
-          onFamilyViewChange={setShowFamilyView}
-        />
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Your financial overview"
+        actions={
+          <ProfileSelector
+            selectedProfileId={selectedProfile?.id || null}
+            onProfileChange={handleProfileChange}
+            showFamilyView={showFamilyView}
+            onFamilyViewChange={setShowFamilyView}
+          />
+        }
+      />
 
       {/* Main Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+      <StatCardGrid className="mb-6">
         <StatCard
-          title="Net Worth"
-          value={summary?.netWorth.netWorth}
-          currency={summary?.netWorth.currency}
+          label="Net Worth"
+          value={summary?.totals.totalWealth}
+          currency={summary?.totals.currency}
           subtitle={
-            summary?.netWorth.totalLiabilities
-              ? `${formatCompact(summary.netWorth.totalAssets, summary.netWorth.currency)} assets`
+            summary?.investments.totalCurrent && summary.investments.totalCurrent > 0
+              ? `${formatCompact(summary.netWorth.netWorth, summary.netWorth.currency)} cash + ${formatCompact(summary.investments.totalCurrent, summary.totals.currency)} investments`
               : 'Across all accounts'
           }
           icon={Banknote}
-          iconClassName="bg-emerald-500/10 text-emerald-500"
           loading={summaryLoading}
           trend={
-            summary?.netWorth.netWorth ? (summary.netWorth.netWorth > 0 ? 'up' : 'down') : undefined
+            summary?.totals.totalWealth
+              ? summary.totals.totalWealth > 0
+                ? 'up'
+                : 'down'
+              : undefined
           }
         />
         <StatCard
-          title="Monthly Expenses"
+          label={timeframe === 'this_month' ? 'Monthly Expenses' : 'Expenses'}
           value={summary?.transactions.totalExpenses}
           currency={summary?.transactions.currency}
           subtitle={
             summary?.transactions.expenseCount
               ? `${summary.transactions.expenseCount} transactions`
-              : 'This month'
+              : selectedTimeframeOption.shortLabel
           }
           icon={CreditCard}
-          iconClassName="bg-orange-500/10 text-orange-500"
           loading={summaryLoading}
-          isExpense
         />
         <StatCard
-          title="Investments"
-          value={summary?.investments.totalCurrentValue}
+          label="Investments"
+          value={summary?.investments.totalCurrent}
           currency={summary?.totals.currency}
           subtitle={
-            summary?.investments.gainLossPercentage !== undefined &&
-            summary.investments.gainLossPercentage !== 0
-              ? `${summary.investments.gainLossPercentage > 0 ? '+' : ''}${summary.investments.gainLossPercentage.toFixed(1)}% returns`
+            summary?.investments.totalInvested &&
+            summary.investments.totalInvested > 0 &&
+            summary.investments.gainLossPercent !== undefined
+              ? `${summary.investments.gainLossPercent > 0 ? '+' : ''}${summary.investments.gainLossPercent.toFixed(1)}% returns`
               : 'Total portfolio'
           }
           icon={TrendingUp}
-          iconClassName="bg-blue-500/10 text-blue-500"
           loading={summaryLoading}
           trend={
+            summary?.investments.totalInvested &&
+            summary.investments.totalInvested > 0 &&
             summary?.investments.totalGainLoss
               ? summary.investments.totalGainLoss > 0
                 ? 'up'
@@ -213,29 +267,33 @@ function DashboardPage() {
           }
         />
         <StatCard
-          title="Accounts"
+          label="Accounts"
           value={accountsCount}
           subtitle="Connected accounts"
           icon={Wallet}
-          iconClassName="bg-violet-500/10 text-violet-500"
           loading={accountsLoading}
           isCount
         />
-      </div>
+      </StatCardGrid>
 
-      {/* Secondary Row: Recent Transactions, Spending Breakdown, AI Insights */}
-      <div className="grid gap-4 lg:grid-cols-3 mb-6">
+      {/* Secondary Row: Recent Transactions & Spending Breakdown */}
+      <div className="grid gap-4 lg:grid-cols-2 mb-6">
         {/* Recent Transactions */}
-        <Card className="lg:col-span-1">
+        <Card className="border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base font-medium">Recent Transactions</CardTitle>
-                <CardDescription className="text-xs mt-0.5">Latest activity</CardDescription>
+                <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                  Recent Transactions
+                </CardTitle>
               </div>
               {recentTransactions.length > 0 && (
                 <Link to="/transactions">
-                  <Button variant="ghost" size="sm" className="h-8 text-xs">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  >
                     View all
                     <ChevronRight className="ml-1 h-3 w-3" />
                   </Button>
@@ -245,26 +303,30 @@ function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {transactionsLoading ? (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2">
                     <Skeleton className="h-9 w-9 rounded-lg" />
                     <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-3 w-24" />
-                      <Skeleton className="h-2.5 w-16" />
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-2.5 w-20" />
                     </div>
                     <Skeleton className="h-4 w-16" />
                   </div>
                 ))}
               </div>
             ) : recentTransactions.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {recentTransactions.map((txn) => (
-                  <TransactionRow key={txn.id} transaction={txn} />
+                  <TransactionRow
+                    key={txn.id}
+                    transaction={txn}
+                    getCategoryLabel={getCategoryLabel}
+                  />
                 ))}
               </div>
             ) : (
-              <EmptyState
+              <InlineEmptyState
                 icon={Wallet}
                 title="No transactions yet"
                 description="Upload a statement to get started"
@@ -274,19 +336,46 @@ function DashboardPage() {
         </Card>
 
         {/* Spending by Category */}
-        <Card className="lg:col-span-1">
+        <Card className="border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-colors">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Spending Breakdown</CardTitle>
-            <CardDescription className="text-xs mt-0.5">This month by category</CardDescription>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                Spending by Category
+              </CardTitle>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Calendar className="mr-1.5 h-3 w-3" />
+                    {selectedTimeframeOption.shortLabel}
+                    <ChevronDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {TIMEFRAME_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.key}
+                      onClick={() => setTimeframe(option.key)}
+                      className={cn(timeframe === option.key && 'bg-accent')}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </CardHeader>
           <CardContent className="pt-0">
             {summaryLoading ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="space-y-1.5">
+                  <div key={i} className="space-y-2">
                     <div className="flex justify-between">
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3.5 w-16" />
                     </div>
                     <Skeleton className="h-2 w-full rounded-full" />
                   </div>
@@ -295,12 +384,13 @@ function DashboardPage() {
             ) : summary?.transactions.categoryBreakdown &&
               summary.transactions.categoryBreakdown.length > 0 ? (
               <CategoryBreakdown
-                categories={summary.transactions.categoryBreakdown}
+                categoryBreakdown={summary.transactions.categoryBreakdown}
                 total={summary.transactions.totalExpenses}
                 currency={summary.transactions.currency}
+                getCategoryLabel={getCategoryLabel}
               />
             ) : (
-              <EmptyState
+              <InlineEmptyState
                 icon={PieChart}
                 title="No spending data"
                 description="Categories appear after importing transactions"
@@ -308,46 +398,22 @@ function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* AI Insights */}
-        <Card className="lg:col-span-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-          <CardHeader className="pb-3 relative">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              AI Insights
-            </CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Personalized recommendations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 relative">
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-3">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <p className="text-sm font-medium mb-1">Coming Soon</p>
-              <p className="text-xs text-muted-foreground max-w-[200px]">
-                AI-powered insights to help you make smarter financial decisions
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Account Balances Row */}
       {summary?.netWorth.accounts && summary.netWorth.accounts.length > 0 && (
-        <Card className="mb-6">
+        <Card className="mb-6 border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-medium">Account Balances</CardTitle>
-                <CardDescription className="text-xs mt-0.5">
-                  Latest balance from each account
-                </CardDescription>
-              </div>
+              <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                Account Balances
+              </CardTitle>
               <Link to="/accounts">
-                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                >
                   Manage accounts
                   <ChevronRight className="ml-1 h-3 w-3" />
                 </Button>
@@ -366,148 +432,58 @@ function DashboardPage() {
 
       {/* Empty State CTA - show when no data */}
       {!summaryLoading && !hasData && (
-        <Card className="border-dashed">
-          <CardContent className="py-12">
-            <div className="flex flex-col items-center text-center max-w-md mx-auto">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-                <Upload className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Get started with Moneywright</h3>
-              <p className="text-muted-foreground text-sm mb-6">
-                Upload your bank statements or credit card statements to unlock powerful financial
-                insights and track your spending automatically.
-              </p>
-              <Link to="/statements">
-                <Button size="lg" className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload Your First Statement
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <SharedEmptyState
+          icon={Upload}
+          title="Get started with Moneywright"
+          description="Upload your bank statements or credit card statements to unlock powerful financial insights and track your spending automatically."
+          action={{
+            label: 'Upload Your First Statement',
+            linkOptions: { to: '/statements', search: { upload: true } },
+            icon: Upload,
+          }}
+          size="lg"
+        />
       )}
     </AppLayout>
   )
 }
 
-// Stat Card Component
-interface StatCardProps {
-  title: string
-  value?: number | null
-  currency?: string
-  subtitle: string
-  icon: React.ComponentType<{ className?: string }>
-  iconClassName: string
-  loading?: boolean
-  trend?: 'up' | 'down'
-  isExpense?: boolean
-  isCount?: boolean
-}
-
-function StatCard({
-  title,
-  value,
-  currency = 'INR',
-  subtitle,
-  icon: Icon,
-  iconClassName,
-  loading,
-  trend,
-  isExpense,
-  isCount,
-}: StatCardProps) {
-  const displayValue = isCount
-    ? value?.toString() || '0'
-    : value !== undefined && value !== null
-      ? formatCompact(value, currency)
-      : '—'
-
-  return (
-    <Card className="relative overflow-hidden">
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-              {title}
-            </p>
-            {loading ? (
-              <Skeleton className="h-8 w-28 mb-1" />
-            ) : (
-              <div className="flex items-baseline gap-2">
-                <p
-                  className={cn(
-                    'text-2xl font-semibold tracking-tight truncate',
-                    isExpense && value ? 'text-orange-500' : '',
-                    trend === 'up' && !isExpense ? 'text-emerald-500' : '',
-                    trend === 'down' && !isExpense ? 'text-red-500' : ''
-                  )}
-                >
-                  {displayValue}
-                </p>
-                {trend && !isCount && value !== 0 && (
-                  <span
-                    className={cn(
-                      'flex items-center text-xs font-medium',
-                      trend === 'up' ? 'text-emerald-500' : 'text-red-500'
-                    )}
-                  >
-                    {trend === 'up' ? (
-                      <ArrowUpRight className="h-3 w-3" />
-                    ) : (
-                      <ArrowDownRight className="h-3 w-3" />
-                    )}
-                  </span>
-                )}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1 truncate">{subtitle}</p>
-          </div>
-          <div
-            className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
-              iconClassName
-            )}
-          >
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 // Transaction Row Component
-function TransactionRow({ transaction }: { transaction: Transaction }) {
+function TransactionRow({
+  transaction,
+  getCategoryLabel,
+}: {
+  transaction: Transaction
+  getCategoryLabel: (code: string) => string
+}) {
   const isCredit = transaction.type === 'credit'
 
   return (
-    <div className="flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-muted/50 transition-colors">
+    <div className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-[var(--surface-hover)] transition-colors group">
       <div
         className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-lg shrink-0',
-          isCredit ? 'bg-emerald-500/10' : 'bg-orange-500/10'
+          'flex h-9 w-9 items-center justify-center rounded-lg shrink-0 border',
+          'bg-[var(--surface-elevated)] border-[var(--border-subtle)]'
         )}
       >
         {isCredit ? (
-          <ArrowDownRight className="h-4 w-4 text-emerald-500" />
+          <ArrowDownRight className="h-4 w-4 text-positive" />
         ) : (
-          <ArrowUpRight className="h-4 w-4 text-orange-500" />
+          <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
+        <p className="text-sm font-medium truncate text-foreground">
           {transaction.summary || transaction.originalDescription.slice(0, 30)}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {formatDate(transaction.date)} ·{' '}
-          {categoryLabels[transaction.category] || transaction.category}
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {formatDate(transaction.date)} · {getCategoryLabel(transaction.category)}
         </p>
       </div>
       <p
         className={cn(
-          'text-sm font-medium tabular-nums shrink-0',
-          isCredit ? 'text-emerald-500' : 'text-foreground'
+          'text-sm font-semibold tabular-nums shrink-0',
+          isCredit ? 'text-positive' : 'text-foreground'
         )}
       >
         {isCredit ? '+' : '-'}
@@ -519,23 +495,24 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
 
 // Category Breakdown Component
 function CategoryBreakdown({
-  categories,
-  total,
+  categoryBreakdown,
   currency,
+  getCategoryLabel,
 }: {
-  categories: { category: string; total: number; count: number }[]
-  total: number
+  categoryBreakdown: { category: string; total: number; count: number }[]
+  total: number // kept for API compatibility
   currency: string
+  getCategoryLabel: (code: string) => string
 }) {
-  // Sort by total and take top 5
-  const topCategories = [...categories]
+  // Sort by total and take top 6
+  const topCategories = [...categoryBreakdown]
     .filter((c) => c.total > 0)
     .sort((a, b) => b.total - a.total)
-    .slice(0, 5)
+    .slice(0, 6)
 
   if (topCategories.length === 0) {
     return (
-      <EmptyState
+      <InlineEmptyState
         icon={PieChart}
         title="No spending data"
         description="Categories appear after importing transactions"
@@ -543,26 +520,33 @@ function CategoryBreakdown({
     )
   }
 
+  // Calculate max for relative sizing
+  const maxTotal = Math.max(...topCategories.map((c) => c.total))
+
   return (
-    <div className="space-y-3">
-      {topCategories.map((cat) => {
-        const percentage = total > 0 ? (cat.total / total) * 100 : 0
-        const colorClass = categoryColors[cat.category] || 'bg-slate-500'
+    <div className="space-y-4">
+      {topCategories.map((cat, index) => {
+        const percentage = maxTotal > 0 ? (cat.total / maxTotal) * 100 : 0
+        // Use emerald with varying opacity based on rank
+        const opacityPercent = 100 - index * 12
 
         return (
-          <div key={cat.category} className="space-y-1.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground truncate">
-                {categoryLabels[cat.category] || cat.category}
+          <div key={cat.category} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground truncate">
+                {getCategoryLabel(cat.category)}
               </span>
-              <span className="font-medium tabular-nums ml-2">
+              <span className="text-sm font-semibold tabular-nums ml-2 text-foreground">
                 {formatCurrency(cat.total, currency)}
               </span>
             </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-2 bg-[var(--surface-elevated)] rounded-full overflow-hidden">
               <div
-                className={cn('h-full rounded-full transition-all duration-500', colorClass)}
-                style={{ width: `${Math.max(percentage, 2)}%` }}
+                className="h-full rounded-full transition-all duration-500 bg-primary"
+                style={{
+                  width: `${Math.max(percentage, 4)}%`,
+                  opacity: opacityPercent / 100,
+                }}
               />
             </div>
           </div>
@@ -577,26 +561,24 @@ function AccountBalanceCard({ account }: { account: FinancialSummary['netWorth']
   const hasBalance = account.latestBalance !== null
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors">
+    <div className="flex items-center gap-3 p-3.5 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-colors">
       <div
         className={cn(
-          'flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
-          account.isLiability ? 'bg-red-500/10' : 'bg-emerald-500/10'
+          'flex h-10 w-10 items-center justify-center rounded-lg shrink-0 border',
+          'bg-[var(--surface)] border-[var(--border-subtle)]'
         )}
       >
         {account.type === 'credit_card' ? (
-          <CreditCard
-            className={cn('h-5 w-5', account.isLiability ? 'text-red-500' : 'text-emerald-500')}
-          />
+          <CreditCard className="h-5 w-5 text-muted-foreground" />
         ) : (
-          <Building2 className="h-5 w-5 text-emerald-500" />
+          <Building2 className="h-5 w-5 text-muted-foreground" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
+        <p className="text-sm font-medium truncate text-foreground">
           {account.accountName || account.institution || 'Account'}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground mt-0.5">
           {account.isLiability ? 'Credit Card' : account.type?.replace(/_/g, ' ')}
         </p>
       </div>
@@ -606,15 +588,15 @@ function AccountBalanceCard({ account }: { account: FinancialSummary['netWorth']
             <p
               className={cn(
                 'text-sm font-semibold tabular-nums',
-                account.isLiability ? 'text-red-500' : 'text-emerald-500'
+                account.isLiability ? 'text-negative' : 'text-positive'
               )}
             >
               {account.isLiability ? '-' : ''}
               {formatCurrency(account.latestBalance!, account.currency)}
             </p>
             {account.latestStatementDate && (
-              <p className="text-xs text-muted-foreground">
-                as of {formatDate(account.latestStatementDate)}
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {formatDate(account.latestStatementDate)}
               </p>
             )}
           </>
@@ -622,27 +604,6 @@ function AccountBalanceCard({ account }: { account: FinancialSummary['netWorth']
           <p className="text-sm text-muted-foreground">No data</p>
         )}
       </div>
-    </div>
-  )
-}
-
-// Empty State Component
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  description: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-3">
-        <Icon className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-medium text-muted-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{description}</p>
     </div>
   )
 }

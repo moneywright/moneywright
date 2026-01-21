@@ -163,8 +163,14 @@ export type {
   NewStatement,
   Transaction,
   NewTransaction,
-  Investment,
-  NewInvestment,
+  InvestmentSource,
+  NewInvestmentSource,
+  InvestmentHolding,
+  NewInvestmentHolding,
+  InvestmentTransaction,
+  NewInvestmentTransaction,
+  InvestmentSnapshot,
+  NewInvestmentSnapshot,
 } from './schema.pg'
 
 // Export table references typed as Postgres for IntelliSense.
@@ -178,7 +184,10 @@ const tablesImpl = isPostgres
       accounts: pgSchema.accounts,
       statements: pgSchema.statements,
       transactions: pgSchema.transactions,
-      investments: pgSchema.investments,
+      investmentSources: pgSchema.investmentSources,
+      investmentHoldings: pgSchema.investmentHoldings,
+      investmentTransactions: pgSchema.investmentTransactions,
+      investmentSnapshots: pgSchema.investmentSnapshots,
     }
   : {
       users: sqliteSchema.users,
@@ -188,7 +197,10 @@ const tablesImpl = isPostgres
       accounts: sqliteSchema.accounts,
       statements: sqliteSchema.statements,
       transactions: sqliteSchema.transactions,
-      investments: sqliteSchema.investments,
+      investmentSources: sqliteSchema.investmentSources,
+      investmentHoldings: sqliteSchema.investmentHoldings,
+      investmentTransactions: sqliteSchema.investmentTransactions,
+      investmentSnapshots: sqliteSchema.investmentSnapshots,
     }
 
 export const tables = tablesImpl as {
@@ -199,7 +211,10 @@ export const tables = tablesImpl as {
   accounts: typeof pgSchema.accounts
   statements: typeof pgSchema.statements
   transactions: typeof pgSchema.transactions
-  investments: typeof pgSchema.investments
+  investmentSources: typeof pgSchema.investmentSources
+  investmentHoldings: typeof pgSchema.investmentHoldings
+  investmentTransactions: typeof pgSchema.investmentTransactions
+  investmentSnapshots: typeof pgSchema.investmentSnapshots
 }
 
 /**
