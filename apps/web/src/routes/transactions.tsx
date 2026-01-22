@@ -40,7 +40,7 @@ export const Route = createFileRoute('/transactions')({
 
 function TransactionsPage() {
   const queryClient = useQueryClient()
-  const { profiles, defaultProfile } = useProfiles()
+  const { defaultProfile } = useProfiles()
   const { user } = useAuthStatus()
   const countryCode = user?.country?.toLowerCase() || 'in'
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
@@ -192,10 +192,9 @@ function TransactionsPage() {
           description="View and manage your transactions"
           actions={
             <ProfileSelector
-              profiles={profiles || []}
-              selectedProfileId={activeProfileId || ''}
-              onProfileChange={(id) => {
-                setSelectedProfileId(id)
+              selectedProfileId={activeProfileId || null}
+              onProfileChange={(profile) => {
+                setSelectedProfileId(profile.id)
                 setPage(1)
               }}
             />
@@ -295,7 +294,7 @@ function TransactionsPage() {
                 ? undefined
                 : {
                     label: 'Upload Statement',
-                    linkOptions: { to: '/statements', search: { upload: true } },
+                    href: '/statements?upload=true',
                     icon: Upload,
                   }
             }

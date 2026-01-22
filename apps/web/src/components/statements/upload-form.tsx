@@ -10,17 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { AccountSelector } from '@/components/ui/account-selector'
 import {
   Loader2,
   Upload,
   FileText,
   X,
   AlertCircle,
-  Sparkles,
   Lock,
   CheckCircle,
   Building2,
-  CreditCard,
   TrendingUp,
   ChevronLeft,
   Check,
@@ -174,6 +173,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
+      if (!file) continue
       setUploadProgress({ current: i + 1, total: files.length })
 
       try {
@@ -203,7 +203,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
           setUploadProgress(null)
           return
         }
-        console.error(`Failed to upload ${file.name}:`, err)
+        console.error(`Failed to upload ${file?.name}:`, err)
       }
     }
 
@@ -332,7 +332,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-border/50 bg-gradient-to-br from-primary/5 to-transparent shrink-0">
+      <div className="px-6 py-5 border-b border-border/50 bg-linear-to-br from-primary/5 to-transparent shrink-0">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <FileUp className="h-6 w-6 text-primary" />
@@ -352,7 +352,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
       <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
         {error && (
           <div className="mx-6 mt-6 flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-            <AlertCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+            <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-medium text-destructive">Upload Error</p>
               <p className="text-sm text-destructive/80 mt-0.5">{error}</p>
@@ -376,7 +376,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
                   }}
                   className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl border-2 transition-all border-border/50 hover:border-primary hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/5"
                 >
-                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-[var(--surface-elevated)] border border-[var(--border-subtle)] group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors">
+                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-surface-elevated border border-border-subtle group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors">
                     <Building2 className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                   <div className="text-center">
@@ -395,7 +395,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
                   }}
                   className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl border-2 transition-all border-border/50 hover:border-primary hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/5"
                 >
-                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-[var(--surface-elevated)] border border-[var(--border-subtle)] group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors">
+                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-surface-elevated border border-border-subtle group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors">
                     <TrendingUp className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                   <div className="text-center">
@@ -430,7 +430,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
                   }}
                   className="group flex flex-col items-center gap-2.5 p-4 rounded-xl border-2 transition-all text-center border-border/50 hover:border-primary hover:bg-primary/5"
                 >
-                  <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-[var(--surface-elevated)] border border-[var(--border-subtle)] group-hover:border-primary/30 overflow-hidden">
+                  <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-surface-elevated border border-border-subtle group-hover:border-primary/30 overflow-hidden">
                     {st.logo ? (
                       <img src={st.logo} alt={st.label} className="h-6 w-6 object-contain" />
                     ) : (
@@ -448,7 +448,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
         {currentStep === 'upload' && (
           <div className="px-6 py-6 space-y-5">
             {/* Selected type indicator */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border-subtle)]">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-elevated border border-border-subtle">
               <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-primary/10 overflow-hidden shrink-0">
                 {documentType === 'investment_statement' ? (
                   investmentTypes?.sourceTypes.find((st) => st.code === sourceType)?.logo ? (
@@ -516,7 +516,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
 
               {files.length > 0 ? (
                 <div className="p-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1">
+                  <div className="max-h-30 overflow-y-auto space-y-2 pr-1">
                     {files.map((file, index) => (
                       <div
                         key={`${file.name}-${index}`}
@@ -554,7 +554,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
                 </div>
               ) : (
                 <div className="p-8 text-center">
-                  <div className="mx-auto h-12 w-12 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center mb-3">
+                  <div className="mx-auto h-12 w-12 rounded-xl bg-surface-elevated border border-border-subtle flex items-center justify-center mb-3">
                     <Upload className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <p className="text-sm font-medium text-foreground mb-1">Drop your files here</p>
@@ -576,38 +576,15 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
             {documentType === 'bank_statement' && (
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Link to Account</Label>
-                <Select value={accountId} onValueChange={setAccountId}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Auto-detect" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">
-                      <span className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        Auto-detect from statement
-                      </span>
-                    </SelectItem>
-                    {accounts && accounts.length > 0 && (
-                      <>
-                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                          Your accounts
-                        </div>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            <span className="flex items-center gap-2">
-                              {account.type === 'credit_card' ? (
-                                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <Building2 className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              {account.accountName || account.institution || account.type}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                <AccountSelector
+                  accounts={accounts || []}
+                  value={accountId === 'auto' ? null : accountId}
+                  onValueChange={(id) => setAccountId(id || 'auto')}
+                  mode="single"
+                  showAllOption
+                  allOptionLabel="Auto-detect from statement"
+                  triggerClassName="w-full h-10"
+                />
               </div>
             )}
 
@@ -658,7 +635,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
 
             {hasPasswordProtectableFiles && hasSavedPassword && !showPasswordField && (
               <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
-                <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                <CheckCircle className="h-4 w-4 text-primary shrink-0" />
                 <span className="text-xs text-muted-foreground">Saved password will be used</span>
               </div>
             )}
@@ -737,7 +714,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-border/50 bg-[var(--surface-elevated)] shrink-0">
+      <div className="px-6 py-4 border-t border-border/50 bg-surface-elevated shrink-0">
         <div className="flex items-center justify-between">
           <div>
             {currentStep !== 'type' && (
@@ -761,7 +738,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
               <Button
                 type="submit"
                 disabled={files.length === 0 || isUploading}
-                className="min-w-[140px]"
+                className="min-w-35"
               >
                 {isUploading ? (
                   <>

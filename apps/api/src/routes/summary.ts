@@ -2,8 +2,13 @@ import { Hono } from 'hono'
 import { auth, type AuthVariables } from '../middleware/auth'
 import { calculateNetWorth } from '../services/accounts'
 import { getInvestmentSummary } from '../services/investment-holdings'
-import { getTransactionStats } from '../services/transactions'
+import {
+  getTransactionStats,
+  getMonthlyTrends,
+  getMonthTransactions,
+} from '../services/transactions'
 import { fetchFxRates, getConversionRate } from '../services/fx-rates'
+import { getDashboardExcludedCategories } from '../services/preferences'
 
 const summaryRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -89,6 +94,93 @@ summaryRoutes.get('/', async (c) => {
       currency: netWorth.currency,
     },
   })
+})
+
+/**
+ * GET /summary/monthly-trends
+ * Get monthly income/expense trends
+ * Query params:
+ *   - profileId (required): Profile to get trends for
+ *   - months (optional): Number of months to fetch (default: 12, max: 120)
+ *   - excludeCategories (optional): Comma-separated list of category codes to exclude
+ *     If not provided, uses user's saved preferences
+ */
+summaryRoutes.get('/monthly-trends', async (c) => {
+  const userId = c.get('userId')
+  const profileId = c.req.query('profileId')
+  const monthsParam = c.req.query('months')
+  const excludeCategoriesParam = c.req.query('excludeCategories')
+
+  if (!profileId) {
+    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
+  }
+
+  // Support up to 10 years (120 months) for "all time" view
+  const months = Math.min(Math.max(parseInt(monthsParam || '12', 10) || 12, 1), 120)
+
+  // Get excluded categories from query param or user preferences
+  let excludeCategories: string[] | undefined
+  if (excludeCategoriesParam) {
+    excludeCategories = excludeCategoriesParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } else {
+    // Use saved preferences
+    excludeCategories = await getDashboardExcludedCategories(userId, profileId)
+    if (excludeCategories.length === 0) {
+      excludeCategories = undefined
+    }
+  }
+
+  const result = await getMonthlyTrends(userId, profileId, months, excludeCategories)
+
+  return c.json({ ...result, excludedCategories: excludeCategories || [] })
+})
+
+/**
+ * GET /summary/month-transactions
+ * Get transactions for a specific month with netting and exclusions applied
+ * Query params:
+ *   - profileId (required): Profile to get transactions for
+ *   - month (required): Month in YYYY-MM format
+ *   - excludeCategories (optional): Comma-separated list of category codes to exclude
+ *     If not provided, uses user's saved preferences
+ */
+summaryRoutes.get('/month-transactions', async (c) => {
+  const userId = c.get('userId')
+  const profileId = c.req.query('profileId')
+  const month = c.req.query('month')
+  const excludeCategoriesParam = c.req.query('excludeCategories')
+
+  if (!profileId) {
+    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
+  }
+
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return c.json(
+      { error: 'validation_error', message: 'month is required in YYYY-MM format' },
+      400
+    )
+  }
+
+  // Get excluded categories from query param or user preferences
+  let excludeCategories: string[] | undefined
+  if (excludeCategoriesParam) {
+    excludeCategories = excludeCategoriesParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } else {
+    excludeCategories = await getDashboardExcludedCategories(userId, profileId)
+    if (excludeCategories.length === 0) {
+      excludeCategories = undefined
+    }
+  }
+
+  const result = await getMonthTransactions(userId, profileId, month, excludeCategories)
+
+  return c.json({ ...result, excludedCategories: excludeCategories || [] })
 })
 
 /**

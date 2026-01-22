@@ -545,3 +545,305 @@ export async function getTransactionStats(
     categoryBreakdown,
   }
 }
+
+/**
+ * Monthly trend data point
+ */
+export interface MonthlyTrendData {
+  month: string // YYYY-MM format
+  monthLabel: string // e.g., "Jan 24"
+  income: number
+  expenses: number
+  net: number
+}
+
+// Categories that should be netted (debits - credits) instead of counted separately
+// These are typically internal transfers that shouldn't inflate income/expenses
+const NETTED_CATEGORIES = ['credit_card_payment']
+
+/**
+ * Month transactions response for the modal
+ */
+export interface MonthTransactionsResponse {
+  month: string
+  monthLabel: string
+  credits: TransactionResponse[]
+  debits: TransactionResponse[]
+  totals: {
+    income: number
+    expenses: number
+    net: number
+  }
+  currency: string
+}
+
+/**
+ * Get transactions for a specific month with netting and exclusions applied
+ * Returns transactions grouped by type and totals matching the chart logic
+ *
+ * For netted categories (like credit_card_payment):
+ * - If credits and debits are equal, hide them completely
+ * - If there's a difference, show only the net amount on the appropriate side
+ */
+export async function getMonthTransactions(
+  userId: string,
+  profileId: string,
+  month: string, // Format: YYYY-MM
+  excludeCategories?: string[]
+): Promise<MonthTransactionsResponse> {
+  // Parse month and calculate date range
+  // Use direct string construction to avoid timezone issues with toISOString()
+  const [year, monthNum] = month.split('-').map(Number)
+  const paddedMonth = String(monthNum).padStart(2, '0')
+  const startDateStr = `${year}-${paddedMonth}-01`
+
+  // Get last day of month by creating a date for day 0 of next month
+  const lastDayOfMonth = new Date(year!, monthNum!, 0).getDate()
+  const endDateStr = `${year}-${paddedMonth}-${String(lastDayOfMonth).padStart(2, '0')}`
+
+  const monthLabel = new Date(year!, monthNum! - 1, 1).toLocaleDateString('en-US', {
+    month: 'short',
+    year: '2-digit',
+  })
+
+  // Fetch all transactions for this month
+  const transactions = await db
+    .select()
+    .from(tables.transactions)
+    .where(
+      and(
+        eq(tables.transactions.userId, userId),
+        eq(tables.transactions.profileId, profileId),
+        gte(tables.transactions.date, startDateStr),
+        lte(tables.transactions.date, endDateStr)
+      )
+    )
+    .orderBy(desc(tables.transactions.date))
+
+  // Filter out excluded categories
+  const filteredTransactions = excludeCategories?.length
+    ? transactions.filter((txn) => !excludeCategories.includes(txn.category))
+    : transactions
+
+  // Separate into credits and debits, excluding netted categories
+  const credits: TransactionResponse[] = []
+  const debits: TransactionResponse[] = []
+
+  // Track totals with netting logic
+  let income = 0
+  let expenses = 0
+
+  // Track netted categories separately
+  const nettedData = new Map<
+    string,
+    {
+      debits: number
+      credits: number
+      lastDebitTxn: TransactionResponse | null
+      lastCreditTxn: TransactionResponse | null
+    }
+  >()
+
+  for (const txn of filteredTransactions) {
+    const response = toTransactionResponse(txn)
+    const amount = response.amount
+
+    if (NETTED_CATEGORIES.includes(txn.category)) {
+      // Track netted categories separately - don't add to lists yet
+      if (!nettedData.has(txn.category)) {
+        nettedData.set(txn.category, {
+          debits: 0,
+          credits: 0,
+          lastDebitTxn: null,
+          lastCreditTxn: null,
+        })
+      }
+      const data = nettedData.get(txn.category)!
+      if (txn.type === 'credit') {
+        data.credits += amount
+        data.lastCreditTxn = response
+      } else {
+        data.debits += amount
+        data.lastDebitTxn = response
+      }
+    } else {
+      // Normal categories: add to lists directly
+      if (txn.type === 'credit') {
+        credits.push(response)
+        income += amount
+      } else {
+        debits.push(response)
+        expenses += amount
+      }
+    }
+  }
+
+  // Process netted categories - only show net difference if any
+  const currency = filteredTransactions[0]?.currency || 'INR'
+
+  for (const [category, data] of nettedData) {
+    const net = data.debits - data.credits
+
+    if (Math.abs(net) > 1) {
+      // Only show if there's a meaningful difference (> 1 to handle rounding)
+      // Create a synthetic transaction for the net difference
+      const baseTxn = net > 0 ? data.lastDebitTxn : data.lastCreditTxn
+      if (baseTxn) {
+        const netTxn: TransactionResponse = {
+          ...baseTxn,
+          id: `${baseTxn.id}-net`,
+          amount: Math.abs(net),
+          type: net > 0 ? 'debit' : 'credit',
+          summary: `Net ${category.replace(/_/g, ' ')}`,
+          originalDescription: `Net difference for ${category.replace(/_/g, ' ')}`,
+        }
+
+        if (net > 0) {
+          // More debits than credits - add to expenses
+          debits.push(netTxn)
+          expenses += Math.abs(net)
+        } else {
+          // More credits than debits - add to income
+          credits.push(netTxn)
+          income += Math.abs(net)
+        }
+      }
+    }
+    // If net is ~0, don't add anything (balanced, hide completely)
+  }
+
+  return {
+    month,
+    monthLabel,
+    credits,
+    debits,
+    totals: {
+      income: Math.round(income),
+      expenses: Math.round(expenses),
+      net: Math.round(income - expenses),
+    },
+    currency,
+  }
+}
+
+/**
+ * Get monthly income and expense trends for the last N months
+ * Only returns months that have actual transaction data
+ */
+export async function getMonthlyTrends(
+  userId: string,
+  profileId: string,
+  months: number = 12,
+  excludeCategories?: string[]
+): Promise<{ trends: MonthlyTrendData[]; currency: string }> {
+  // Calculate date range for the last N months
+  // Use direct string construction to avoid timezone issues
+  const now = new Date()
+  const startYear = now.getFullYear()
+  const startMonth = now.getMonth() - months + 1
+  const adjustedDate = new Date(startYear, startMonth, 1)
+  const startDateStr = `${adjustedDate.getFullYear()}-${String(adjustedDate.getMonth() + 1).padStart(2, '0')}-01`
+
+  // Fetch all transactions in the date range
+  const transactions = await db
+    .select()
+    .from(tables.transactions)
+    .where(
+      and(
+        eq(tables.transactions.userId, userId),
+        eq(tables.transactions.profileId, profileId),
+        gte(tables.transactions.date, startDateStr)
+      )
+    )
+
+  // Filter out excluded categories if specified
+  const filteredTransactions = excludeCategories?.length
+    ? transactions.filter((txn) => !excludeCategories.includes(txn.category))
+    : transactions
+
+  // Group by month - only include months with data
+  const monthlyData = new Map<
+    string,
+    {
+      income: number
+      expenses: number
+      nettedDebits: Map<string, number>
+      nettedCredits: Map<string, number>
+    }
+  >()
+
+  // Aggregate transactions by month
+  // Extract month directly from date string to avoid timezone issues
+  for (const txn of filteredTransactions) {
+    const monthKey = txn.date.substring(0, 7) // "YYYY-MM" from "YYYY-MM-DD"
+
+    if (!monthlyData.has(monthKey)) {
+      monthlyData.set(monthKey, {
+        income: 0,
+        expenses: 0,
+        nettedDebits: new Map(),
+        nettedCredits: new Map(),
+      })
+    }
+
+    const data = monthlyData.get(monthKey)!
+    const amount = typeof txn.amount === 'string' ? parseFloat(txn.amount) : Number(txn.amount)
+
+    // Check if this category should be netted
+    if (NETTED_CATEGORIES.includes(txn.category)) {
+      // Track debits and credits separately for netted categories
+      if (txn.type === 'credit') {
+        data.nettedCredits.set(txn.category, (data.nettedCredits.get(txn.category) || 0) + amount)
+      } else {
+        data.nettedDebits.set(txn.category, (data.nettedDebits.get(txn.category) || 0) + amount)
+      }
+    } else {
+      // Normal categories: add to income or expenses directly
+      if (txn.type === 'credit') {
+        data.income += amount
+      } else {
+        data.expenses += amount
+      }
+    }
+  }
+
+  // Now calculate net values for netted categories and add to income/expenses
+  for (const [, data] of monthlyData) {
+    for (const category of NETTED_CATEGORIES) {
+      const debits = data.nettedDebits.get(category) || 0
+      const credits = data.nettedCredits.get(category) || 0
+      const net = debits - credits
+
+      // If net > 0, more money went out than came in (add to expenses)
+      // If net < 0, more money came in than went out (add to income)
+      // If net = 0, balanced transfer (no effect)
+      if (net > 0) {
+        data.expenses += net
+      } else if (net < 0) {
+        data.income += Math.abs(net)
+      }
+    }
+  }
+
+  // Convert to array and format - sorted chronologically
+  const trends: MonthlyTrendData[] = Array.from(monthlyData.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, data]) => {
+      const [year, monthNum] = month.split('-')
+      const date = new Date(parseInt(year!), parseInt(monthNum!) - 1, 1)
+      const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+
+      return {
+        month,
+        monthLabel,
+        income: Math.round(data.income),
+        expenses: Math.round(data.expenses),
+        net: Math.round(data.income - data.expenses),
+      }
+    })
+
+  // Get currency from transactions (default to INR)
+  const currency = filteredTransactions[0]?.currency || 'INR'
+
+  return { trends, currency }
+}

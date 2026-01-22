@@ -1,13 +1,28 @@
-import { useQuery } from '@tanstack/react-query'
-import { getSummary, getFxRates, getFxRate } from '@/lib/api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  getSummary,
+  getFxRates,
+  getFxRate,
+  getMonthlyTrends,
+  getPreferences,
+  setPreference,
+  PREFERENCE_KEYS,
+} from '@/lib/api'
 
 // Query Keys
 export const summaryKeys = {
   all: ['summary'] as const,
   financial: (profileId: string, options?: { startDate?: string; endDate?: string }) =>
     [...summaryKeys.all, 'financial', profileId, options] as const,
+  monthlyTrends: (profileId: string, months: number, excludeCategories?: string[]) =>
+    [...summaryKeys.all, 'monthlyTrends', profileId, months, excludeCategories] as const,
   fxRates: (baseCurrency: string) => [...summaryKeys.all, 'fxRates', baseCurrency] as const,
   fxRate: (from: string, to: string) => [...summaryKeys.all, 'fxRate', from, to] as const,
+}
+
+export const preferencesKeys = {
+  all: ['preferences'] as const,
+  byProfile: (profileId?: string) => [...preferencesKeys.all, profileId] as const,
 }
 
 // ============================================
@@ -22,6 +37,60 @@ export function useSummary(profileId?: string, options?: { startDate?: string; e
     queryKey: summaryKeys.financial(profileId!, options),
     queryFn: () => getSummary(profileId!, options),
     enabled: !!profileId,
+  })
+}
+
+/**
+ * Fetch monthly income/expense trends
+ */
+export function useMonthlyTrends(
+  profileId?: string,
+  months: number = 12,
+  excludeCategories?: string[]
+) {
+  return useQuery({
+    queryKey: summaryKeys.monthlyTrends(profileId!, months, excludeCategories),
+    queryFn: () => getMonthlyTrends(profileId!, months, excludeCategories),
+    enabled: !!profileId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+/**
+ * Fetch user preferences
+ */
+export function usePreferences(profileId?: string) {
+  return useQuery({
+    queryKey: preferencesKeys.byProfile(profileId),
+    queryFn: () => getPreferences(profileId),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  })
+}
+
+/**
+ * Mutation to set a preference
+ */
+export function useSetPreference() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      key,
+      value,
+      profileId,
+    }: {
+      key: string
+      value: string
+      profileId?: string | null
+    }) => setPreference(key, value, profileId),
+    onSuccess: (_, variables) => {
+      // Invalidate preferences queries
+      queryClient.invalidateQueries({ queryKey: preferencesKeys.all })
+      // If it's an excluded categories preference, invalidate trends too
+      if (variables.key === PREFERENCE_KEYS.DASHBOARD_EXCLUDED_CATEGORIES) {
+        queryClient.invalidateQueries({ queryKey: ['summary', 'monthlyTrends'] })
+      }
+    },
   })
 }
 

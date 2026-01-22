@@ -1215,6 +1215,133 @@ export async function getSummary(
   return response.data
 }
 
+/**
+ * Monthly trend data point
+ */
+export interface MonthlyTrendData {
+  month: string
+  monthLabel: string
+  income: number
+  expenses: number
+  net: number
+}
+
+/**
+ * Monthly trends response
+ */
+export interface MonthlyTrendsResponse {
+  trends: MonthlyTrendData[]
+  currency: string
+  excludedCategories: string[]
+}
+
+/**
+ * Get monthly income/expense trends
+ */
+export async function getMonthlyTrends(
+  profileId: string,
+  months: number = 12,
+  excludeCategories?: string[]
+): Promise<MonthlyTrendsResponse> {
+  const params = new URLSearchParams()
+  params.set('profileId', profileId)
+  params.set('months', months.toString())
+  if (excludeCategories?.length) {
+    params.set('excludeCategories', excludeCategories.join(','))
+  }
+
+  const response = await api.get(`/summary/monthly-trends?${params.toString()}`)
+  return response.data
+}
+
+/**
+ * Month transactions response (with netting and exclusions applied)
+ */
+export interface MonthTransactionsResponse {
+  month: string
+  monthLabel: string
+  credits: Transaction[]
+  debits: Transaction[]
+  totals: {
+    income: number
+    expenses: number
+    net: number
+  }
+  currency: string
+  excludedCategories: string[]
+}
+
+/**
+ * Get transactions for a specific month with netting and exclusions applied
+ */
+export async function getMonthTransactions(
+  profileId: string,
+  month: string,
+  excludeCategories?: string[]
+): Promise<MonthTransactionsResponse> {
+  const params = new URLSearchParams()
+  params.set('profileId', profileId)
+  params.set('month', month)
+  if (excludeCategories?.length) {
+    params.set('excludeCategories', excludeCategories.join(','))
+  }
+
+  const response = await api.get(`/summary/month-transactions?${params.toString()}`)
+  return response.data
+}
+
+// ============================================
+// Preferences API
+// ============================================
+
+/**
+ * Preference keys
+ */
+export const PREFERENCE_KEYS = {
+  DASHBOARD_EXCLUDED_CATEGORIES: 'dashboard.excluded_categories',
+  DASHBOARD_CHART_TIMEFRAME: 'dashboard.chart_timeframe',
+} as const
+
+/**
+ * Get all preferences
+ */
+export async function getPreferences(profileId?: string): Promise<Record<string, string>> {
+  const params = profileId ? `?profileId=${profileId}` : ''
+  const response = await api.get(`/preferences${params}`)
+  return response.data.preferences
+}
+
+/**
+ * Get a specific preference
+ */
+export async function getPreference(
+  key: string,
+  profileId?: string
+): Promise<{ key: string; value: string | null; profileId: string | null }> {
+  const params = profileId ? `?profileId=${profileId}` : ''
+  const response = await api.get(`/preferences/${encodeURIComponent(key)}${params}`)
+  return response.data
+}
+
+/**
+ * Set a preference
+ */
+export async function setPreference(
+  key: string,
+  value: string,
+  profileId?: string | null
+): Promise<void> {
+  await api.put('/preferences', { key, value, profileId })
+}
+
+/**
+ * Delete a preference
+ */
+export async function deletePreference(key: string, profileId?: string): Promise<void> {
+  const params = profileId ? `?profileId=${profileId}` : ''
+  await api.delete(`/preferences/${encodeURIComponent(key)}${params}`)
+}
+
 // ============================================
 // FX Rates API
 // ============================================

@@ -545,11 +545,42 @@ export async function parseStatement(options: {
     }
     logger.debug(`[Parser] Using account info from document detection:`, accountInfo)
   } else {
-    try {
-      accountInfo = await extractAccountInfo(fullText, countryCode, effectiveParsingModel)
-      logger.debug(`[Parser] Extracted account info:`, accountInfo)
-    } catch (error) {
-      logger.warn(`[Parser] Could not extract account info:`, error)
+    // Retry account info extraction up to 3 times before failing
+    const MAX_ACCOUNT_INFO_RETRIES = 3
+    let lastError: unknown = null
+
+    for (let attempt = 1; attempt <= MAX_ACCOUNT_INFO_RETRIES; attempt++) {
+      try {
+        accountInfo = await extractAccountInfo(fullText, countryCode, effectiveParsingModel)
+        logger.debug(`[Parser] Extracted account info:`, accountInfo)
+        break // Success, exit retry loop
+      } catch (error) {
+        lastError = error
+        logger.warn(
+          `[Parser] Account info extraction attempt ${attempt}/${MAX_ACCOUNT_INFO_RETRIES} failed:`,
+          error instanceof Error ? error.message : error
+        )
+
+        if (attempt < MAX_ACCOUNT_INFO_RETRIES) {
+          // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+          const delayMs = 1000 * Math.pow(2, attempt - 1)
+          logger.info(`[Parser] Retrying account info extraction in ${delayMs}ms...`)
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+        }
+      }
+    }
+
+    // If all retries failed, fail the statement parsing
+    if (!accountInfo) {
+      const errorMessage =
+        lastError instanceof Error ? lastError.message : 'Failed to extract account info'
+      logger.error(
+        `[Parser] All ${MAX_ACCOUNT_INFO_RETRIES} account info extraction attempts failed`
+      )
+      await updateStatementStatus(statementId, 'failed', errorMessage)
+      throw new Error(
+        `Account info extraction failed after ${MAX_ACCOUNT_INFO_RETRIES} attempts: ${errorMessage}`
+      )
     }
   }
 
@@ -613,10 +644,15 @@ export async function parseStatement(options: {
   }
 
   // Generate bank key for caching using institution ID and file type
-  const bankKey = accountInfo
-    ? generateBankKey(accountInfo.institution_id, accountInfo.account_type, fileType)
-    : `unknown_unknown:${fileType}`
+  // accountInfo is guaranteed to be non-null at this point (we throw if extraction fails)
+  if (!accountInfo) {
+    const errorMessage = 'Account info is required but was not extracted'
+    logger.error(`[Parser] ${errorMessage}`)
+    await updateStatementStatus(statementId, 'failed', errorMessage)
+    throw new Error(errorMessage)
+  }
 
+  const bankKey = generateBankKey(accountInfo.institution_id, accountInfo.account_type, fileType)
   logger.info(`[Parser] Bank key: ${bankKey} (file type: ${fileType})`)
 
   // Build expected summary for validation (from Step 1 account info extraction)

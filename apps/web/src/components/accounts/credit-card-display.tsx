@@ -69,14 +69,14 @@ export function CreditCardDisplay({
     <div
       className={cn(
         'relative rounded-xl p-5 border transition-colors',
-        'bg-card border-[var(--border-subtle)] hover:border-[var(--border-hover)]',
+        'bg-card border-border-subtle hover:border-border-hover',
         !account.isActive && 'opacity-50'
       )}
     >
       {/* Header */}
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-[var(--surface-elevated)] border border-[var(--border-subtle)] shrink-0">
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-surface-elevated border border-border-subtle shrink-0">
             {logoPath && !logoError ? (
               <img
                 src={logoPath}
@@ -147,7 +147,7 @@ export function CreditCardDisplay({
       </p>
 
       {/* Balance */}
-      <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+      <div className="mt-4 pt-4 border-t border-border-subtle">
         <p className="text-xs text-muted-foreground uppercase tracking-wider">Outstanding</p>
         <div className="flex items-baseline justify-between mt-1">
           <p className="text-xl font-semibold text-negative tabular-nums">

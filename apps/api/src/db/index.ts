@@ -171,6 +171,8 @@ export type {
   NewInvestmentTransaction,
   InvestmentSnapshot,
   NewInvestmentSnapshot,
+  UserPreferences,
+  NewUserPreferences,
 } from './schema.pg'
 
 // Export table references typed as Postgres for IntelliSense.
@@ -188,6 +190,7 @@ const tablesImpl = isPostgres
       investmentHoldings: pgSchema.investmentHoldings,
       investmentTransactions: pgSchema.investmentTransactions,
       investmentSnapshots: pgSchema.investmentSnapshots,
+      userPreferences: pgSchema.userPreferences,
     }
   : {
       users: sqliteSchema.users,
@@ -201,6 +204,7 @@ const tablesImpl = isPostgres
       investmentHoldings: sqliteSchema.investmentHoldings,
       investmentTransactions: sqliteSchema.investmentTransactions,
       investmentSnapshots: sqliteSchema.investmentSnapshots,
+      userPreferences: sqliteSchema.userPreferences,
     }
 
 export const tables = tablesImpl as {
@@ -215,6 +219,7 @@ export const tables = tablesImpl as {
   investmentHoldings: typeof pgSchema.investmentHoldings
   investmentTransactions: typeof pgSchema.investmentTransactions
   investmentSnapshots: typeof pgSchema.investmentSnapshots
+  userPreferences: typeof pgSchema.userPreferences
 }
 
 /**

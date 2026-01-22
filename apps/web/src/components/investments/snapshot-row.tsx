@@ -70,7 +70,7 @@ export function SnapshotRow({
       <div
         className={cn(
           'group overflow-hidden rounded-xl border transition-colors',
-          'bg-card border-[var(--border-subtle)] hover:border-[var(--border-hover)]'
+          'bg-card border-border-subtle hover:border-border-hover'
         )}
       >
         {/* Header */}
@@ -89,7 +89,7 @@ export function SnapshotRow({
             </Button>
           </CollapsibleTrigger>
 
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-elevated)] border border-[var(--border-subtle)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-elevated border border-border-subtle">
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </div>
 
@@ -182,7 +182,7 @@ export function SnapshotRow({
         </div>
 
         {/* Mobile values */}
-        <div className="border-t border-[var(--border-subtle)] px-4 py-3 sm:hidden">
+        <div className="border-t border-border-subtle px-4 py-3 sm:hidden">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Total Value</span>
             <span className="font-mono font-semibold">
@@ -210,16 +210,16 @@ export function SnapshotRow({
         {/* Holdings Detail */}
         <CollapsibleContent>
           {snapshot.holdingsDetail && snapshot.holdingsDetail.length > 0 && (
-            <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
-              <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-card">
+            <div className="border-t border-border-subtle bg-surface-elevated p-4">
+              <div className="overflow-hidden rounded-lg border border-border-subtle bg-card">
                 {/* Table Header */}
-                <div className="hidden border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-4 sm:gap-4">
+                <div className="hidden border-b border-border-subtle bg-surface-elevated px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-4 sm:gap-4">
                   <div>Name</div>
                   <div>Type</div>
                   <div className="text-right">Units</div>
                   <div className="text-right">Value</div>
                 </div>
-                <div className="divide-y divide-[var(--border-subtle)]">
+                <div className="divide-y divide-border-subtle">
                   {snapshot.holdingsDetail.map((holding, idx) => (
                     <div
                       key={idx}

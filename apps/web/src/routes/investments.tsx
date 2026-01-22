@@ -64,8 +64,8 @@ export const Route = createFileRoute('/investments')({
 
 function InvestmentsPage() {
   const queryClient = useQueryClient()
-  const { profiles, defaultProfile } = useProfiles()
-  const { user } = useAuthStatus()
+  const { defaultProfile } = useProfiles()
+  useAuthStatus()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [showAddSourceDialog, setShowAddSourceDialog] = useState(false)
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false)
@@ -77,7 +77,6 @@ function InvestmentsPage() {
 
   // Use default profile if none selected
   const activeProfileId = selectedProfileId || defaultProfile?.id
-  const countryCode = user?.country?.toLowerCase() || 'in'
 
   // Query hooks
   const { data: typesData } = useInvestmentTypes()
@@ -127,7 +126,7 @@ function InvestmentsPage() {
       if (!acc[holding.sourceId]) {
         acc[holding.sourceId] = []
       }
-      acc[holding.sourceId].push(holding)
+      acc[holding.sourceId]!.push(holding)
       return acc
     },
     {} as Record<string, InvestmentHolding[]>
@@ -194,7 +193,7 @@ function InvestmentsPage() {
           actions={
             <>
               {hasMultipleCurrencies && (
-                <div className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-card/50 px-3 py-2">
+                <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-card/50 px-3 py-2">
                   <Label
                     htmlFor="show-inr"
                     className="cursor-pointer text-sm text-muted-foreground"
@@ -208,9 +207,8 @@ function InvestmentsPage() {
                 </div>
               )}
               <ProfileSelector
-                profiles={profiles || []}
-                selectedProfileId={activeProfileId || ''}
-                onProfileChange={setSelectedProfileId}
+                selectedProfileId={activeProfileId || null}
+                onProfileChange={(profile) => setSelectedProfileId(profile.id)}
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -356,31 +354,33 @@ function InvestmentsPage() {
             </TabsList>
 
             {/* By Source View */}
-            <TabsContent value="by-source" className="space-y-4">
-              {sources.map((source) => {
-                const sourceHoldings = holdingsBySource?.[source.id] || []
-                return (
-                  <SourceCard
-                    key={source.id}
-                    source={source}
-                    holdings={sourceHoldings}
-                    holdingTypes={holdingTypes}
-                    sourceTypes={sourceTypes}
-                    isExpanded={expandedSources.has(source.id)}
-                    onToggle={() => toggleSource(source.id)}
-                    onAddHolding={() => handleAddHolding(source.id)}
-                    onEditSource={() => setEditingSource(source)}
-                    onDeleteSource={() => deleteSourceMutation.mutate(source.id)}
-                    onEditHolding={setEditingHolding}
-                    onDeleteHolding={(id) => deleteHoldingMutation.mutate(id)}
-                    formatCurrency={formatCurrency}
-                    formatPercentage={formatPercentage}
-                    showInINR={showInINR}
-                    convertToINR={localConvertToINR}
-                    getSourceTypeLabel={getSourceTypeLabel}
-                  />
-                )
-              })}
+            <TabsContent value="by-source">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {sources.map((source) => {
+                  const sourceHoldings = holdingsBySource?.[source.id] || []
+                  return (
+                    <SourceCard
+                      key={source.id}
+                      source={source}
+                      holdings={sourceHoldings}
+                      holdingTypes={holdingTypes}
+                      sourceTypes={sourceTypes}
+                      isExpanded={expandedSources.has(source.id)}
+                      onToggle={() => toggleSource(source.id)}
+                      onAddHolding={() => handleAddHolding(source.id)}
+                      onEditSource={() => setEditingSource(source)}
+                      onDeleteSource={() => deleteSourceMutation.mutate(source.id)}
+                      onEditHolding={setEditingHolding}
+                      onDeleteHolding={(id) => deleteHoldingMutation.mutate(id)}
+                      formatCurrency={formatCurrency}
+                      formatPercentage={formatPercentage}
+                      showInINR={showInINR}
+                      convertToINR={localConvertToINR}
+                      getSourceTypeLabel={getSourceTypeLabel}
+                    />
+                  )
+                })}
+              </div>
             </TabsContent>
 
             {/* All Holdings View */}
@@ -419,9 +419,9 @@ function InvestmentsPage() {
                   )
                 })
               ) : (
-                <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-card">
+                <div className="rounded-xl border border-dashed border-border-subtle bg-card">
                   <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="h-14 w-14 rounded-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center mb-4">
+                    <div className="h-14 w-14 rounded-full bg-surface-elevated border border-border-subtle flex items-center justify-center mb-4">
                       <History className="h-7 w-7 text-muted-foreground" />
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">
@@ -447,7 +447,7 @@ function InvestmentsPage() {
             }}
             secondaryAction={{
               label: 'Upload Statement',
-              linkOptions: { to: '/statements', search: { upload: true } },
+              href: '/statements?upload=true',
               icon: Upload,
             }}
           />

@@ -32,11 +32,11 @@ export function AuthLayout({
         {/* Animated mesh gradient background */}
         <div className="absolute inset-0">
           {/* Base dark gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#030303] via-[#0a0f0d] to-[#030303]" />
+          <div className="absolute inset-0 bg-linear-to-br from-[#030303] via-[#0a0f0d] to-[#030303]" />
 
           {/* Floating orbs */}
           <motion.div
-            className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full opacity-40"
+            className="absolute -top-32 -left-32 w-150 h-150 rounded-full opacity-40"
             style={{
               background:
                 'radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, transparent 60%)',
@@ -53,7 +53,7 @@ export function AuthLayout({
             }}
           />
           <motion.div
-            className="absolute -bottom-48 -right-48 w-[700px] h-[700px] rounded-full opacity-30"
+            className="absolute -bottom-48 -right-48 w-175 h-175 rounded-full opacity-30"
             style={{
               background:
                 'radial-gradient(circle at center, rgba(20, 184, 166, 0.12) 0%, transparent 55%)',
@@ -70,7 +70,7 @@ export function AuthLayout({
             }}
           />
           <motion.div
-            className="absolute top-1/2 left-1/3 w-[400px] h-[400px] rounded-full opacity-20"
+            className="absolute top-1/2 left-1/3 w-100 h-100 rounded-full opacity-20"
             style={{
               background:
                 'radial-gradient(circle at center, rgba(52, 211, 153, 0.1) 0%, transparent 50%)',
@@ -127,7 +127,7 @@ export function AuthLayout({
         <div className="relative z-10 flex flex-col items-start justify-center flex-1 max-w-md mx-auto w-full">
           {/* Decorative line */}
           <motion.div
-            className="w-12 h-px bg-gradient-to-r from-emerald-500/50 to-transparent mb-8"
+            className="w-12 h-px bg-linear-to-r from-emerald-500/50 to-transparent mb-8"
             initial={{ scaleX: 0, originX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -142,7 +142,7 @@ export function AuthLayout({
             <h1 className="font-display text-[3.5rem] xl:text-[4rem] font-semibold text-white leading-[1.05] tracking-tight">
               {title}
               <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-300 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-emerald-400 via-teal-400 to-emerald-300 bg-clip-text text-transparent">
                 {subtitle}
               </span>
             </h1>
@@ -194,10 +194,10 @@ export function AuthLayout({
       {/* Right Panel - Form (exactly 50%) */}
       <div className="w-full lg:w-1/2 flex flex-col min-h-screen relative bg-[#0a0a0a]">
         {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-emerald-950/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-emerald-950/5 pointer-events-none" />
 
         {/* Border glow effect */}
-        <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent hidden lg:block" />
+        <div className="absolute left-0 top-0 bottom-0 w-px bg-linear-to-b from-transparent via-emerald-500/20 to-transparent hidden lg:block" />
 
         {/* Mobile header */}
         <div className="lg:hidden p-6 flex items-center justify-between border-b border-white/5">
@@ -212,7 +212,7 @@ export function AuthLayout({
 
         {/* Form content - centered */}
         <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12 xl:p-16">
-          <div className="w-full max-w-[420px]">{children}</div>
+          <div className="w-full max-w-105">{children}</div>
         </div>
       </div>
     </div>
@@ -290,7 +290,7 @@ function StepProgress({ steps, currentStep }: StepProgressProps) {
             {index < steps.length - 1 && (
               <div className="relative w-12 h-0.5 overflow-hidden rounded-full bg-zinc-800/50">
                 <motion.div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500"
+                  className="absolute inset-y-0 left-0 bg-linear-to-r from-emerald-500 to-teal-500"
                   initial={{ width: 0 }}
                   animate={{
                     width: isCompleted ? '100%' : '0%',

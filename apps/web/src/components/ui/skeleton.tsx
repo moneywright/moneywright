@@ -8,7 +8,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
 
 function StatCardSkeleton() {
   return (
-    <div className="rounded-xl p-5 bg-card border border-[var(--border-subtle)]">
+    <div className="rounded-xl p-5 bg-card border border-border-subtle">
       <div className="flex items-start justify-between">
         <div className="space-y-3 flex-1">
           <Skeleton className="h-3 w-16" />
@@ -46,7 +46,7 @@ function ListItemSkeleton() {
 
 function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
   return (
-    <div className="flex items-center gap-4 px-4 py-3 border-b border-[var(--border-subtle)]">
+    <div className="flex items-center gap-4 px-4 py-3 border-b border-border-subtle">
       {Array.from({ length: columns }).map((_, i) => (
         <Skeleton key={i} className={cn('h-4', i === 0 ? 'w-20' : i === 1 ? 'flex-1' : 'w-24')} />
       ))}
@@ -56,8 +56,8 @@ function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
 
 function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-card overflow-hidden">
-      <div className="bg-[var(--surface-elevated)] px-4 py-3 border-b border-[var(--border-subtle)]">
+    <div className="rounded-xl border border-border-subtle bg-card overflow-hidden">
+      <div className="bg-surface-elevated px-4 py-3 border-b border-border-subtle">
         <div className="flex gap-4">
           {Array.from({ length: columns }).map((_, i) => (
             <Skeleton
@@ -76,7 +76,7 @@ function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: num
 
 function CardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-xl p-5 bg-card border border-[var(--border-subtle)]', className)}>
+    <div className={cn('rounded-xl p-5 bg-card border border-border-subtle', className)}>
       <div className="flex items-start gap-3">
         <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
         <div className="flex-1 space-y-2">
@@ -84,7 +84,7 @@ function CardSkeleton({ className }: { className?: string }) {
           <Skeleton className="h-3 w-24" />
         </div>
       </div>
-      <div className="mt-4 pt-4 border-t border-[var(--border-subtle)] space-y-2">
+      <div className="mt-4 pt-4 border-t border-border-subtle space-y-2">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-6 w-28" />
       </div>

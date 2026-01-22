@@ -41,8 +41,8 @@ function StatementsPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const searchParams = useSearch({ from: '/statements' })
-  const { profiles, defaultProfile } = useProfiles()
-  const { user } = useAuthStatus()
+  const { defaultProfile } = useProfiles()
+  useAuthStatus()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [accountFilter, setAccountFilter] = useState<string | null>(null)
@@ -70,12 +70,12 @@ function StatementsPage() {
   }
 
   const activeProfileId = selectedProfileId || defaultProfile?.id
-  const countryCode = user?.country?.toLowerCase() || 'in'
 
   // Query hooks
   const { data: statements, isLoading: statementsLoading } = useStatements(activeProfileId, {
     refetchInterval: (query) => {
-      const data = query.state.data
+      // Poll for updates when any statement is pending or parsing
+      const data = (query as { state: { data?: { status: string }[] } }).state.data
       if (data?.some((s) => s.status === 'pending' || s.status === 'parsing')) {
         return 3000
       }
@@ -151,9 +151,8 @@ function StatementsPage() {
           actions={
             <>
               <ProfileSelector
-                profiles={profiles || []}
-                selectedProfileId={activeProfileId || ''}
-                onProfileChange={setSelectedProfileId}
+                selectedProfileId={activeProfileId || null}
+                onProfileChange={(profile) => setSelectedProfileId(profile.id)}
               />
               <Button onClick={() => setShowUploadDialog(true)}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -178,7 +177,7 @@ function StatementsPage() {
         {/* Upload Dialog */}
         <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
           <DialogContent
-            className="sm:max-w-2xl p-0 gap-0 h-[600px] max-h-[85vh] flex flex-col"
+            className="sm:max-w-2xl p-0 gap-0 h-150 max-h-[85vh] flex flex-col"
             showCloseButton={false}
           >
             {activeProfileId && (

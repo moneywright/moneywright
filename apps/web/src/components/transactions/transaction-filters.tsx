@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { AccountSelector } from '@/components/ui/account-selector'
 import {
   Search,
   ArrowUpRight,
@@ -159,8 +160,8 @@ export function TransactionFiltersBar({
       <div
         className={cn(
           'relative flex flex-col gap-4 p-4 rounded-2xl transition-all duration-300',
-          'bg-gradient-to-b from-card to-card/80',
-          'border border-[var(--border-subtle)]',
+          'bg-linear-to-b from-card to-card/80',
+          'border border-border-subtle',
           'shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]',
           'dark:shadow-[0_1px_3px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.15)]'
         )}
@@ -170,7 +171,7 @@ export function TransactionFiltersBar({
           {/* Search Input - Command Bar Style */}
           <div
             className={cn(
-              'relative flex-1 min-w-[240px] max-w-md transition-all duration-200',
+              'relative flex-1 min-w-60 max-w-md transition-all duration-200',
               searchFocused && 'max-w-lg'
             )}
           >
@@ -197,7 +198,7 @@ export function TransactionFiltersBar({
               onBlur={() => setSearchFocused(false)}
               className={cn(
                 'relative pl-10 pr-4 h-11 rounded-xl border-0',
-                'bg-[var(--surface-elevated)] dark:bg-[var(--surface-elevated)]',
+                'bg-surface-elevated dark:bg-surface-elevated',
                 'placeholder:text-muted-foreground/60',
                 'focus-visible:ring-0 focus-visible:ring-offset-0',
                 'transition-all duration-200'
@@ -206,7 +207,7 @@ export function TransactionFiltersBar({
             {search && (
               <button
                 onClick={() => onSearchChange('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-[var(--surface-hover)] transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-surface-hover transition-colors"
               >
                 <X className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
@@ -219,8 +220,8 @@ export function TransactionFiltersBar({
             <div
               className={cn(
                 'flex items-center p-1 rounded-xl',
-                'bg-[var(--surface-elevated)]',
-                'border border-[var(--border-subtle)]'
+                'bg-surface-elevated',
+                'border border-border-subtle'
               )}
             >
               <button
@@ -273,7 +274,7 @@ export function TransactionFiltersBar({
                 'border',
                 filters.isSubscription
                   ? 'bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400'
-                  : 'bg-[var(--surface-elevated)] border-[var(--border-subtle)] text-muted-foreground hover:text-foreground hover:border-[var(--border-hover)]'
+                  : 'bg-surface-elevated border-border-subtle text-muted-foreground hover:text-foreground hover:border-border-hover'
               )}
             >
               <RefreshCw
@@ -296,7 +297,7 @@ export function TransactionFiltersBar({
                 'border',
                 showAdvanced || hasAdvancedFilters
                   ? 'bg-primary/5 border-primary/20 text-primary'
-                  : 'bg-[var(--surface-elevated)] border-[var(--border-subtle)] text-muted-foreground hover:text-foreground hover:border-[var(--border-hover)]'
+                  : 'bg-surface-elevated border-border-subtle text-muted-foreground hover:text-foreground hover:border-border-hover'
               )}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -337,7 +338,7 @@ export function TransactionFiltersBar({
           <div className="min-h-0 overflow-hidden">
             <div
               className={cn(
-                'pt-3 border-t border-[var(--border-subtle)]',
+                'pt-3 border-t border-border-subtle',
                 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'
               )}
             >
@@ -366,79 +367,34 @@ export function TransactionFiltersBar({
                   <Building2 className="h-3 w-3" />
                   Account
                 </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-between h-10 rounded-lg font-normal',
-                        'bg-[var(--surface-elevated)] border-[var(--border-subtle)]',
-                        'hover:bg-[var(--surface-hover)] hover:border-[var(--border-hover)]',
-                        filters.accountId?.length && 'border-primary/30 bg-primary/5'
-                      )}
-                    >
-                      <span className="truncate">
-                        {filters.accountId?.length
-                          ? filters.accountId.length === 1
-                            ? accounts?.find((a) => a.id === filters.accountId![0])?.accountName ||
-                              'Account'
-                            : `${filters.accountId.length} accounts`
-                          : 'All accounts'}
-                      </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-96 p-2" align="start">
-                    <div className="max-h-[280px] overflow-y-auto space-y-1">
-                      <Button
-                        variant={!filters.accountId?.length ? 'secondary' : 'ghost'}
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => removeFilter('accountId')}
-                      >
-                        <Sparkles className="mr-2 h-4 w-4 text-muted-foreground" />
-                        All accounts
-                      </Button>
-                      {accounts?.map((account) => {
-                        const isSelected = filters.accountId?.includes(account.id)
-                        return (
-                          <Button
-                            key={account.id}
-                            variant={isSelected ? 'secondary' : 'ghost'}
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => {
-                              const current = filters.accountId || []
-                              const updated = isSelected
-                                ? current.filter((id) => id !== account.id)
-                                : [...current, account.id]
-                              const newFilters = {
-                                ...filters,
-                                accountId: updated.length > 0 ? updated : undefined,
-                              }
-                              // Filter statements to only those belonging to selected accounts
-                              if (filters.statementId?.length && updated.length > 0) {
-                                const validStatements = filters.statementId.filter((id) =>
-                                  updated.includes(
-                                    statements?.find((s) => s.id === id)?.accountId || ''
-                                  )
-                                )
-                                newFilters.statementId =
-                                  validStatements.length > 0 ? validStatements : undefined
-                              }
-                              onFiltersChange(newFilters)
-                            }}
-                          >
-                            {isSelected && <Check className="mr-2 h-4 w-4 text-primary shrink-0" />}
-                            <span className={cn('truncate', !isSelected && 'ml-6')}>
-                              {account.accountName || account.type}
-                            </span>
-                          </Button>
-                        )
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <AccountSelector
+                  accounts={accounts}
+                  values={filters.accountId || []}
+                  onValuesChange={(accountIds) => {
+                    const newFilters = {
+                      ...filters,
+                      accountId: accountIds.length > 0 ? accountIds : undefined,
+                    }
+                    // Filter statements to only those belonging to selected accounts
+                    if (filters.statementId?.length && accountIds.length > 0) {
+                      const validStatements = filters.statementId.filter((id) =>
+                        accountIds.includes(statements?.find((s) => s.id === id)?.accountId || '')
+                      )
+                      newFilters.statementId =
+                        validStatements.length > 0 ? validStatements : undefined
+                    }
+                    onFiltersChange(newFilters)
+                  }}
+                  mode="multi"
+                  showAllOption
+                  allOptionLabel="All accounts"
+                  triggerClassName={cn(
+                    'w-full h-10 rounded-lg',
+                    'bg-surface-elevated border-border-subtle',
+                    'hover:bg-surface-hover hover:border-border-hover',
+                    filters.accountId?.length && 'border-primary/30 bg-primary/5'
+                  )}
+                />
               </div>
 
               {/* Date Range */}
@@ -453,8 +409,8 @@ export function TransactionFiltersBar({
                       variant="outline"
                       className={cn(
                         'w-full justify-between h-10 rounded-lg font-normal',
-                        'bg-[var(--surface-elevated)] border-[var(--border-subtle)]',
-                        'hover:bg-[var(--surface-hover)] hover:border-[var(--border-hover)]',
+                        'bg-surface-elevated border-border-subtle',
+                        'hover:bg-surface-hover hover:border-border-hover',
                         (filters.startDate || filters.endDate) && 'border-primary/30 bg-primary/5'
                       )}
                     >
@@ -493,7 +449,7 @@ export function TransactionFiltersBar({
                                 'px-3 py-2 text-sm font-medium rounded-lg transition-colors text-left',
                                 isSelected
                                   ? 'bg-primary/10 text-primary border border-primary/20'
-                                  : 'bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)] text-foreground'
+                                  : 'bg-surface-elevated hover:bg-surface-hover text-foreground'
                               )}
                             >
                               {preset.label}
@@ -505,7 +461,7 @@ export function TransactionFiltersBar({
                       {/* Divider */}
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-[var(--border-subtle)]" />
+                          <span className="w-full border-t border-border-subtle" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
                           <span className="bg-popover px-2 text-muted-foreground">or custom</span>
@@ -573,8 +529,8 @@ export function TransactionFiltersBar({
                       variant="outline"
                       className={cn(
                         'w-full justify-between h-10 rounded-lg font-normal',
-                        'bg-[var(--surface-elevated)] border-[var(--border-subtle)]',
-                        'hover:bg-[var(--surface-hover)] hover:border-[var(--border-hover)]',
+                        'bg-surface-elevated border-border-subtle',
+                        'hover:bg-surface-hover hover:border-border-hover',
                         filters.statementId?.length && 'border-primary/30 bg-primary/5'
                       )}
                     >
@@ -589,7 +545,7 @@ export function TransactionFiltersBar({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80 p-2" align="start">
-                    <div className="max-h-[280px] overflow-y-auto space-y-1">
+                    <div className="max-h-70 overflow-y-auto space-y-1">
                       <Button
                         variant={!filters.statementId?.length ? 'secondary' : 'ghost'}
                         size="sm"
@@ -601,7 +557,11 @@ export function TransactionFiltersBar({
                       </Button>
                       {statements
                         ?.filter((s) => s.status === 'completed')
-                        .filter((s) => !filters.accountId || s.accountId === filters.accountId)
+                        .filter(
+                          (s) =>
+                            !filters.accountId?.length ||
+                            filters.accountId.includes(s.accountId || '')
+                        )
                         .map((statement) => {
                           const isSelected = filters.statementId?.includes(statement.id)
                           const date = statement.periodEnd
@@ -790,8 +750,8 @@ function CategoryFilterDropdown({
             variant="outline"
             className={cn(
               'w-full justify-between h-10 rounded-lg font-normal',
-              'bg-[var(--surface-elevated)] border-[var(--border-subtle)]',
-              'hover:bg-[var(--surface-hover)] hover:border-[var(--border-hover)]',
+              'bg-surface-elevated border-border-subtle',
+              'hover:bg-surface-hover hover:border-border-hover',
               selectedCategories?.length && 'border-primary/30 bg-primary/5'
             )}
           >
@@ -813,10 +773,10 @@ function CategoryFilterDropdown({
               placeholder="Search categories..."
               value={categorySearch}
               onChange={(e) => setCategorySearch(e.target.value)}
-              className="h-8 pl-8 text-sm bg-[var(--surface-elevated)] border-[var(--border-subtle)]"
+              className="h-8 pl-8 text-sm bg-surface-elevated border-border-subtle"
             />
           </div>
-          <div className="max-h-[240px] overflow-y-auto space-y-1">
+          <div className="max-h-60 overflow-y-auto space-y-1">
             {!categorySearch && (
               <Button
                 variant={!selectedCategories?.length ? 'secondary' : 'ghost'}
@@ -867,7 +827,7 @@ function FilterPill({
   onRemove: () => void
 }) {
   const variantStyles = {
-    default: 'bg-[var(--surface-elevated)] text-foreground border-[var(--border-subtle)]',
+    default: 'bg-surface-elevated text-foreground border-border-subtle',
     success: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
     danger: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20',
     violet: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20',
@@ -882,7 +842,7 @@ function FilterPill({
       )}
     >
       {icon}
-      <span className="max-w-[150px] truncate">{label}</span>
+      <span className="max-w-37.5 truncate">{label}</span>
       <button
         onClick={onRemove}
         className={cn(

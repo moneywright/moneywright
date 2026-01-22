@@ -15,6 +15,13 @@
       "when": 1769016202133,
       "tag": "0001_lazy_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769024948029,
+      "tag": "0002_zippy_corsair",
+      "breakpoints": true
     }
   ]
 }

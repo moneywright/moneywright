@@ -469,6 +469,35 @@ export const investmentSnapshots = pgTable(
   ]
 )
 
+/**
+ * User Preferences table - key-value store for user/profile settings
+ * profileId is nullable - null means the preference applies to all profiles for the user
+ */
+export const userPreferences = pgTable(
+  'user_preferences',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: varchar('profile_id', { length: 21 }).references(() => profiles.id, {
+      onDelete: 'cascade',
+    }), // null = applies to all profiles
+    key: varchar('key', { length: 100 }).notNull(), // e.g., 'dashboard.excluded_categories', 'dashboard.chart_timeframe'
+    value: text('value').notNull(), // JSON string for complex values
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('user_preferences_user_id_idx').on(table.userId),
+    index('user_preferences_profile_id_idx').on(table.profileId),
+    unique('user_preferences_user_profile_key_unique').on(table.userId, table.profileId, table.key),
+  ]
+)
+
 // Type exports for use throughout the application
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -502,3 +531,6 @@ export type NewInvestmentTransaction = typeof investmentTransactions.$inferInser
 
 export type InvestmentSnapshot = typeof investmentSnapshots.$inferSelect
 export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
+
+export type UserPreferences = typeof userPreferences.$inferSelect
+export type NewUserPreferences = typeof userPreferences.$inferInsert

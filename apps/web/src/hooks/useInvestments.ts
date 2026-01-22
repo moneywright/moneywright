@@ -340,7 +340,7 @@ export function useHoldingsBySource(holdings: InvestmentHolding[] | undefined) {
       if (!acc[holding.sourceId]) {
         acc[holding.sourceId] = []
       }
-      acc[holding.sourceId].push(holding)
+      acc[holding.sourceId]!.push(holding)
       return acc
     },
     {} as Record<string, InvestmentHolding[]>

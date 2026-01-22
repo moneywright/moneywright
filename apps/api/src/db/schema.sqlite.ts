@@ -486,6 +486,37 @@ export const investmentSnapshots = sqliteTable(
   ]
 )
 
+/**
+ * User Preferences table - key-value store for user/profile settings
+ * profileId is nullable - null means the preference applies to all profiles for the user
+ */
+export const userPreferences = sqliteTable(
+  'user_preferences',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: text('profile_id').references(() => profiles.id, { onDelete: 'cascade' }), // null = applies to all profiles
+    key: text('key').notNull(), // e.g., 'dashboard.excluded_categories', 'dashboard.chart_timeframe'
+    value: text('value').notNull(), // JSON string for complex values
+
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('user_preferences_user_id_idx').on(table.userId),
+    index('user_preferences_profile_id_idx').on(table.profileId),
+    unique('user_preferences_user_profile_key_unique').on(table.userId, table.profileId, table.key),
+  ]
+)
+
 // Type exports for use throughout the application
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -519,3 +550,6 @@ export type NewInvestmentTransaction = typeof investmentTransactions.$inferInser
 
 export type InvestmentSnapshot = typeof investmentSnapshots.$inferSelect
 export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
+
+export type UserPreferences = typeof userPreferences.$inferSelect
+export type NewUserPreferences = typeof userPreferences.$inferInsert

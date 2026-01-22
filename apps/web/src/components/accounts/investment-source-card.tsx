@@ -76,8 +76,8 @@ export function InvestmentSourceCard({
         className={cn(
           'relative rounded-2xl p-5 overflow-hidden',
           isFailed
-            ? 'bg-gradient-to-br from-red-50 via-red-50/50 to-zinc-100 dark:bg-gradient-to-br dark:from-red-950/30 dark:via-zinc-900 dark:to-zinc-900 border-2 border-dashed border-red-300 dark:border-red-700'
-            : 'bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-zinc-100 dark:bg-gradient-to-br dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900 border-2 border-dashed border-emerald-300 dark:border-emerald-700',
+            ? 'bg-linear-to-br from-red-50 via-red-50/50 to-zinc-100 dark:bg-linear-to-br dark:from-red-950/30 dark:via-zinc-900 dark:to-zinc-900 border-2 border-dashed border-red-300 dark:border-red-700'
+            : 'bg-linear-to-br from-emerald-50 via-emerald-50/50 to-zinc-100 dark:bg-linear-to-br dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900 border-2 border-dashed border-emerald-300 dark:border-emerald-700',
           'shadow-[4px_4px_10px_rgba(0,0,0,0.1),-4px_-4px_10px_rgba(255,255,255,0.9)]',
           'dark:shadow-[4px_4px_12px_rgba(0,0,0,0.5)]'
         )}
@@ -192,8 +192,8 @@ export function InvestmentSourceCard({
     <div
       className={cn(
         'relative rounded-2xl p-5 overflow-hidden transition-all duration-300 hover:scale-[1.02]',
-        'bg-gradient-to-br from-emerald-50 via-white to-zinc-100',
-        'dark:bg-gradient-to-br dark:from-emerald-950/20 dark:via-zinc-800 dark:to-zinc-900',
+        'bg-linear-to-br from-emerald-50 via-white to-zinc-100',
+        'dark:bg-linear-to-br dark:from-emerald-950/20 dark:via-zinc-800 dark:to-zinc-900',
         'shadow-[4px_4px_10px_rgba(0,0,0,0.1),-4px_-4px_10px_rgba(255,255,255,0.9)]',
         'dark:shadow-[4px_4px_12px_rgba(0,0,0,0.5)]'
       )}

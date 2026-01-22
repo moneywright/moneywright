@@ -118,11 +118,11 @@ export function TransactionTable({
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-card">
+    <div className="rounded-xl overflow-hidden border border-border-subtle bg-card">
       <Table className="table-fixed">
         <TableHeader>
-          <TableRow className="bg-[var(--surface-elevated)] hover:bg-[var(--surface-elevated)] border-b border-[var(--border-subtle)]">
-            <TableHead className="w-[110px]">
+          <TableRow className="bg-surface-elevated hover:bg-surface-elevated border-b border-border-subtle">
+            <TableHead className="w-27.5">
               <button
                 onClick={() => handleSort('date')}
                 className={cn(
@@ -138,7 +138,7 @@ export function TransactionTable({
             <TableHead className="w-auto text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Description
             </TableHead>
-            <TableHead className="w-[140px]">
+            <TableHead className="w-35">
               <button
                 onClick={() => handleSort('amount')}
                 className={cn(
@@ -151,7 +151,7 @@ export function TransactionTable({
                 <SortIndicator column="amount" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
-            <TableHead className="w-[44px]"></TableHead>
+            <TableHead className="w-11"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -168,8 +168,8 @@ export function TransactionTable({
               <TableRow
                 key={txn.id}
                 className={cn(
-                  'group transition-all duration-200 border-b border-[var(--border-subtle)] last:border-b-0',
-                  'hover:bg-[var(--surface-hover)]',
+                  'group transition-all duration-200 border-b border-border-subtle last:border-b-0',
+                  'hover:bg-surface-hover',
                   'animate-fade-in'
                 )}
                 style={{ animationDelay: `${Math.min(index * 20, 200)}ms` }}
@@ -186,7 +186,7 @@ export function TransactionTable({
                     <div
                       className={cn(
                         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
-                        'bg-[var(--surface-elevated)] border-[var(--border-subtle)]',
+                        'bg-surface-elevated border-border-subtle',
                         'transition-all duration-200',
                         txn.type === 'credit' &&
                           'group-hover:bg-emerald-500/5 group-hover:border-emerald-500/20'
@@ -290,7 +290,7 @@ function AccountLogo({
 
   return (
     <div className="flex items-center gap-1.5">
-      <div className="h-5 w-5 rounded bg-[var(--surface)] flex items-center justify-center overflow-hidden shrink-0 border border-[var(--border-subtle)]">
+      <div className="h-5 w-5 rounded bg-surface flex items-center justify-center overflow-hidden shrink-0 border border-border-subtle">
         {logoPath && !logoError ? (
           <img
             src={logoPath}

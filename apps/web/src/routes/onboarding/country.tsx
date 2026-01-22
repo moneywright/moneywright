@@ -105,7 +105,7 @@ function CountrySelectionPage() {
             className={cn(
               'w-full h-12 rounded-xl text-[15px] font-medium transition-all duration-300',
               selectedCountry
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25'
+                ? 'bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25'
                 : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
             )}
           >

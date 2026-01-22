@@ -91,13 +91,13 @@ export function StatementCard({
     <div
       className={cn(
         'group relative rounded-xl overflow-hidden transition-colors',
-        'bg-card border border-[var(--border-subtle)] hover:border-[var(--border-hover)]'
+        'bg-card border border-border-subtle hover:border-border-hover'
       )}
     >
       <div className="p-4">
         {/* Header: Logo + Account Info + Status */}
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-[var(--surface-elevated)] border border-[var(--border-subtle)]">
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-surface-elevated border border-border-subtle">
             {logoPath && !logoError ? (
               <img
                 src={logoPath}
@@ -138,7 +138,7 @@ export function StatementCard({
         </div>
 
         {/* Period + Transaction/Holdings Count */}
-        <div className="flex items-center justify-between mt-4 py-3 px-3 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border-subtle)]">
+        <div className="flex items-center justify-between mt-4 py-3 px-3 rounded-lg bg-surface-elevated border border-border-subtle">
           <div>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium block">
               {isInvestment ? 'As of' : periodLabel ? 'Period' : 'Uploaded'}
@@ -179,16 +179,16 @@ export function StatementCard({
 
         {/* Error Message */}
         {statement.status === 'failed' && statement.errorMessage && (
-          <div className="mt-3 py-2 px-3 rounded-lg bg-[var(--negative-muted)] border border-negative/20">
+          <div className="mt-3 py-2 px-3 rounded-lg bg-negative-muted border border-negative/20">
             <p className="text-xs text-negative line-clamp-2">{statement.errorMessage}</p>
           </div>
         )}
 
         {/* Footer: File Info + Delete */}
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--border-subtle)]">
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-border-subtle">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
             <FileText className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate max-w-[160px]" title={statement.originalFilename}>
+            <span className="truncate max-w-40" title={statement.originalFilename}>
               {statement.originalFilename}
             </span>
             <span>·</span>

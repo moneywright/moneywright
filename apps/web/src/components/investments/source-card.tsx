@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import {
-  ChevronDown,
-  ChevronRight,
   Building2,
   MoreVertical,
   Plus,
@@ -9,6 +7,7 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { HoldingRow } from './holding-row'
 import { cn } from '@/lib/utils'
 import type {
@@ -67,16 +66,16 @@ function SourceLogo({
   const [logoError, setLogoError] = useState(false)
 
   return (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--surface-elevated)] border border-[var(--border-subtle)]">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-elevated border border-border-subtle">
       {logoPath && !logoError ? (
         <img
           src={logoPath}
           alt={institution || ''}
-          className="h-7 w-7 object-contain"
+          className="h-5 w-5 object-contain"
           onError={() => setLogoError(true)}
         />
       ) : (
-        <Building2 className="h-5 w-5 text-muted-foreground" />
+        <Building2 className="h-4 w-4 text-muted-foreground" />
       )}
     </div>
   )
@@ -87,8 +86,6 @@ export function SourceCard({
   holdings,
   holdingTypes,
   sourceTypes,
-  isExpanded,
-  onToggle,
   onAddHolding,
   onEditSource,
   onDeleteSource,
@@ -100,10 +97,12 @@ export function SourceCard({
   convertToINR,
   getSourceTypeLabel,
 }: SourceCardProps) {
-  // Calculate totals - only count holdings with valid invested value
+  const [showHoldings, setShowHoldings] = useState(false)
+
+  // Calculate totals
   const sourceTotal = holdings.reduce((sum, h) => sum + convertToINR(h.currentValue, h.currency), 0)
 
-  // For invested and gain calculation, only consider holdings with investedValue
+  // For gain calculation, only consider holdings with investedValue
   const holdingsWithInvested = holdings.filter(
     (h) => h.investedValue !== null && h.investedValue > 0
   )
@@ -123,93 +122,34 @@ export function SourceCard({
   // Get logo from sourceType
   const sourceTypeInfo = sourceTypes.find((st) => st.code === source.sourceType)
   const logoPath = sourceTypeInfo?.logo || null
+  const sourceTypeLabel = getSourceTypeLabel(source.sourceType)
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+    <>
       <div
         className={cn(
-          'group relative overflow-hidden rounded-xl border transition-colors',
-          'bg-card border-[var(--border-subtle)] hover:border-[var(--border-hover)]'
+          'group relative rounded-xl border bg-card p-4 transition-colors hover:border-border-hover',
+          'border-border-subtle'
         )}
       >
-        {/* Header */}
-        <div className="flex items-center gap-4 p-4">
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </Button>
-          </CollapsibleTrigger>
-
+        {/* Header: Logo + Name + Actions */}
+        <div className="flex items-start gap-3 mb-4">
           <SourceLogo logoPath={logoPath} institution={source.institution} />
-
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="truncate font-semibold">{source.sourceName}</h3>
-              {holdings.length > 0 && (
-                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  {holdings.length}
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {getSourceTypeLabel(source.sourceType)}
-              {source.accountIdentifier && (
-                <>
-                  <span className="mx-1.5 opacity-50">·</span>
-                  <span className="font-mono text-xs">{source.accountIdentifier}</span>
-                </>
-              )}
-            </p>
+            <h3 className="font-semibold text-sm truncate">{source.sourceName}</h3>
+            <p className="text-xs text-muted-foreground">{sourceTypeLabel}</p>
           </div>
-
-          {/* Value & Gains */}
-          <div className="hidden text-right sm:block">
-            <div className="font-mono text-lg font-semibold">
-              {formatCurrency(sourceTotal, displayCurrency)}
-            </div>
-            {hasGains ? (
-              <div
-                className={cn(
-                  'flex items-center justify-end gap-1 text-sm font-medium',
-                  isPositive ? 'text-positive' : 'text-negative'
-                )}
-              >
-                {isPositive ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : (
-                  <TrendingDown className="h-3 w-3" />
-                )}
-                <span className="font-mono">
-                  {isPositive ? '+' : ''}
-                  {formatCurrency(sourceGain, displayCurrency)}
-                </span>
-                <span className="text-xs opacity-75">({formatPercentage(sourceGainPercent)})</span>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">-</div>
-            )}
-          </div>
-
-          {/* Actions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                className="h-7 w-7 p-0 text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem onClick={onAddHolding}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Holding
@@ -225,7 +165,7 @@ export function SourceCard({
                     onSelect={(e) => e.preventDefault()}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Source
+                    Delete
                   </DropdownMenuItem>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -251,36 +191,73 @@ export function SourceCard({
           </DropdownMenu>
         </div>
 
-        {/* Mobile values */}
-        <div className="border-t border-[var(--border-subtle)] px-4 py-3 sm:hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Total Value</span>
-            <span className="font-mono font-semibold">
-              {formatCurrency(sourceTotal, displayCurrency)}
-            </span>
-          </div>
-          {hasGains && (
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Gain/Loss</span>
-              <span
-                className={cn(
-                  'flex items-center gap-1 font-mono text-sm font-medium',
-                  isPositive ? 'text-positive' : 'text-negative'
-                )}
-              >
+        {/* Value */}
+        <div className="mb-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            Current Value
+          </p>
+          <p className="text-xl font-semibold">{formatCurrency(sourceTotal, displayCurrency)}</p>
+        </div>
+
+        {/* Gains */}
+        <div className="flex items-center justify-between">
+          {hasGains ? (
+            <div
+              className={cn(
+                'flex items-center gap-1.5 text-sm',
+                isPositive ? 'text-positive' : 'text-negative'
+              )}
+            >
+              {isPositive ? (
+                <TrendingUp className="h-3.5 w-3.5" />
+              ) : (
+                <TrendingDown className="h-3.5 w-3.5" />
+              )}
+              <span className="font-medium">
                 {isPositive ? '+' : ''}
-                {formatCurrency(sourceGain, displayCurrency)} ({formatPercentage(sourceGainPercent)}
-                )
+                {formatCurrency(sourceGain, displayCurrency)}
               </span>
+              <span className="text-xs opacity-80">({formatPercentage(sourceGainPercent)})</span>
             </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">—</span>
           )}
         </div>
 
-        {/* Holdings */}
-        <CollapsibleContent>
-          <div className="border-t border-[var(--border-subtle)]">
+        {/* Holdings count + View button */}
+        <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {holdings.length} {holdings.length === 1 ? 'holding' : 'holdings'}
+          </span>
+          {holdings.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowHoldings(true)}
+            >
+              View
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Holdings Dialog */}
+      <Dialog open={showHoldings} onOpenChange={setShowHoldings}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <SourceLogo logoPath={logoPath} institution={source.institution} />
+              <div>
+                <span>{source.sourceName}</span>
+                <p className="text-sm font-normal text-muted-foreground">{sourceTypeLabel}</p>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto -mx-6 px-6">
             {holdings.length > 0 ? (
-              <div className="divide-y divide-[var(--border-subtle)]">
+              <div className="divide-y divide-border-subtle">
                 {holdings.map((holding) => (
                   <HoldingRow
                     key={holding.id}
@@ -296,20 +273,13 @@ export function SourceCard({
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)]">
-                  <Plus className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground">No holdings in this source</p>
-                <Button variant="outline" size="sm" className="mt-4" onClick={onAddHolding}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Holding
-                </Button>
+              <div className="py-12 text-center text-muted-foreground">
+                No holdings in this source
               </div>
             )}
           </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

@@ -74,14 +74,14 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'rounded-xl text-center bg-card border border-dashed border-[var(--border-subtle)]',
+        'rounded-xl text-center bg-card border border-dashed border-border-subtle',
         sizeClasses[size],
         className
       )}
     >
       <div
         className={cn(
-          'mx-auto rounded-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center mb-4',
+          'mx-auto rounded-full bg-surface-elevated border border-border-subtle flex items-center justify-center mb-4',
           iconSizeClasses[size]
         )}
       >
@@ -145,11 +145,11 @@ export function InlineEmptyState({
 }) {
   return (
     <div className={cn('flex flex-col items-center justify-center py-8 text-center', className)}>
-      <div className="h-12 w-12 rounded-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] flex items-center justify-center mb-3">
+      <div className="h-12 w-12 rounded-full bg-surface-elevated border border-border-subtle flex items-center justify-center mb-3">
         <Icon className="h-6 w-6 text-muted-foreground" />
       </div>
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{description}</p>
+      <p className="text-xs text-muted-foreground mt-1 max-w-50">{description}</p>
     </div>
   )
 }

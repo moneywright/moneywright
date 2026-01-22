@@ -25,7 +25,7 @@ export const Route = createFileRoute('/accounts')({
 
 function AccountsPage() {
   const queryClient = useQueryClient()
-  const { profiles, defaultProfile } = useProfiles()
+  const { defaultProfile } = useProfiles()
   const { user } = useAuthStatus()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
@@ -67,9 +67,8 @@ function AccountsPage() {
           description="Manage your financial accounts"
           actions={
             <ProfileSelector
-              profiles={profiles || []}
-              selectedProfileId={activeProfileId || ''}
-              onProfileChange={setSelectedProfileId}
+              selectedProfileId={activeProfileId || null}
+              onProfileChange={(profile) => setSelectedProfileId(profile.id)}
             />
           }
         />
@@ -94,7 +93,7 @@ function AccountsPage() {
         {accountsLoading ? (
           <div className="space-y-8">
             <section>
-              <div className="h-7 w-32 bg-[var(--surface-elevated)] rounded animate-pulse mb-4" />
+              <div className="h-7 w-32 bg-surface-elevated rounded animate-pulse mb-4" />
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <CardSkeleton key={i} />
@@ -161,7 +160,7 @@ function AccountsPage() {
             description="Upload a bank or credit card statement to automatically add your accounts and start tracking your finances."
             action={{
               label: 'Upload Statement',
-              linkOptions: { to: '/statements', search: { upload: true } },
+              href: '/statements?upload=true',
               icon: Upload,
             }}
           />

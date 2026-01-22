@@ -54,7 +54,7 @@ export function HoldingsTable({
 
   if (holdings.length === 0) {
     return (
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-card">
+      <div className="rounded-xl border border-border-subtle bg-card">
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-muted-foreground">No holdings yet</p>
         </div>
@@ -63,9 +63,9 @@ export function HoldingsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-card">
+    <div className="overflow-hidden rounded-xl border border-border-subtle bg-card">
       {/* Table Header - Hidden on mobile */}
-      <div className="hidden border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-12 sm:gap-4">
+      <div className="hidden border-b border-border-subtle bg-surface-elevated px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-12 sm:gap-4">
         <div className="col-span-4">Holding</div>
         <div className="col-span-2">Type</div>
         <div className="col-span-2 text-right">Units</div>
@@ -74,7 +74,7 @@ export function HoldingsTable({
       </div>
 
       {/* Table Body */}
-      <div className="divide-y divide-[var(--border-subtle)]">
+      <div className="divide-y divide-border-subtle">
         {holdings.map((holding) => {
           const displayCurrency = showInINR ? 'INR' : holding.currency
           const currentValue = showInINR
@@ -93,7 +93,7 @@ export function HoldingsTable({
           return (
             <div
               key={holding.id}
-              className="group grid grid-cols-1 gap-2 px-4 py-4 transition-colors hover:bg-[var(--surface-hover)] sm:grid-cols-12 sm:items-center sm:gap-4 sm:py-3"
+              className="group grid grid-cols-1 gap-2 px-4 py-4 transition-colors hover:bg-surface-hover sm:grid-cols-12 sm:items-center sm:gap-4 sm:py-3"
             >
               {/* Holding Name & Source */}
               <div className="col-span-4 min-w-0">

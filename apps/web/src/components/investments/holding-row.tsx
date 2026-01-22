@@ -67,7 +67,7 @@ export function HoldingRow({
   const isPositive = gainLoss !== null && gainLoss >= 0
 
   return (
-    <div className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-[var(--surface-hover)]">
+    <div className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-hover">
       {/* Holding Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -102,9 +102,7 @@ export function HoldingRow({
 
       {/* Values */}
       <div className="hidden text-right sm:block">
-        <div className="font-mono font-semibold">
-          {formatCurrency(currentValue, displayCurrency)}
-        </div>
+        <div className="font-semibold">{formatCurrency(currentValue, displayCurrency)}</div>
         {hasValidInvested ? (
           <div
             className={cn(
@@ -113,7 +111,7 @@ export function HoldingRow({
             )}
           >
             {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            <span className="font-mono">
+            <span>
               {isPositive ? '+' : ''}
               {formatCurrency(gainLoss, displayCurrency)}
             </span>
@@ -126,15 +124,10 @@ export function HoldingRow({
 
       {/* Mobile Values */}
       <div className="text-right sm:hidden">
-        <div className="font-mono text-sm font-semibold">
-          {formatCurrency(currentValue, displayCurrency)}
-        </div>
+        <div className="text-sm font-semibold">{formatCurrency(currentValue, displayCurrency)}</div>
         {hasValidInvested && gainLoss !== null && (
           <div
-            className={cn(
-              'font-mono text-xs font-medium',
-              isPositive ? 'text-positive' : 'text-negative'
-            )}
+            className={cn('text-xs font-medium', isPositive ? 'text-positive' : 'text-negative')}
           >
             {formatPercentage(gainLossPercent)}
           </div>

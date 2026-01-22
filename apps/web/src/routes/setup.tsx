@@ -212,7 +212,7 @@ function SetupPage() {
   return (
     <AuthLayout
       currentStep={currentStepIndex}
-      steps={setupStatus?.authEnabled ? SETUP_STEPS : [SETUP_STEPS[0]]}
+      steps={setupStatus?.authEnabled ? SETUP_STEPS : [SETUP_STEPS[0]!]}
       title="Get started"
       subtitle="in minutes"
     >
@@ -294,7 +294,7 @@ function SetupPage() {
                         className={cn(
                           'h-7 w-7 object-contain transition-all',
                           provider === p.code ? 'opacity-100' : 'opacity-50 group-hover:opacity-70',
-                          invertedLogos.includes(p.code) && 'invert brightness-0 invert'
+                          invertedLogos.includes(p.code) && 'brightness-0 invert'
                         )}
                       />
                     </div>
@@ -428,7 +428,7 @@ function SetupPage() {
                   className={cn(
                     'w-full h-12 rounded-xl text-[15px] font-medium transition-all duration-300',
                     provider
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25'
+                      ? 'bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25'
                       : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                   )}
                 >
@@ -599,7 +599,7 @@ function SetupPage() {
                 <Button
                   type="submit"
                   disabled={googleMutation.isPending}
-                  className="w-full h-12 rounded-xl text-[15px] font-medium bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300"
+                  className="w-full h-12 rounded-xl text-[15px] font-medium bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300"
                 >
                   {googleMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

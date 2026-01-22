@@ -89,9 +89,7 @@ export function BankAccountCard({
       <div
         className={cn(
           'relative rounded-xl p-5 border-2 border-dashed',
-          isFailed
-            ? 'bg-[var(--negative-muted)] border-negative/30'
-            : 'bg-[var(--warning-muted)] border-warning/30'
+          isFailed ? 'bg-negative-muted border-negative/30' : 'bg-warning-muted border-warning/30'
         )}
       >
         <div className="flex items-center gap-3">
@@ -99,8 +97,8 @@ export function BankAccountCard({
             className={cn(
               'h-10 w-10 rounded-lg flex items-center justify-center shrink-0 border',
               isFailed
-                ? 'bg-[var(--negative-muted)] border-negative/20'
-                : 'bg-[var(--warning-muted)] border-warning/20'
+                ? 'bg-negative-muted border-negative/20'
+                : 'bg-warning-muted border-warning/20'
             )}
           >
             {isFailed ? (
@@ -181,14 +179,14 @@ export function BankAccountCard({
     <div
       className={cn(
         'relative rounded-xl p-5 border transition-colors',
-        'bg-card border-[var(--border-subtle)] hover:border-[var(--border-hover)]',
+        'bg-card border-border-subtle hover:border-border-hover',
         !account.isActive && 'opacity-50'
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-[var(--surface-elevated)] border border-[var(--border-subtle)] shrink-0">
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-surface-elevated border border-border-subtle shrink-0">
             {logoPath && !logoError ? (
               <img
                 src={logoPath}
@@ -258,7 +256,7 @@ export function BankAccountCard({
       </div>
 
       {/* Balance */}
-      <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+      <div className="mt-4 pt-4 border-t border-border-subtle">
         <p className="text-xs text-muted-foreground uppercase tracking-wider">Balance</p>
         <div className="flex items-baseline justify-between mt-1">
           <p className="text-xl font-semibold text-positive tabular-nums">

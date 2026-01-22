@@ -16,11 +16,11 @@ export function AppLayout({ children, title, description, hideHeader }: AppLayou
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="bg-[var(--background)]">
+      <SidebarInset className="bg-background">
         {showHeader && (
-          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--background)]/95 backdrop-blur-sm px-4">
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border-subtle bg-background/95 backdrop-blur-sm px-4">
             <SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-            <Separator orientation="vertical" className="mr-2 h-4 bg-[var(--border-subtle)]" />
+            <Separator orientation="vertical" className="mr-2 h-4 bg-border-subtle" />
             <div>
               {title && <h1 className="text-base font-medium">{title}</h1>}
               {description && <p className="text-xs text-muted-foreground">{description}</p>}

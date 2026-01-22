@@ -62,7 +62,11 @@ export {
 // Summary hooks
 export {
   summaryKeys,
+  preferencesKeys,
   useSummary,
+  useMonthlyTrends,
+  usePreferences,
+  useSetPreference,
   useFxRates,
   useFxRate,
   useFxRatesMap,

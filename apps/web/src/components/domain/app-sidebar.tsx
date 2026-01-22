@@ -127,14 +127,14 @@ export function AppSidebar() {
             isActive && 'text-foreground font-medium',
             !isActive &&
               !item.disabled &&
-              'text-muted-foreground hover:text-foreground hover:bg-[var(--surface-hover)]'
+              'text-muted-foreground hover:text-foreground hover:bg-surface-hover'
           )}
         >
           {/* Active indicator bar */}
           {isActive && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-5 rounded-r-full bg-primary" />
           )}
-          <item.icon className={cn('h-[18px] w-[18px]', isActive && 'text-primary')} />
+          <item.icon className={cn('h-4.5 w-4.5', isActive && 'text-primary')} />
           <span className="text-sm">{item.title}</span>
           {item.disabled && (
             <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground">
@@ -147,7 +147,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar className="border-r border-[var(--border-subtle)]">
+    <Sidebar className="border-r border-(--border-subtle)">
       {/* Logo Header */}
       <SidebarHeader className="px-4 py-5">
         <div className="flex items-center gap-3">
@@ -159,7 +159,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarSeparator className="mx-4 bg-[var(--border-subtle)]" />
+      <SidebarSeparator className="mx-4 bg-(--border-subtle)" />
 
       <SidebarContent className="px-2 py-2">
         {/* Main Navigation */}
@@ -184,7 +184,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarSeparator className="mx-4 bg-[var(--border-subtle)]" />
+      <SidebarSeparator className="mx-4 bg-(--border-subtle)" />
 
       {/* User Footer */}
       <SidebarFooter className="px-2 py-3">
@@ -192,10 +192,10 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="h-auto py-2.5 px-2 hover:bg-[var(--surface-hover)] transition-colors">
-                  <Avatar className="h-9 w-9 border border-[var(--border-subtle)]">
+                <SidebarMenuButton className="h-auto py-2.5 px-2 hover:bg-surface-hover transition-colors">
+                  <Avatar className="h-9 w-9 border border-(--border-subtle)">
                     <AvatarImage src={user?.picture || undefined} alt={user?.name || 'User'} />
-                    <AvatarFallback className="text-xs bg-[var(--surface-elevated)]">
+                    <AvatarFallback className="text-xs bg-surface-elevated">
                       {initials}
                     </AvatarFallback>
                   </Avatar>

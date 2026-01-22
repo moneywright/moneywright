@@ -155,22 +155,12 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
     const newProviderData = providers?.find((p) => p.code === newProvider)
     if (newProviderData && newProviderData.models.length > 0) {
       // Find recommended model or use first model
-      const recommendedModel = newProviderData.models.find((m) => m.recommended)
+      const recommendedModel = newProviderData.models.find((m) => m.recommendedForParsing)
       const defaultModel = recommendedModel?.id || newProviderData.models[0]?.id || ''
       setModel(defaultModel)
       setParsingModel(defaultModel)
       setCategorizationModel(defaultModel)
     }
-  }
-
-  if (settingsLoading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </AppLayout>
-    )
   }
 
   return (
@@ -259,7 +249,7 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
                   {availableModels.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}
-                      {m.recommended && (
+                      {m.recommendedForParsing && (
                         <span className="text-xs text-muted-foreground ml-2">(Recommended)</span>
                       )}
                     </SelectItem>
@@ -283,7 +273,7 @@ function LLMSettingsForm({ settings, providers }: LLMSettingsFormProps) {
                   {availableModels.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}
-                      {m.recommended && (
+                      {m.recommendedForCategorization && (
                         <span className="text-xs text-muted-foreground ml-2">(Recommended)</span>
                       )}
                     </SelectItem>

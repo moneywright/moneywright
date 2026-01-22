@@ -89,21 +89,6 @@
   --negative-muted: rgba(220, 38, 38, 0.1);
   --warning: #d97706;
   --warning-muted: rgba(217, 119, 6, 0.1);
-
-  /* Category colors */
-  --cat-food: #ea580c;
-  --cat-shopping: #db2777;
-  --cat-transport: #2563eb;
-  --cat-utilities: #ca8a04;
-  --cat-entertainment: #7c3aed;
-  --cat-healthcare: #dc2626;
-  --cat-travel: #0891b2;
-  --cat-rent: #9333ea;
-  --cat-investment: #059669;
-  --cat-transfer: #4f46e5;
-  --cat-income: #16a34a;
-  --cat-credit-card: #ea580c;
-  --cat-other: #6b7280;
 }
 
 .dark {
@@ -185,21 +170,6 @@
   --negative-muted: rgba(239, 68, 68, 0.15);
   --warning: #f59e0b;
   --warning-muted: rgba(245, 158, 11, 0.15);
-
-  /* Category colors */
-  --cat-food: #f97316;
-  --cat-shopping: #ec4899;
-  --cat-transport: #3b82f6;
-  --cat-utilities: #eab308;
-  --cat-entertainment: #8b5cf6;
-  --cat-healthcare: #ef4444;
-  --cat-travel: #06b6d4;
-  --cat-rent: #a855f7;
-  --cat-investment: #10b981;
-  --cat-transfer: #6366f1;
-  --cat-income: #22c55e;
-  --cat-credit-card: #f97316;
-  --cat-other: #71717a;
 }
 
 @theme inline {

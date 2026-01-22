@@ -165,7 +165,7 @@ export function StatCard({
   return (
     <Card
       className={cn(
-        'relative overflow-hidden hover:border-[var(--border-hover)] transition-all duration-200 animate-fade-in',
+        'relative overflow-hidden hover:border-border-hover transition-all duration-200 animate-fade-in',
         needsAbbreviation && !loading && 'cursor-pointer',
         className
       )}
@@ -231,7 +231,7 @@ export function StatCard({
             <div
               className={cn(
                 'flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
-                'bg-[var(--surface-elevated)] border border-[var(--border-subtle)]'
+                'bg-surface-elevated border border-border-subtle'
               )}
             >
               <Icon className="h-5 w-5 text-muted-foreground" />

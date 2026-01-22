@@ -23,6 +23,7 @@ import investmentRoutes from './routes/investments'
 import llmRoutes from './routes/llm'
 import summaryRoutes from './routes/summary'
 import constantsRoutes from './routes/constants'
+import preferencesRoutes from './routes/preferences'
 import { securityHeaders } from './middleware/security-headers'
 import { printBanner, printStartupInfo, getVersion } from './lib/banner'
 import { logger } from './lib/logger'
@@ -126,6 +127,7 @@ app.route('/api/investments', investmentRoutes)
 app.route('/api/llm', llmRoutes)
 app.route('/api/summary', summaryRoutes)
 app.route('/api/constants', constantsRoutes)
+app.route('/api/preferences', preferencesRoutes)
 
 // Static file serving for SPA (non-development mode)
 // In development, Vite dev server handles this
