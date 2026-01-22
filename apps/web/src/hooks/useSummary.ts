@@ -9,13 +9,15 @@ import {
   PREFERENCE_KEYS,
 } from '@/lib/api'
 
+import type { MonthlyTrendsOptions } from '@/lib/api'
+
 // Query Keys
 export const summaryKeys = {
   all: ['summary'] as const,
   financial: (profileId: string, options?: { startDate?: string; endDate?: string }) =>
     [...summaryKeys.all, 'financial', profileId, options] as const,
-  monthlyTrends: (profileId: string, months: number, excludeCategories?: string[]) =>
-    [...summaryKeys.all, 'monthlyTrends', profileId, months, excludeCategories] as const,
+  monthlyTrends: (profileId: string, options: MonthlyTrendsOptions) =>
+    [...summaryKeys.all, 'monthlyTrends', profileId, options] as const,
   fxRates: (baseCurrency: string) => [...summaryKeys.all, 'fxRates', baseCurrency] as const,
   fxRate: (from: string, to: string) => [...summaryKeys.all, 'fxRate', from, to] as const,
 }
@@ -43,14 +45,10 @@ export function useSummary(profileId?: string, options?: { startDate?: string; e
 /**
  * Fetch monthly income/expense trends
  */
-export function useMonthlyTrends(
-  profileId?: string,
-  months: number = 12,
-  excludeCategories?: string[]
-) {
+export function useMonthlyTrends(profileId?: string, options: MonthlyTrendsOptions = {}) {
   return useQuery({
-    queryKey: summaryKeys.monthlyTrends(profileId!, months, excludeCategories),
-    queryFn: () => getMonthlyTrends(profileId!, months, excludeCategories),
+    queryKey: summaryKeys.monthlyTrends(profileId!, options),
+    queryFn: () => getMonthlyTrends(profileId!, options),
     enabled: !!profileId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -86,8 +84,12 @@ export function useSetPreference() {
     onSuccess: (_, variables) => {
       // Invalidate preferences queries
       queryClient.invalidateQueries({ queryKey: preferencesKeys.all })
-      // If it's an excluded categories preference, invalidate trends too
-      if (variables.key === PREFERENCE_KEYS.DASHBOARD_EXCLUDED_CATEGORIES) {
+      // If it's an excluded categories preference, invalidate relevant queries
+      const excludedCategoryKeys = [
+        PREFERENCE_KEYS.INCOME_EXPENSES_EXCLUDED_CATEGORIES,
+        PREFERENCE_KEYS.SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES,
+      ]
+      if (excludedCategoryKeys.includes(variables.key as (typeof excludedCategoryKeys)[number])) {
         queryClient.invalidateQueries({ queryKey: ['summary', 'monthlyTrends'] })
       }
     },

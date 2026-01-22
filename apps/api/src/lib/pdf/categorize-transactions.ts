@@ -135,88 +135,142 @@ const ACCOUNT_TYPE_HINTS: Record<string, string> = {
 }
 
 /**
+ * Build profile context hint from profile summary
+ * This helps the LLM understand the person's financial context
+ */
+function buildProfileContextHint(profileSummary?: string | null): string {
+  if (!profileSummary || profileSummary.trim().length === 0) {
+    return ''
+  }
+
+  return `PROFILE CONTEXT (use this to improve categorization accuracy):
+${profileSummary.trim()}
+
+Apply this context when categorizing - e.g., if profile mentions "freelancer", irregular large credits may be freelance income; if "has rental property", regular credits could be rental income; if "runs a business", business-related expenses should be identified.
+`
+}
+
+/**
  * Country-specific summary examples for the LLM
  */
 const SUMMARY_EXAMPLES: Record<CountryCode, string> = {
-  IN: `SUMMARY GUIDELINES - Be specific, extract merchant/purpose from description:
-BAD SUMMARIES (too generic, avoid these):
-- "misc credit", "payment", "transfer", "transaction", "UPI payment", "online purchase", "order", "food order"
+  IN: `SUMMARY FORMAT - CRITICAL: Follow this exact format for merchant/stats identification:
 
-GOOD SUMMARIES (specific, mention merchant/recipient):
-- "Salary from [Company]" or "Monthly salary"
-- "Rent to [Landlord/Platform]" (e.g., "Rent via NoBroker", "Rent to landlord")
-- "Swiggy food delivery" (NOT just "food order")
-- "Zomato restaurant order"
-- "Amazon electronics purchase" or "Amazon order"
-- "Flipkart fashion purchase"
+FORMAT: "MerchantName brief description" (MerchantName = ONE WORD, no spaces)
+
+BAD SUMMARIES (too generic or wrong format):
+- "misc credit", "payment", "transfer", "transaction", "UPI payment"
+- "food order", "online purchase", "order" (too generic)
+- "Swiggy food delivery" → should be "Swiggy food order"
+- "Amazon electronics purchase" → should be "Amazon purchase"
+
+GOOD SUMMARIES (MerchantName is exactly ONE word, followed by 2-3 description words):
+- "Swiggy food order"
+- "Zomato food order"
+- "Blinkit grocery order"
+- "Zepto grocery order"
+- "BigBasket grocery order"
+- "Amazon purchase"
+- "Flipkart purchase"
+- "Myntra fashion purchase"
 - "Netflix subscription"
 - "Spotify subscription"
-- "Claude AI subscription"
-- "ChatGPT Plus subscription"
+- "Claude subscription"
+- "ChatGPT subscription"
 - "Vercel hosting"
 - "Namecheap domain renewal"
-- "GitHub Pro subscription"
+- "GitHub subscription"
 - "Figma subscription"
 - "ATM cash withdrawal"
 - "BESCOM electricity bill"
 - "Airtel mobile recharge"
 - "ACT broadband payment"
-- "Transfer to [Person name]" (extract name from description)
-- "Received from [Person name]"
 - "HP petrol refuel"
-- "Zerodha stock investment"
+- "BPCL petrol refuel"
+- "Zerodha investment"
+- "Groww investment"
 - "LIC premium payment"
-- "Credit card bill payment"
+- "CRED card payment"
 - "Uber cab ride"
-- "Ola auto ride"
-- "Cult.fit gym membership"
-- "Urban Company salon service"
+- "Ola cab ride"
+- "Rapido auto ride"
+- "Cultfit gym membership"
+- "UrbanCompany salon service"
 - "FNP flower delivery"
 - "IGP gift order"
+- "NoBroker rent payment"
 
-Extract the MERCHANT NAME or RECIPIENT NAME from the description. Don't use generic terms.`,
+FOR TRANSFERS (person names):
+- "[PersonName] transfer received" (for credits from individuals)
+- "[PersonName] transfer sent" (for debits to individuals)
+- Example: "Rahul transfer received", "Priya transfer sent"
 
-  US: `SUMMARY GUIDELINES - Be specific, extract merchant/purpose from description:
-BAD SUMMARIES (too generic, avoid these):
-- "misc credit", "payment", "transfer", "transaction", "debit", "online purchase", "food delivery"
+FOR SALARY:
+- "[CompanyName] salary" (one word company, e.g., "Google salary", "TCS salary")
 
-GOOD SUMMARIES (specific, mention merchant/recipient):
-- "Paycheck from [Company]" or "Direct deposit salary"
-- "Rent to [Landlord/Property]"
-- "Mortgage to Wells Fargo"
-- "DoorDash food delivery"
-- "Uber Eats order"
-- "Amazon household purchase"
+RULES:
+1. MerchantName MUST be exactly ONE word with NO spaces (combine if needed: UrbanCompany not Urban Company)
+2. Follow with 2-3 descriptive words
+3. This format enables merchant statistics and recurring transaction identification`,
+
+  US: `SUMMARY FORMAT - CRITICAL: Follow this exact format for merchant/stats identification:
+
+FORMAT: "MerchantName brief description" (MerchantName = ONE WORD, no spaces)
+
+BAD SUMMARIES (too generic or wrong format):
+- "misc credit", "payment", "transfer", "transaction", "debit"
+- "food delivery", "online purchase" (too generic)
+- "DoorDash food delivery" → should be "DoorDash food order"
+
+GOOD SUMMARIES (MerchantName is exactly ONE word, followed by 2-3 description words):
+- "DoorDash food order"
+- "UberEats food order"
+- "Grubhub food order"
+- "Amazon purchase"
 - "Target grocery shopping"
+- "Walmart shopping"
+- "Costco shopping"
 - "Netflix subscription"
-- "Spotify premium"
-- "Claude AI subscription"
-- "ChatGPT Plus subscription"
-- "Vercel Pro hosting"
+- "Spotify subscription"
+- "Claude subscription"
+- "ChatGPT subscription"
+- "Vercel hosting"
 - "Namecheap domain renewal"
 - "AWS services"
 - "GitHub subscription"
 - "Figma subscription"
 - "ATM cash withdrawal"
-- "PG&E electric bill"
+- "PGE electric bill"
 - "Verizon phone bill"
 - "Comcast internet"
-- "Venmo to [Person name]" (extract name)
-- "Zelle from [Person name]"
-- "Shell gas fill-up"
-- "Chevron fuel"
-- "Fidelity 401k contribution"
-- "Vanguard IRA deposit"
+- "Shell gas refuel"
+- "Chevron gas refuel"
+- "Fidelity investment"
+- "Vanguard investment"
 - "Geico car insurance"
-- "Credit card bill payment"
+- "Chase card payment"
 - "Uber ride"
 - "Lyft ride"
-- "Planet Fitness gym"
+- "PlanetFitness gym"
 - "Supercuts haircut"
-- "1-800-Flowers delivery"
-- "Hallmark gift"
+- "ProFlowers delivery"
 
-Extract the MERCHANT NAME or RECIPIENT NAME from the description. Don't use generic terms.`,
+FOR TRANSFERS (person names via Venmo/Zelle):
+- "[PersonName] transfer received" (for credits)
+- "[PersonName] transfer sent" (for debits)
+- Example: "John transfer received", "Sarah transfer sent"
+
+FOR SALARY/PAYCHECK:
+- "[CompanyName] salary" (one word company, e.g., "Google salary", "Apple salary")
+
+FOR RENT/MORTGAGE:
+- "[Landlord/Bank] rent payment"
+- "[Bank] mortgage payment" (e.g., "WellsFargo mortgage payment")
+
+RULES:
+1. MerchantName MUST be exactly ONE word with NO spaces (combine if needed: WellsFargo not Wells Fargo)
+2. Follow with 2-3 descriptive words
+3. This format enables merchant statistics and recurring transaction identification`,
 }
 
 /**
@@ -341,7 +395,8 @@ RULES:
 - id: exact ID from input
 - category: code from categories list
 - confidence: 0.0 to 1.0 (higher for recurring patterns you're sure about)
-- summary: 2-5 word description (e.g., "Monthly salary", "Netflix subscription", "ATM withdrawal")
+- summary: MUST follow format "MerchantName brief description" where MerchantName is exactly ONE WORD (no spaces)
+  Examples: "Zomato food order", "Amazon purchase", "Netflix subscription", "Rahul transfer received"
 - is_subscription: 1 if recurring subscription/service, 0 otherwise
 
 SUBSCRIPTION DETECTION (is_subscription=1):
@@ -353,16 +408,15 @@ SUBSCRIPTION DETECTION (is_subscription=1):
 - NOT one-time purchases, NOT salary, NOT rent, NOT utilities
 
 Example:
-abc123,salary,1.0,"Monthly salary deposit",0
+abc123,salary,1.0,"Google salary",0
 def456,entertainment,0.95,"Netflix subscription",1
-ghi789,utilities,0.9,"Monthly electricity bill",0
-jkl012,software,0.95,"Claude AI subscription",1`
+ghi789,utilities,0.9,"BESCOM electricity bill",0
+jkl012,software,0.95,"Claude subscription",1`
 
   try {
     const { text } = await generateText({
       model,
       prompt,
-      maxTokens: 3000,
     })
 
     return parseCategoryCSV(text, validCategories)
@@ -530,7 +584,8 @@ async function categorizeBatchStreaming(
   countryCode: CountryCode,
   model: Awaited<ReturnType<typeof createLLMClientFromSettings>>,
   onCategorized: (cat: CategorizedTransaction) => Promise<void>,
-  accountType?: string
+  accountType?: string,
+  profileSummary?: string | null
 ): Promise<{ success: number; failed: number }> {
   const txnList = transactions
     .map((t) => `${t.id},${t.date},${t.type},${t.amount},"${t.description.replace(/"/g, '""')}"`)
@@ -543,10 +598,13 @@ async function categorizeBatchStreaming(
   // Get account type specific hints
   const accountTypeHint = accountType ? ACCOUNT_TYPE_HINTS[accountType] || '' : ''
 
+  // Get profile context from user-provided summary
+  const profileContextHint = buildProfileContextHint(profileSummary)
+
   const systemPrompt = `You are a transaction categorization engine. You ONLY output CSV data. You NEVER ask questions, provide explanations, or include any text other than CSV lines. Start outputting CSV immediately.`
 
   const prompt = `Categorize ALL ${transactions.length} transactions below. Output CSV ONLY - no explanations, no questions.
-${accountTypeHint ? `\n${accountTypeHint}\n` : ''}
+${profileContextHint ? `\n${profileContextHint}` : ''}${accountTypeHint ? `\n${accountTypeHint}\n` : ''}
 
 TRANSACTIONS (id,date,type,amount,description):
 ${txnList}
@@ -563,7 +621,8 @@ RULES:
 - id: exact ID from input (copy exactly)
 - category: code from categories list
 - confidence: 0.0 to 1.0
-- summary: Short, meaningful description (see examples below)
+- summary: MUST follow format "MerchantName brief description" where MerchantName is exactly ONE WORD (no spaces)
+  Examples: "Zomato food order", "Amazon purchase", "Netflix subscription", "Rahul transfer received"
 - is_subscription: 1 if recurring subscription/service, 0 otherwise
 
 SUBSCRIPTION DETECTION (is_subscription=1):
@@ -703,7 +762,8 @@ async function runCategorizationPass(
   onProgress?: (categorized: number, total: number) => void,
   progressOffset: number = 0,
   totalForProgress: number = 0,
-  accountType?: string
+  accountType?: string,
+  profileSummary?: string | null
 ): Promise<{ success: number; failed: number }> {
   const categories = getCategoriesForCountry(countryCode)
   const categoryList = categories.map((c) => `${c.code}: ${c.label}`).join('\n')
@@ -764,7 +824,8 @@ async function runCategorizationPass(
           onProgress?.(progressOffset + totalSuccess, totalForProgress)
         }
       },
-      accountType
+      accountType,
+      profileSummary
     )
 
     if (shouldBatch) {
@@ -795,6 +856,7 @@ async function runCategorizationPass(
  * @param startFromIndex - Resume from this index if previous run failed (deprecated, kept for compatibility)
  * @param onProgress - Optional callback for progress updates
  * @param accountType - Optional account type for context (credit_card, savings_account, etc.)
+ * @param profileSummary - Optional profile summary to provide context about the person (employer, income sources, etc.)
  */
 export async function categorizeTransactionsStreaming(
   transactionIds: string[],
@@ -802,7 +864,8 @@ export async function categorizeTransactionsStreaming(
   modelOverride?: string,
   _startFromIndex: number = 0,
   onProgress?: (categorized: number, total: number) => void,
-  accountType?: string
+  accountType?: string,
+  profileSummary?: string | null
 ): Promise<{ categorizedCount: number; failedAtIndex?: number }> {
   if (transactionIds.length === 0) return { categorizedCount: 0 }
 
@@ -841,7 +904,8 @@ export async function categorizeTransactionsStreaming(
       onProgress,
       totalCategorized,
       totalTransactions,
-      accountType
+      accountType,
+      profileSummary
     )
 
     totalCategorized += success
@@ -869,5 +933,97 @@ export async function categorizeTransactionsStreaming(
   return {
     categorizedCount: totalCategorized,
     failedAtIndex: uncategorized.length > 0 ? totalCategorized : undefined,
+  }
+}
+
+/**
+ * Categorize all transactions for given statement IDs
+ * Fetches transactions from DB and categorizes them together for better pattern recognition
+ *
+ * @param statementIds - Statement IDs to categorize transactions for
+ * @param countryCode - Country code for category list
+ * @param categorizationModel - Model to use for categorization
+ * @param onProgress - Optional progress callback
+ * @param profileId - Optional profile ID to fetch profile summary for context
+ */
+export async function categorizeStatements(
+  statementIds: string[],
+  countryCode: CountryCode,
+  categorizationModel?: string,
+  onProgress?: (categorized: number, total: number) => void,
+  profileId?: string
+): Promise<{ categorizedCount: number; totalCount: number }> {
+  if (statementIds.length === 0) {
+    return { categorizedCount: 0, totalCount: 0 }
+  }
+
+  logger.info(`[Categorize] Categorizing transactions for ${statementIds.length} statements`)
+
+  // Fetch all transactions for these statements
+  const transactions = await db
+    .select({
+      id: tables.transactions.id,
+      accountId: tables.transactions.accountId,
+    })
+    .from(tables.transactions)
+    .where(inArray(tables.transactions.statementId, statementIds))
+
+  if (transactions.length === 0) {
+    logger.info(`[Categorize] No transactions found for statements`)
+    return { categorizedCount: 0, totalCount: 0 }
+  }
+
+  logger.info(`[Categorize] Found ${transactions.length} transactions to categorize`)
+
+  // Get account types for context (helps with credit card vs bank account categorization)
+  // Group transactions by account to get the most common account type
+  const accountIds = [...new Set(transactions.map((t) => t.accountId).filter(Boolean))] as string[]
+  let accountType: string | undefined
+
+  if (accountIds.length > 0) {
+    const accounts = await db
+      .select({ id: tables.accounts.id, type: tables.accounts.type })
+      .from(tables.accounts)
+      .where(inArray(tables.accounts.id, accountIds))
+
+    // Use the first account's type (most statements will be from same account type)
+    accountType = accounts[0]?.type
+  }
+
+  // Fetch profile summary for context if profileId is provided
+  let profileSummary: string | null = null
+  if (profileId) {
+    const [profile] = await db
+      .select({ summary: tables.profiles.summary })
+      .from(tables.profiles)
+      .where(eq(tables.profiles.id, profileId))
+      .limit(1)
+
+    profileSummary = profile?.summary ?? null
+    if (profileSummary) {
+      logger.info(`[Categorize] Using profile summary for context`)
+    }
+  }
+
+  const transactionIds = transactions.map((t) => t.id)
+
+  // Run streaming categorization
+  const result = await categorizeTransactionsStreaming(
+    transactionIds,
+    countryCode,
+    categorizationModel,
+    0,
+    onProgress,
+    accountType,
+    profileSummary
+  )
+
+  logger.info(
+    `[Categorize] Completed: ${result.categorizedCount}/${transactions.length} transactions categorized`
+  )
+
+  return {
+    categorizedCount: result.categorizedCount,
+    totalCount: transactions.length,
   }
 }

@@ -49,6 +49,11 @@ export function extractMetadata(buffer: Buffer, fileName: string): FileMetadata 
 export function extractSheetData(buffer: Buffer, sheetName?: string): SheetData {
   const workbook = XLSX.read(buffer, { type: 'buffer' })
   const targetSheet = sheetName || workbook.SheetNames[0]
+
+  if (!targetSheet) {
+    throw new Error('No sheets found in workbook')
+  }
+
   const worksheet = workbook.Sheets[targetSheet]
 
   if (!worksheet) {
@@ -191,7 +196,7 @@ function reservoirSample<T>(arr: T[], k: number): T[] {
   const reservoir: T[] = arr.slice(0, k)
   for (let i = k; i < arr.length; i++) {
     const j = Math.floor(Math.random() * (i + 1))
-    if (j < k) reservoir[j] = arr[i]
+    if (j < k) reservoir[j] = arr[i]!
   }
   return Array.from(new Set(reservoir)) as T[]
 }

@@ -18,6 +18,7 @@ export { insertRawTransactions, updateTransactionCategories } from './insert-tra
 export {
   categorizeTransactionsByIds,
   categorizeTransactionsStreaming,
+  categorizeStatements,
 } from './categorize-transactions'
 export {
   generateBankKey,

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { AccountSelector } from '@/components/ui/account-selector'
+import { DateRangePicker, getDateRangeLabel } from '@/components/ui/date-range-picker'
 import {
   Search,
   ArrowUpRight,
@@ -22,85 +23,13 @@ import {
 import { cn } from '@/lib/utils'
 import type { TransactionFilters, Category, Account, Statement } from '@/lib/api'
 
-// Date preset options (matching dashboard)
-type DatePresetKey =
-  | 'this_month'
-  | 'this_year'
-  | 'last_7d'
-  | 'last_30d'
-  | 'last_3m'
-  | 'last_6m'
-  | 'last_1y'
-  | 'last_3y'
-  | 'all_time'
-
-const DATE_PRESETS: { key: DatePresetKey; label: string }[] = [
-  { key: 'this_month', label: 'This Month' },
-  { key: 'this_year', label: 'This Year' },
-  { key: 'last_7d', label: 'Last 7 Days' },
-  { key: 'last_30d', label: 'Last 30 Days' },
-  { key: 'last_3m', label: 'Last 3 Months' },
-  { key: 'last_6m', label: 'Last 6 Months' },
-  { key: 'last_1y', label: 'Last 1 Year' },
-  { key: 'last_3y', label: 'Last 3 Years' },
-  { key: 'all_time', label: 'All Time' },
-]
-
-function getPresetDateRange(preset: DatePresetKey): { startDate?: string; endDate?: string } {
-  const now = new Date()
-  const formatDateStr = (d: Date) => d.toISOString().split('T')[0]
-
-  switch (preset) {
-    case 'this_month': {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1)
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(end) }
-    }
-    case 'this_year': {
-      const start = new Date(now.getFullYear(), 0, 1)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'last_7d': {
-      const start = new Date(now)
-      start.setDate(start.getDate() - 7)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'last_30d': {
-      const start = new Date(now)
-      start.setDate(start.getDate() - 30)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'last_3m': {
-      const start = new Date(now)
-      start.setMonth(start.getMonth() - 3)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'last_6m': {
-      const start = new Date(now)
-      start.setMonth(start.getMonth() - 6)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'last_1y': {
-      const start = new Date(now)
-      start.setFullYear(start.getFullYear() - 1)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'last_3y': {
-      const start = new Date(now)
-      start.setFullYear(start.getFullYear() - 3)
-      return { startDate: formatDateStr(start), endDate: formatDateStr(now) }
-    }
-    case 'all_time':
-      return {} // No date filter
-  }
-}
-
 interface TransactionFiltersBarProps {
   filters: TransactionFilters
   search: string
   categories: Category[]
   accounts: Account[]
   statements: Statement[]
+  country?: string | null
   onFiltersChange: (filters: TransactionFilters) => void
   onSearchChange: (search: string) => void
   onClearFilters: () => void
@@ -114,6 +43,7 @@ export function TransactionFiltersBar({
   categories,
   accounts,
   statements,
+  country,
   onFiltersChange,
   onSearchChange,
   onClearFilters,
@@ -403,118 +333,27 @@ export function TransactionFiltersBar({
                   <Calendar className="h-3 w-3" />
                   Date Range
                 </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-between h-10 rounded-lg font-normal',
-                        'bg-surface-elevated border-border-subtle',
-                        'hover:bg-surface-hover hover:border-border-hover',
-                        (filters.startDate || filters.endDate) && 'border-primary/30 bg-primary/5'
-                      )}
-                    >
-                      <span className="truncate">
-                        {filters.startDate && filters.endDate
-                          ? `${formatDate(filters.startDate)} — ${formatDate(filters.endDate)}`
-                          : filters.startDate
-                            ? `From ${formatDate(filters.startDate)}`
-                            : filters.endDate
-                              ? `Until ${formatDate(filters.endDate)}`
-                              : 'Any time'}
-                      </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-3" align="start">
-                    <div className="space-y-3">
-                      {/* Quick Presets */}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {DATE_PRESETS.map((preset) => {
-                          const { startDate, endDate } = getPresetDateRange(preset.key)
-                          const isSelected =
-                            filters.startDate === startDate && filters.endDate === endDate
-                          return (
-                            <button
-                              key={preset.key}
-                              onClick={() => {
-                                const range = getPresetDateRange(preset.key)
-                                onFiltersChange({
-                                  ...filters,
-                                  startDate: range.startDate,
-                                  endDate: range.endDate,
-                                })
-                              }}
-                              className={cn(
-                                'px-3 py-2 text-sm font-medium rounded-lg transition-colors text-left',
-                                isSelected
-                                  ? 'bg-primary/10 text-primary border border-primary/20'
-                                  : 'bg-surface-elevated hover:bg-surface-hover text-foreground'
-                              )}
-                            >
-                              {preset.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      {/* Divider */}
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-border-subtle" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-popover px-2 text-muted-foreground">or custom</span>
-                        </div>
-                      </div>
-
-                      {/* Custom Date Range */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">From</Label>
-                          <Input
-                            type="date"
-                            value={filters.startDate || ''}
-                            onChange={(e) =>
-                              onFiltersChange({
-                                ...filters,
-                                startDate: e.target.value || undefined,
-                              })
-                            }
-                            className="h-9 rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">To</Label>
-                          <Input
-                            type="date"
-                            value={filters.endDate || ''}
-                            onChange={(e) =>
-                              onFiltersChange({ ...filters, endDate: e.target.value || undefined })
-                            }
-                            className="h-9 rounded-lg"
-                          />
-                        </div>
-                      </div>
-                      {(filters.startDate || filters.endDate) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-muted-foreground"
-                          onClick={() => {
-                            const newFilters = { ...filters }
-                            delete newFilters.startDate
-                            delete newFilters.endDate
-                            onFiltersChange(newFilters)
-                          }}
-                        >
-                          <X className="mr-1.5 h-3.5 w-3.5" />
-                          Clear dates
-                        </Button>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <DateRangePicker
+                  startDate={filters.startDate}
+                  endDate={filters.endDate}
+                  country={country}
+                  variant="outline"
+                  onDateChange={(startDate, endDate) => {
+                    const newFilters = { ...filters }
+                    if (startDate) {
+                      newFilters.startDate = startDate
+                    } else {
+                      delete newFilters.startDate
+                    }
+                    if (endDate) {
+                      newFilters.endDate = endDate
+                    } else {
+                      delete newFilters.endDate
+                    }
+                    onFiltersChange(newFilters)
+                  }}
+                  className="w-full"
+                />
               </div>
 
               {/* Statement Filter */}
@@ -676,13 +515,7 @@ export function TransactionFiltersBar({
           ))}
           {(filters.startDate || filters.endDate) && (
             <FilterPill
-              label={
-                filters.startDate && filters.endDate
-                  ? `${formatDate(filters.startDate)} — ${formatDate(filters.endDate)}`
-                  : filters.startDate
-                    ? `From ${formatDate(filters.startDate)}`
-                    : `Until ${formatDate(filters.endDate!)}`
-              }
+              label={getDateRangeLabel(filters.startDate, filters.endDate, country)}
               icon={<Calendar className="h-3 w-3" />}
               onRemove={() => {
                 const newFilters = { ...filters }
@@ -710,12 +543,6 @@ export function TransactionFiltersBar({
       )}
     </div>
   )
-}
-
-// Helper to format dates nicely
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 // Category Filter Dropdown with Search

@@ -120,6 +120,7 @@ export function useProfileCreation() {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [relationship, setRelationship] = useState<string>('self')
+  const [summary, setSummary] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const createMutation = useMutation({
@@ -127,6 +128,7 @@ export function useProfileCreation() {
       createProfile({
         name: name.trim(),
         relationship,
+        summary: summary.trim() || null,
         isDefault: true,
       }),
     onSuccess: () => {
@@ -163,13 +165,19 @@ export function useProfileCreation() {
     setRelationship(value)
   }, [])
 
+  const handleSummaryChange = useCallback((value: string) => {
+    setSummary(value)
+  }, [])
+
   return {
     name,
     relationship,
+    summary,
     isCreating: createMutation.isPending,
     error,
     handleNameChange,
     handleRelationshipChange,
+    handleSummaryChange,
     handleSubmit,
   }
 }

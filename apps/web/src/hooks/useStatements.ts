@@ -4,7 +4,7 @@ import {
   getStatements,
   getStatement,
   getStatementStatus,
-  uploadStatement,
+  uploadStatements,
   deleteStatement,
 } from '@/lib/api'
 import { accountKeys } from './useAccounts'
@@ -73,27 +73,32 @@ export function useStatementStatus(
 // ============================================
 
 /**
- * Upload a statement
+ * Upload statements
  */
-export function useUploadStatement() {
+export function useUploadStatements() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({
-      file,
+      files,
       profileId,
       options,
     }: {
-      file: File
+      files: File[]
       profileId: string
-      options?: Parameters<typeof uploadStatement>[2]
-    }) => uploadStatement(file, profileId, options),
-    onSuccess: (_, variables) => {
+      options?: Parameters<typeof uploadStatements>[2]
+    }) => uploadStatements(files, profileId, options),
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: statementKeys.list(variables.profileId) })
-      toast.success('Statement uploaded successfully')
+      // Invalidate categorization status so the processing indicator appears
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['categorization-status'] })
+      }, 2000)
+      const count = result.processedCount
+      toast.success(`${count} statement${count !== 1 ? 's' : ''} uploaded successfully`)
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to upload statement')
+      toast.error(error.message || 'Failed to upload statements')
     },
   })
 }

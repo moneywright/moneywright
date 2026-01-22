@@ -21,10 +21,12 @@ function ProfileCreationPage() {
   const {
     name,
     relationship,
+    summary,
     isCreating,
     error,
     handleNameChange,
     handleRelationshipChange,
+    handleSummaryChange,
     handleSubmit,
   } = useProfileCreation()
 
@@ -132,12 +134,34 @@ function ProfileCreationPage() {
             </div>
           </motion.div>
 
+          {/* Profile summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
+            <label className="block text-sm font-medium text-zinc-400 mb-2.5">
+              About this profile <span className="text-zinc-600">(optional)</span>
+            </label>
+            <textarea
+              value={summary}
+              onChange={(e) => handleSummaryChange(e.target.value)}
+              placeholder="e.g., Software engineer, paid monthly. Has rental property income. Pays home loan EMI and school fees for 2 kids."
+              maxLength={1000}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl text-[15px] bg-zinc-900/50 border border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none transition-all duration-200 resize-none"
+            />
+            <p className="mt-2 text-xs text-zinc-600">
+              Mention occupation, income sources, and regular expenses to improve categorization
+            </p>
+          </motion.div>
+
           {/* Submit button */}
           <motion.div
             className="pt-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.35 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
           >
             <Button
               type="submit"
@@ -166,7 +190,7 @@ function ProfileCreationPage() {
             className="text-center text-xs text-zinc-600"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
+            transition={{ duration: 0.4, delay: 0.45 }}
           >
             You can add more profiles anytime from settings
           </motion.p>

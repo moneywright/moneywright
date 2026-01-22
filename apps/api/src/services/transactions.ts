@@ -2,6 +2,7 @@ import { eq, and, desc, asc, like, or, sql, gte, lte } from 'drizzle-orm'
 import { db, tables, dbType } from '../db'
 import type { Transaction } from '../db'
 import { logger } from '../lib/logger'
+import { decryptOptional } from '../lib/encryption'
 
 /**
  * Transaction service
@@ -523,7 +524,9 @@ export async function getTransactionStats(
 
   // Calculate net spending (debits - credits) per category
   // Only include categories where net spending is positive
+  // Exclude NETTED_CATEGORIES (like credit_card_payment) as they are internal transfers
   const categoryBreakdown = Array.from(categoryMap.entries())
+    .filter(([category]) => !NETTED_CATEGORIES.includes(category))
     .map(([category, data]) => ({
       category,
       total: data.debits - data.credits, // Net spending
@@ -559,7 +562,7 @@ export interface MonthlyTrendData {
 
 // Categories that should be netted (debits - credits) instead of counted separately
 // These are typically internal transfers that shouldn't inflate income/expenses
-const NETTED_CATEGORIES = ['credit_card_payment']
+const NETTED_CATEGORIES = ['credit_card_payment', 'transfer']
 
 /**
  * Month transactions response for the modal
@@ -727,34 +730,63 @@ export async function getMonthTransactions(
 }
 
 /**
+ * Options for monthly trends query
+ */
+export interface MonthlyTrendsOptions {
+  /** Number of months to fetch (default: 12, max: 120) - used if startDate/endDate not provided */
+  months?: number
+  /** Start date in YYYY-MM-DD format - takes precedence over months */
+  startDate?: string
+  /** End date in YYYY-MM-DD format - takes precedence over months */
+  endDate?: string
+  /** Categories to exclude from calculations */
+  excludeCategories?: string[]
+}
+
+/**
  * Get monthly income and expense trends for the last N months
  * Only returns months that have actual transaction data
  */
 export async function getMonthlyTrends(
   userId: string,
   profileId: string,
-  months: number = 12,
-  excludeCategories?: string[]
+  options: MonthlyTrendsOptions = {}
 ): Promise<{ trends: MonthlyTrendData[]; currency: string }> {
-  // Calculate date range for the last N months
-  // Use direct string construction to avoid timezone issues
-  const now = new Date()
-  const startYear = now.getFullYear()
-  const startMonth = now.getMonth() - months + 1
-  const adjustedDate = new Date(startYear, startMonth, 1)
-  const startDateStr = `${adjustedDate.getFullYear()}-${String(adjustedDate.getMonth() + 1).padStart(2, '0')}-01`
+  const { months = 12, startDate, endDate, excludeCategories } = options
+
+  // Calculate date range - use startDate/endDate if provided, otherwise use months
+  let startDateStr: string
+  let endDateStr: string | undefined
+
+  if (startDate) {
+    // Use provided dates
+    startDateStr = startDate
+    endDateStr = endDate
+  } else {
+    // Calculate from months
+    const now = new Date()
+    const startYear = now.getFullYear()
+    const startMonth = now.getMonth() - months + 1
+    const adjustedDate = new Date(startYear, startMonth, 1)
+    startDateStr = `${adjustedDate.getFullYear()}-${String(adjustedDate.getMonth() + 1).padStart(2, '0')}-01`
+  }
+
+  // Build query conditions
+  const conditions = [
+    eq(tables.transactions.userId, userId),
+    eq(tables.transactions.profileId, profileId),
+    gte(tables.transactions.date, startDateStr),
+  ]
+
+  if (endDateStr) {
+    conditions.push(lte(tables.transactions.date, endDateStr))
+  }
 
   // Fetch all transactions in the date range
   const transactions = await db
     .select()
     .from(tables.transactions)
-    .where(
-      and(
-        eq(tables.transactions.userId, userId),
-        eq(tables.transactions.profileId, profileId),
-        gte(tables.transactions.date, startDateStr)
-      )
-    )
+    .where(and(...conditions))
 
   // Filter out excluded categories if specified
   const filteredTransactions = excludeCategories?.length
@@ -846,4 +878,283 @@ export async function getMonthlyTrends(
   const currency = filteredTransactions[0]?.currency || 'INR'
 
   return { trends, currency }
+}
+
+/**
+ * Detected subscription
+ */
+export interface DetectedSubscription {
+  name: string
+  category: string
+  amount: number
+  frequency: 'monthly' | 'quarterly' | 'yearly' | 'unknown'
+  lastChargeDate: string
+  chargeCount: number
+  transactions: Array<{ id: string; date: string; amount: number }>
+  // Account info
+  accountId: string | null
+  accountLast4: string | null
+  accountType: string | null
+  institution: string | null
+  // Active status
+  isActive: boolean
+}
+
+/**
+ * Get detected subscriptions from transaction data
+ * Groups transactions marked as subscriptions by their summary/description
+ */
+export async function getDetectedSubscriptions(
+  userId: string,
+  profileId: string
+): Promise<{ subscriptions: DetectedSubscription[]; totalMonthly: number; currency: string }> {
+  // Fetch all subscription transactions with account info (last 12 months for pattern detection)
+  const now = new Date()
+  const startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1)
+  const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-01`
+
+  const transactionsWithAccounts = await db
+    .select({
+      transaction: tables.transactions,
+      account: {
+        id: tables.accounts.id,
+        accountNumber: tables.accounts.accountNumber,
+        type: tables.accounts.type,
+        institution: tables.accounts.institution,
+      },
+    })
+    .from(tables.transactions)
+    .leftJoin(tables.accounts, eq(tables.transactions.accountId, tables.accounts.id))
+    .where(
+      and(
+        eq(tables.transactions.userId, userId),
+        eq(tables.transactions.profileId, profileId),
+        eq(tables.transactions.isSubscription, true),
+        eq(tables.transactions.type, 'debit'),
+        gte(tables.transactions.date, startDateStr)
+      )
+    )
+    .orderBy(desc(tables.transactions.date))
+
+  // Group by summary (LLM-generated clean name) or fallback to original description
+  const subscriptionGroups = new Map<
+    string,
+    {
+      name: string
+      category: string
+      transactions: Array<{ id: string; date: string; amount: number }>
+      accountId: string | null
+      accountLast4: string | null
+      accountType: string | null
+      institution: string | null
+    }
+  >()
+
+  for (const row of transactionsWithAccounts) {
+    const txn = row.transaction
+    const account = row.account
+
+    // Use summary if available, otherwise use first 50 chars of description
+    const name = txn.summary || txn.originalDescription.substring(0, 50).trim()
+    // Group by first word only (lowercase) to handle inconsistent naming like "Furlenco rent" vs "Furlenco rental"
+    const firstWord = name.split(/\s+/)[0] || name
+    const groupKey = firstWord.toLowerCase().trim()
+
+    // Get last 4 digits of account number (decrypt first since it's encrypted in DB)
+    const decryptedAccountNumber = account?.accountNumber
+      ? decryptOptional(account.accountNumber)
+      : null
+    const accountLast4 = decryptedAccountNumber ? decryptedAccountNumber.slice(-4) : null
+
+    if (!subscriptionGroups.has(groupKey)) {
+      subscriptionGroups.set(groupKey, {
+        name: firstWord, // Use just the first word as the display name
+        category: txn.category,
+        transactions: [],
+        accountId: account?.id || null,
+        accountLast4,
+        accountType: account?.type || null,
+        institution: account?.institution || null,
+      })
+    }
+
+    const group = subscriptionGroups.get(groupKey)!
+    const amount = typeof txn.amount === 'string' ? parseFloat(txn.amount) : Number(txn.amount)
+    group.transactions.push({
+      id: txn.id,
+      date: txn.date,
+      amount,
+    })
+  }
+
+  // Calculate frequency and build subscription objects
+  const subscriptions: DetectedSubscription[] = []
+  const today = new Date()
+
+  for (const [, group] of subscriptionGroups) {
+    if (group.transactions.length === 0) continue
+
+    // Sort transactions by date (newest first)
+    group.transactions.sort((a, b) => b.date.localeCompare(a.date))
+
+    // Group transactions by month to handle multiple charges per month (e.g., Furlenco with 3 furniture items)
+    const monthlyTotals = new Map<string, number>()
+    for (const txn of group.transactions) {
+      const monthKey = txn.date.substring(0, 7) // "YYYY-MM"
+      monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) || 0) + txn.amount)
+    }
+
+    // Calculate average monthly cost (using last 3 months if available)
+    const monthlyAmounts = Array.from(monthlyTotals.values())
+    const recentMonths = monthlyAmounts.slice(0, 3)
+    const avgAmount = recentMonths.reduce((sum, a) => sum + a, 0) / recentMonths.length
+
+    // Individual transaction amounts for potential future CV calculation
+    const _amounts = group.transactions.map((t) => t.amount)
+
+    // Get last charge date info
+    const lastChargeDate = new Date(group.transactions[0]!.date)
+    const daysSinceLastCharge = Math.floor(
+      (today.getTime() - lastChargeDate.getTime()) / (1000 * 60 * 60 * 24)
+    )
+
+    // Detect frequency by analyzing gaps between transactions
+    let frequency: DetectedSubscription['frequency'] = 'unknown'
+
+    // Get unique months sorted (newest first)
+    const uniqueMonths = Array.from(monthlyTotals.keys()).sort((a, b) => b.localeCompare(a))
+
+    if (uniqueMonths.length >= 2) {
+      // Calculate gaps between months (not individual transactions)
+      // This handles cases like Furlenco where there are multiple charges per month
+      const monthGaps: number[] = []
+      for (let i = 0; i < uniqueMonths.length - 1; i++) {
+        const [year1, month1] = uniqueMonths[i]!.split('-').map(Number)
+        const [year2, month2] = uniqueMonths[i + 1]!.split('-').map(Number)
+        const monthsDiff = (year1! - year2!) * 12 + (month1! - month2!)
+        monthGaps.push(monthsDiff)
+      }
+
+      const avgMonthGap = monthGaps.reduce((sum, g) => sum + g, 0) / monthGaps.length
+
+      // Calculate coefficient of variation (CV) for intervals and monthly amounts
+      // CV = standard deviation / mean - measures consistency
+      const calcCV = (values: number[]): number => {
+        if (values.length < 2) return 0
+        const mean = values.reduce((sum, v) => sum + v, 0) / values.length
+        if (mean === 0) return 0
+        const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length
+        const stdDev = Math.sqrt(variance)
+        return stdDev / mean
+      }
+
+      const intervalCV = calcCV(monthGaps)
+      const monthlyAmountCV = calcCV(monthlyAmounts)
+
+      // If BOTH intervals and monthly amounts are highly inconsistent, this is not a true subscription
+      // (e.g., random purchases from same vendor like Namecheap domain renewals)
+      // CV > 0.5 means standard deviation is more than 50% of mean
+      if (intervalCV > 0.5 && monthlyAmountCV > 0.5 && uniqueMonths.length >= 3) {
+        continue // Skip this group - not a true subscription
+      }
+
+      // Detect frequency based on average month gap
+      if (avgMonthGap <= 1.5) {
+        frequency = 'monthly'
+      } else if (avgMonthGap <= 4) {
+        frequency = 'quarterly'
+      } else if (avgMonthGap <= 13) {
+        frequency = 'yearly'
+      }
+    } else {
+      // Single transaction: if at least 2 months old, consider yearly
+      // Otherwise we don't know yet
+      if (daysSinceLastCharge >= 60) {
+        frequency = 'yearly'
+      }
+      // If less than 2 months old, keep as 'unknown' - we can't determine yet
+    }
+
+    // Determine if subscription is active based on frequency
+    let isActive = true
+    switch (frequency) {
+      case 'monthly':
+        // Inactive if no charges in last 2 months (60 days)
+        isActive = daysSinceLastCharge <= 60
+        break
+      case 'quarterly':
+        // Inactive if no charges in last 4 months (120 days)
+        isActive = daysSinceLastCharge <= 120
+        break
+      case 'yearly':
+        // Inactive if no charges in last 14 months (425 days)
+        isActive = daysSinceLastCharge <= 425
+        break
+      case 'unknown':
+        // For unknown frequency, consider active if charged in last 3 months
+        isActive = daysSinceLastCharge <= 90
+        break
+    }
+
+    subscriptions.push({
+      name: group.name,
+      category: group.category,
+      amount: Math.round(avgAmount),
+      frequency,
+      lastChargeDate: group.transactions[0]!.date,
+      chargeCount: group.transactions.length,
+      transactions: group.transactions, // Keep all transactions
+      accountId: group.accountId,
+      accountLast4: group.accountLast4,
+      accountType: group.accountType,
+      institution: group.institution,
+      isActive,
+    })
+  }
+
+  // Helper to get monthly equivalent price
+  const getMonthlyPrice = (sub: DetectedSubscription): number => {
+    switch (sub.frequency) {
+      case 'quarterly':
+        return sub.amount / 3
+      case 'yearly':
+        return sub.amount / 12
+      default:
+        return sub.amount
+    }
+  }
+
+  // Sort by monthly equivalent price descending (highest monthly cost first)
+  subscriptions.sort((a, b) => getMonthlyPrice(b) - getMonthlyPrice(a))
+
+  // Calculate total monthly cost (only for active subscriptions)
+  let totalMonthly = 0
+  for (const sub of subscriptions) {
+    // Only count active subscriptions toward monthly cost
+    if (!sub.isActive) continue
+
+    switch (sub.frequency) {
+      case 'monthly':
+        totalMonthly += sub.amount
+        break
+      case 'quarterly':
+        totalMonthly += sub.amount / 3
+        break
+      case 'yearly':
+        totalMonthly += sub.amount / 12
+        break
+      case 'unknown':
+        // For unknown frequency, don't include in monthly total
+        // since we can't reliably estimate the recurring cost
+        break
+    }
+  }
+
+  const currency = transactionsWithAccounts[0]?.transaction.currency || 'INR'
+
+  return {
+    subscriptions,
+    totalMonthly: Math.round(totalMonthly),
+    currency,
+  }
 }

@@ -37,6 +37,7 @@ import {
   Sun,
   Check,
   Cpu,
+  Repeat,
 } from 'lucide-react'
 
 // Main navigation items
@@ -60,6 +61,11 @@ const mainNavItems = [
     title: 'Transactions',
     icon: Wallet,
     href: '/transactions',
+  },
+  {
+    title: 'Subscriptions',
+    icon: Repeat,
+    href: '/subscriptions',
   },
   {
     title: 'Investments',

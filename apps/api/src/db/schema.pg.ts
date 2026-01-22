@@ -52,6 +52,7 @@ export const profiles = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 50 }).notNull(), // e.g., "Personal", "Spouse"
     relationship: varchar('relationship', { length: 20 }), // e.g., "self", "spouse", "parent"
+    summary: text('summary'), // Free-form text about the profile owner (employer, income sources, etc.) - used to help LLM categorize transactions
     isDefault: boolean('is_default').notNull().default(false), // Primary profile for quick access
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

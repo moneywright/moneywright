@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { CreditCard, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { CreditCard, MoreVertical, Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -27,6 +28,7 @@ interface CreditCardDisplayProps {
   institutionName?: string
   onEdit: () => void
   onDelete: () => void
+  onRecategorize?: () => void
 }
 
 export function CreditCardDisplay({
@@ -35,6 +37,7 @@ export function CreditCardDisplay({
   institutionName,
   onEdit,
   onDelete,
+  onRecategorize,
 }: CreditCardDisplayProps) {
   const [logoError, setLogoError] = useState(false)
   const logoPath = account.institution
@@ -111,6 +114,13 @@ export function CreditCardDisplay({
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
+            {onRecategorize && (
+              <DropdownMenuItem onClick={onRecategorize}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Recategorize
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>

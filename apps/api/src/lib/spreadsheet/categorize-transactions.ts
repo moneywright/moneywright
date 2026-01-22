@@ -132,7 +132,6 @@ ghi789,transfer,0.85,"Bank transfer to savings"`
     const { text } = await generateText({
       model,
       prompt,
-      maxTokens: 2000,
     })
 
     return parseCategoryCSV(text, validCategories)

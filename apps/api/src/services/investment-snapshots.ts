@@ -16,7 +16,7 @@ export interface SnapshotHoldingDetail {
   symbol: string | null
   name: string
   investmentType: string
-  units: number
+  units: number | null
   currentValue: number
   investedValue: number | null
   currency: string

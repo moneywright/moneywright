@@ -9,6 +9,7 @@ import {
   linkTransactions,
   unlinkTransaction,
   getLinkCandidates,
+  getCategorizationStatus,
   type TransactionFilters,
   type TransactionPagination,
 } from '@/lib/api'
@@ -164,6 +165,23 @@ export function useUnlinkTransaction() {
     },
     onError: () => {
       toast.error('Failed to unlink transaction')
+    },
+  })
+}
+
+/**
+ * Get current categorization status
+ * Only polls when active (every 5 seconds)
+ * Query should be invalidated when uploads/recategorization triggers
+ */
+export function useCategorizationStatus() {
+  return useQuery({
+    queryKey: ['categorization-status'],
+    queryFn: getCategorizationStatus,
+    // Only poll when processing is active
+    refetchInterval: (query) => {
+      const data = query.state.data
+      return data?.active ? 5000 : false
     },
   })
 }

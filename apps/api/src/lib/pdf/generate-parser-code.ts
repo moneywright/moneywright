@@ -351,6 +351,15 @@ HDFC BANK STATEMENT SPECIFIC FORMAT:
    - Any line with "Total" in it
 7. DATE FORMAT: Usually DD/MM/YY or DD/MM/YYYY or DD-MMM-YY (like 01-Apr-24)
 8. IMPORTANT: Some HDFC statements have Withdrawal and Deposit as separate columns. If you see two amount columns before the balance, use those directly instead of balance comparison.
+
+=== HDFC CREDIT CARD STATEMENT SPECIFIC ===
+9. EMI ELIGIBILITY PREFIX: In HDFC credit card statements, transactions above ₹3000 may have "EMI" written at the START of the transaction description.
+   - This "EMI" prefix means the transaction is ELIGIBLE for EMI conversion, NOT an actual EMI payment
+   - ONLY strip the "EMI " prefix at the BEGINNING of the description, do NOT remove "EMI" from middle of text
+   - Use: description.replace(/^EMI\\s+/i, '') to strip only the leading "EMI " prefix
+   - Example: "EMI AMAZON RETAIL INDIA" → "AMAZON RETAIL INDIA"
+   - Example: "EMI SwiggyBengaluru" → "SwiggyBengaluru"
+   - But keep "EMI" if it's part of the merchant name or in the middle of text
 `,
   AMEX: `
 AMERICAN EXPRESS SPECIFIC FORMAT:

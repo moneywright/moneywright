@@ -31,7 +31,7 @@ import {
   getInvestmentTypes,
   getLLMSettings,
   getLLMProviders,
-  uploadStatement,
+  uploadStatements,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -75,9 +75,6 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(
-    null
-  )
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -166,61 +163,55 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
 
     setIsUploading(true)
     setError(null)
-    setUploadProgress({ current: 0, total: files.length })
 
-    let successCount = 0
-    let failCount = 0
+    try {
+      const result = await uploadStatements(files, profileId, {
+        documentType,
+        accountId:
+          documentType === 'bank_statement' && accountId !== 'auto' ? accountId : undefined,
+        sourceType: documentType === 'investment_statement' ? sourceType : undefined,
+        password: password || undefined,
+        savePassword,
+        parsingModel: parsingModel || undefined,
+        categorizationModel: categorizationModel || undefined,
+      })
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      if (!file) continue
-      setUploadProgress({ current: i + 1, total: files.length })
+      const successCount = result.processedCount
+      const failCount = result.errors?.length || 0
 
-      try {
-        await uploadStatement(file, profileId, {
-          documentType,
-          accountId:
-            documentType === 'bank_statement' && accountId !== 'auto' ? accountId : undefined,
-          sourceType: documentType === 'investment_statement' ? sourceType : undefined,
-          password: password || undefined,
-          savePassword: savePassword && i === 0,
-          parsingModel: parsingModel || undefined,
-          categorizationModel: categorizationModel || undefined,
-        })
-        successCount++
-      } catch (err: unknown) {
-        failCount++
-        const error = err as Error & {
-          response?: { data?: { passwordRequired?: boolean; message?: string } }
-        }
-        if (error?.response?.data?.passwordRequired && files.length === 1) {
-          setShowPasswordField(true)
-          setError(
-            error.response.data.message ||
-              'This PDF is password protected. Please enter the password.'
+      if (successCount > 0) {
+        if (failCount > 0) {
+          toast.success(
+            `${successCount} statement${successCount !== 1 ? 's' : ''} uploaded, ${failCount} failed`
           )
-          setIsUploading(false)
-          setUploadProgress(null)
-          return
+        } else {
+          toast.success(`${successCount} statement${successCount !== 1 ? 's' : ''} uploaded!`)
         }
-        console.error(`Failed to upload ${file?.name}:`, err)
+        onSuccess()
+      } else {
+        setError('Failed to upload statements')
       }
-    }
-
-    setIsUploading(false)
-    setUploadProgress(null)
-
-    if (successCount > 0) {
-      if (failCount > 0) {
-        toast.success(
-          `${successCount} statement${successCount !== 1 ? 's' : ''} uploaded, ${failCount} failed`
+    } catch (err: unknown) {
+      const error = err as Error & {
+        response?: {
+          data?: {
+            passwordRequired?: boolean
+            message?: string
+            errors?: Array<{ filename: string; error: string }>
+          }
+        }
+      }
+      if (error?.response?.data?.passwordRequired) {
+        setShowPasswordField(true)
+        setError(
+          error.response.data.message ||
+            'This file is password protected. Please enter the password.'
         )
       } else {
-        toast.success(`${successCount} statement${successCount !== 1 ? 's' : ''} uploaded!`)
+        setError(error?.response?.data?.message || 'Failed to upload statements')
       }
-      onSuccess()
-    } else {
-      setError('Failed to upload statements')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -743,9 +734,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
                 {isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {uploadProgress
-                      ? `${uploadProgress.current}/${uploadProgress.total}`
-                      : 'Uploading...'}
+                    Uploading...
                   </>
                 ) : (
                   <>

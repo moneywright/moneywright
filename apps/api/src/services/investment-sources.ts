@@ -226,8 +226,10 @@ export async function updateSource(
       updateData.lastSyncAt = (
         dbType === 'postgres' ? data.lastSyncAt : data.lastSyncAt.toISOString()
       ) as Date
-    } else {
-      updateData.lastSyncAt = data.lastSyncAt as Date
+    } else if (typeof data.lastSyncAt === 'string') {
+      updateData.lastSyncAt = (
+        dbType === 'postgres' ? new Date(data.lastSyncAt) : data.lastSyncAt
+      ) as Date
     }
   }
 

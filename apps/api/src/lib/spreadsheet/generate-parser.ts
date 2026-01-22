@@ -67,6 +67,11 @@ export async function generateParserConfig(
 
   // Get the first sheet's metadata
   const sheetName = Object.keys(metadata.sheets)[0]
+
+  if (!sheetName) {
+    throw new Error('No sheets found in metadata')
+  }
+
   const sheetMeta = metadata.sheets[sheetName]
 
   if (!sheetMeta) {
@@ -75,21 +80,39 @@ export async function generateParserConfig(
 
   // Build column summary for LLM
   const columnSummary = sheetMeta.columns
-    .map((col) => {
-      let statsSummary = ''
-      if (col.dataType === 'number') {
-        const stats = col.stats as { min: number | null; max: number | null }
-        statsSummary = `min=${stats.min}, max=${stats.max}`
-      } else if (col.dataType === 'datestring') {
-        const stats = col.stats as { min: string | null; max: string | null; format: string | null }
-        statsSummary = `range=${stats.min} to ${stats.max}, format=${stats.format}`
-      } else if (col.dataType === 'string') {
-        const stats = col.stats as { sampleValues: string[] }
-        statsSummary = `samples=${stats.sampleValues.slice(0, 3).join(', ')}`
-      }
+    .map(
+      (col: {
+        index: number
+        name: string
+        dataType: string
+        stats: {
+          nullCount: number
+          count: number
+          min?: number | string | null
+          max?: number | string | null
+          format?: string | null
+          sampleValues?: string[]
+        }
+      }) => {
+        let statsSummary = ''
+        if (col.dataType === 'number') {
+          const stats = col.stats as { min: number | null; max: number | null }
+          statsSummary = `min=${stats.min}, max=${stats.max}`
+        } else if (col.dataType === 'datestring') {
+          const stats = col.stats as {
+            min: string | null
+            max: string | null
+            format: string | null
+          }
+          statsSummary = `range=${stats.min} to ${stats.max}, format=${stats.format}`
+        } else if (col.dataType === 'string') {
+          const stats = col.stats as { sampleValues: string[] }
+          statsSummary = `samples=${stats.sampleValues.slice(0, 3).join(', ')}`
+        }
 
-      return `  ${col.index}: "${col.name}" (${col.dataType}) - ${statsSummary}, nulls=${col.stats.nullCount}/${col.stats.count}`
-    })
+        return `  ${col.index}: "${col.name}" (${col.dataType}) - ${statsSummary}, nulls=${col.stats.nullCount}/${col.stats.count}`
+      }
+    )
     .join('\n')
 
   // Format sample rows for LLM

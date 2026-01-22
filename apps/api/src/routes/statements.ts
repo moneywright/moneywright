@@ -6,9 +6,10 @@ import {
   getStatementStatus,
   createStatement,
   deleteStatement,
-  queueParseJob,
+  queueStatements,
+  type StatementInput,
 } from '../services/statements'
-import { getAccountByIdRaw, updateStatementPassword } from '../services/accounts'
+import { getAccountByIdRaw } from '../services/accounts'
 import { getProfileById } from '../services/profiles'
 import { findUserById } from '../services/user'
 import { extractPdfText, extractCsvText, extractXlsxText } from '../lib/file-parser'
@@ -19,13 +20,10 @@ import { logger } from '../lib/logger'
 
 const statementRoutes = new Hono<{ Variables: AuthVariables }>()
 
-// Apply auth to all routes
 statementRoutes.use('*', auth())
 
 /**
  * GET /statements
- * List statements for the current user
- * Query params: profileId, accountId
  */
 statementRoutes.get('/', async (c) => {
   const userId = c.get('userId')
@@ -42,14 +40,12 @@ statementRoutes.get('/', async (c) => {
 
 /**
  * GET /statements/:id
- * Get a specific statement
  */
 statementRoutes.get('/:id', async (c) => {
   const userId = c.get('userId')
   const statementId = c.req.param('id')
 
   const statement = await getStatementById(statementId, userId)
-
   if (!statement) {
     return c.json({ error: 'not_found', message: 'Statement not found' }, 404)
   }
@@ -59,14 +55,12 @@ statementRoutes.get('/:id', async (c) => {
 
 /**
  * GET /statements/:id/status
- * Get parsing status (for polling)
  */
 statementRoutes.get('/:id/status', async (c) => {
   const userId = c.get('userId')
   const statementId = c.req.param('id')
 
   const status = await getStatementStatus(statementId, userId)
-
   if (!status) {
     return c.json({ error: 'not_found', message: 'Statement not found' }, 404)
   }
@@ -76,229 +70,218 @@ statementRoutes.get('/:id/status', async (c) => {
 
 /**
  * POST /statements/upload
- * Upload a statement file
- * Form data: file, profileId, documentType, accountId (optional), sourceType (optional), password (optional)
+ * Upload one or more statement files
+ * Form data: files[] (or file for single), profileId, documentType, accountId, sourceType, password, parsingModel, categorizationModel
  */
 statementRoutes.post('/upload', async (c) => {
   const userId = c.get('userId')
 
   try {
     const formData = await c.req.formData()
-    const file = formData.get('file') as File | null
+
+    // Support both single file and multiple files
+    const singleFile = formData.get('file') as File | null
+    const multipleFiles = formData.getAll('files') as File[]
+    const files = singleFile ? [singleFile] : multipleFiles
+
     const profileId = formData.get('profileId') as string | null
     const documentType = formData.get('documentType') as
       | 'bank_statement'
       | 'investment_statement'
       | null
     const accountId = formData.get('accountId') as string | null
-    const sourceType = formData.get('sourceType') as string | null // For investment statements
+    const sourceType = formData.get('sourceType') as string | null
     const password = formData.get('password') as string | null
     const savePassword = formData.get('savePassword') === 'true'
     const parsingModel = formData.get('parsingModel') as string | null
     const categorizationModel = formData.get('categorizationModel') as string | null
 
-    // Validate file
-    if (!file) {
-      return c.json({ error: 'validation_error', message: 'File is required' }, 400)
+    // Validate
+    if (!files || files.length === 0) {
+      return c.json({ error: 'validation_error', message: 'At least one file is required' }, 400)
     }
-
-    // Validate profileId
     if (!profileId) {
       return c.json({ error: 'validation_error', message: 'Profile ID is required' }, 400)
     }
 
-    // Verify profile belongs to user
     const profile = await getProfileById(profileId, userId)
     if (!profile) {
       return c.json({ error: 'not_found', message: 'Profile not found' }, 404)
     }
 
-    // Get user for country code
     const user = await findUserById(userId)
     if (!user || !user.country) {
       return c.json({ error: 'validation_error', message: 'User country not set' }, 400)
     }
 
-    // Validate file type
-    const filename = file.name.toLowerCase()
-    let fileType: string | null = null
+    // Process all files
+    const statements: StatementInput[] = []
+    const statementIds: string[] = []
+    const errors: Array<{ filename: string; error: string }> = []
 
-    if (filename.endsWith('.pdf')) {
-      fileType = 'pdf'
-    } else if (filename.endsWith('.csv')) {
-      fileType = 'csv'
-    } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
-      fileType = 'xlsx'
+    for (const file of files) {
+      // Validate file type
+      const filename = file.name.toLowerCase()
+      let fileType: FileType | null = null
+
+      if (filename.endsWith('.pdf')) fileType = 'pdf'
+      else if (filename.endsWith('.csv')) fileType = 'csv'
+      else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) fileType = 'xlsx'
+
+      if (!fileType || !SUPPORTED_FILE_TYPES.includes(fileType)) {
+        errors.push({ filename: file.name, error: 'Unsupported file type' })
+        continue
+      }
+
+      // Read file
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      // Extract text
+      let pages: string[] = []
+      let usedPassword: string | null = null
+
+      try {
+        if (fileType === 'pdf') {
+          let passwordToUse = password || undefined
+          let triedSavedPassword = false
+
+          if (!passwordToUse && accountId) {
+            const account = await getAccountByIdRaw(accountId, userId)
+            if (account?.statementPassword) {
+              const savedPassword = decryptOptional(account.statementPassword)
+              if (savedPassword) {
+                passwordToUse = savedPassword
+                triedSavedPassword = true
+              }
+            }
+          }
+
+          try {
+            pages = await extractPdfText(buffer, passwordToUse)
+            if (passwordToUse) usedPassword = passwordToUse
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            if (message === 'PASSWORD_REQUIRED') {
+              // For single file, return password required error
+              if (files.length === 1) {
+                return c.json(
+                  {
+                    error: 'password_required',
+                    message: triedSavedPassword
+                      ? 'The saved password did not work. Please enter the correct password.'
+                      : 'This PDF is password protected. Please provide the password.',
+                    passwordRequired: true,
+                    triedSavedPassword,
+                  },
+                  422
+                )
+              }
+              errors.push({ filename: file.name, error: 'Password protected' })
+              continue
+            }
+            throw error
+          }
+        } else if (fileType === 'csv') {
+          const text = await extractCsvText(buffer)
+          pages = [text]
+        } else if (fileType === 'xlsx') {
+          let passwordToUse = password || undefined
+
+          if (!passwordToUse && accountId) {
+            const account = await getAccountByIdRaw(accountId, userId)
+            if (account?.statementPassword) {
+              const savedPassword = decryptOptional(account.statementPassword)
+              if (savedPassword) passwordToUse = savedPassword
+            }
+          }
+
+          try {
+            pages = await extractXlsxText(buffer, passwordToUse)
+            if (passwordToUse) usedPassword = passwordToUse
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            if (message === 'PASSWORD_REQUIRED') {
+              if (files.length === 1) {
+                return c.json(
+                  {
+                    error: 'password_required',
+                    message: 'This Excel file is password protected. Please provide the password.',
+                    passwordRequired: true,
+                  },
+                  422
+                )
+              }
+              errors.push({ filename: file.name, error: 'Password protected' })
+              continue
+            }
+            throw error
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        errors.push({ filename: file.name, error: message })
+        continue
+      }
+
+      if (pages.length === 0 || pages.every((p) => p.trim() === '')) {
+        errors.push({ filename: file.name, error: 'Could not extract text from file' })
+        continue
+      }
+
+      // Create statement record
+      const statement = await createStatement({
+        accountId: accountId || null,
+        profileId,
+        userId,
+        originalFilename: file.name,
+        fileType,
+        fileSizeBytes: buffer.length,
+        documentType: documentType || undefined,
+      })
+
+      statements.push({
+        statementId: statement.id,
+        profileId,
+        userId,
+        pages,
+        fileType,
+        documentType: documentType || undefined,
+        sourceType: sourceType || undefined,
+        parsingModel: parsingModel || undefined,
+        password: usedPassword || undefined,
+        savePassword: savePassword && !!usedPassword,
+      })
+      statementIds.push(statement.id)
     }
 
-    if (
-      !fileType ||
-      !SUPPORTED_FILE_TYPES.includes(fileType as (typeof SUPPORTED_FILE_TYPES)[number])
-    ) {
+    // If no valid files, return error
+    if (statements.length === 0) {
       return c.json(
-        { error: 'validation_error', message: 'Unsupported file type. Supported: PDF, CSV, XLSX' },
+        {
+          error: 'validation_error',
+          message: 'No valid files to process',
+          errors,
+        },
         400
       )
     }
 
-    // Read file into buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    // Extract text from file
-    let pages: string[] = []
-    let usedPassword: string | null = null
-
-    if (fileType === 'pdf') {
-      // Try to extract text, handling password-protected PDFs
-      let passwordToUse = password || undefined
-      let triedSavedPassword = false
-
-      // If no password provided, try saved account password
-      if (!passwordToUse && accountId) {
-        const account = await getAccountByIdRaw(accountId, userId)
-        if (account?.statementPassword) {
-          const savedPassword = decryptOptional(account.statementPassword)
-          if (savedPassword) {
-            passwordToUse = savedPassword
-            triedSavedPassword = true
-          }
-        }
-      }
-
-      try {
-        pages = await extractPdfText(buffer, passwordToUse)
-        if (passwordToUse) usedPassword = passwordToUse
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error'
-
-        // Check if password is required
-        if (message === 'PASSWORD_REQUIRED') {
-          // If we tried a saved password and it failed, indicate that
-          const errorMessage = triedSavedPassword
-            ? 'The saved password did not work for this PDF. Please enter the correct password.'
-            : 'This PDF is password protected. Please provide the password.'
-
-          return c.json(
-            {
-              error: 'password_required',
-              message: errorMessage,
-              passwordRequired: true,
-              triedSavedPassword,
-            },
-            422
-          )
-        }
-
-        throw error
-      }
-    } else if (fileType === 'csv') {
-      const text = await extractCsvText(buffer)
-      pages = [text]
-    } else if (fileType === 'xlsx') {
-      // Try to extract text, handling password-protected Excel files
-      let passwordToUse = password || undefined
-      let triedSavedPassword = false
-
-      // If no password provided, try saved account password
-      if (!passwordToUse && accountId) {
-        const account = await getAccountByIdRaw(accountId, userId)
-        if (account?.statementPassword) {
-          const savedPassword = decryptOptional(account.statementPassword)
-          if (savedPassword) {
-            passwordToUse = savedPassword
-            triedSavedPassword = true
-          }
-        }
-      }
-
-      try {
-        pages = await extractXlsxText(buffer, passwordToUse)
-        if (passwordToUse) usedPassword = passwordToUse
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error'
-
-        // Check if password is required
-        if (message === 'PASSWORD_REQUIRED') {
-          const errorMessage = triedSavedPassword
-            ? 'The saved password did not work for this Excel file. Please enter the correct password.'
-            : 'This Excel file is password protected. Please provide the password.'
-
-          return c.json(
-            {
-              error: 'password_required',
-              message: errorMessage,
-              passwordRequired: true,
-              triedSavedPassword,
-            },
-            422
-          )
-        }
-
-        throw error
-      }
-    }
-
-    if (pages.length === 0 || pages.every((p) => p.trim() === '')) {
-      return c.json({ error: 'parse_error', message: 'Could not extract text from file' }, 400)
-    }
-
-    // Determine account ID
-    // If accountId provided, verify it belongs to user
-    // If not provided, leave it null - the parser will create the appropriate account/source
-    // based on document type detection
-    const finalAccountId = accountId || null
-
-    if (finalAccountId) {
-      // Verify account belongs to user
-      const account = await getAccountByIdRaw(finalAccountId, userId)
-      if (!account) {
-        return c.json({ error: 'not_found', message: 'Account not found' }, 404)
-      }
-    }
-
-    // Save password if user opted to save it and it was successfully used
-    if (usedPassword && savePassword && finalAccountId) {
-      await updateStatementPassword(finalAccountId, userId, usedPassword)
-      logger.info(`[Statement] Saved password for account ${finalAccountId}`)
-    }
-
-    // Create statement record
-    // accountId may be null - parser will create appropriate account/source based on document type
-    const statement = await createStatement({
-      accountId: finalAccountId,
-      profileId,
-      userId,
-      originalFilename: file.name,
-      fileType,
-      fileSizeBytes: buffer.length,
-      documentType: documentType || undefined,
-    })
-
-    // Queue parsing job
-    const jobId = queueParseJob({
-      statementId: statement.id,
-      profileId,
-      userId,
+    // Queue all statements for processing (async)
+    queueStatements({
+      statements,
       countryCode: user.country as CountryCode,
-      pages,
-      fileType: fileType as FileType,
-      documentType: documentType || undefined,
-      sourceType: sourceType || undefined,
-      parsingModel: parsingModel || undefined,
       categorizationModel: categorizationModel || undefined,
     })
 
-    logger.info(`[Statement] Uploaded ${file.name}, queued job ${jobId}`)
+    logger.info(`[Statement] Uploaded ${statements.length} files, queued for processing`)
 
     return c.json(
       {
-        statementId: statement.id,
-        accountId: finalAccountId,
-        // isNewAccount will be determined after parsing based on document type
-        isNewAccount: !finalAccountId,
+        statementIds,
         status: 'pending',
-        jobId,
+        processedCount: statements.length,
+        errors: errors.length > 0 ? errors : undefined,
       },
       202
     )
@@ -311,7 +294,6 @@ statementRoutes.post('/upload', async (c) => {
 
 /**
  * DELETE /statements/:id
- * Delete a statement
  */
 statementRoutes.delete('/:id', async (c) => {
   const userId = c.get('userId')

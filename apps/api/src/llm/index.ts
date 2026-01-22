@@ -45,13 +45,16 @@ export function getAvailableModels(provider: LLMProvider): string[] {
 
 /**
  * Optionally wrap model with DevTools middleware in development
+ * SDK version mismatch requires type assertion - LanguageModel vs LanguageModelV3
  */
 function maybeWrapWithDevTools(model: LanguageModel): LanguageModel {
   if (isDevToolsEnabled) {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     return wrapLanguageModel({
-      model,
+      model: model as any,
       middleware: devToolsMiddleware(),
-    })
+    }) as any
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
   return model
 }

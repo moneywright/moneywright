@@ -18,8 +18,10 @@ import {
   useDeleteStatement,
 } from '@/hooks'
 import { StatementCard, FilterBar, UploadForm, type SortOption } from '@/components/statements'
+import { RecategorizeModal } from '@/components/transactions/recategorize-modal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileText, Upload as UploadIcon } from 'lucide-react'
+import type { Statement } from '@/lib/api'
 
 // Search params validation
 type StatementsSearchParams = {
@@ -50,6 +52,7 @@ function StatementsPage() {
     const saved = localStorage.getItem(SORT_STORAGE_KEY)
     return (saved as SortOption) || 'period_desc'
   })
+  const [recategorizeStatement, setRecategorizeStatement] = useState<Statement | null>(null)
 
   // Open upload dialog if ?upload=true is in the URL
   useEffect(() => {
@@ -229,6 +232,7 @@ function StatementsPage() {
                   formatFileSize={formatFileSize}
                   formatPeriod={formatPeriod}
                   onDelete={() => deleteMutation.mutate(statement.id)}
+                  onRecategorize={() => setRecategorizeStatement(statement)}
                 />
               )
             })}
@@ -246,6 +250,21 @@ function StatementsPage() {
               label: 'Upload Statement',
               onClick: () => setShowUploadDialog(true),
               icon: UploadIcon,
+            }}
+          />
+        )}
+
+        {/* Recategorize Modal */}
+        {activeProfileId && recategorizeStatement && (
+          <RecategorizeModal
+            open={!!recategorizeStatement}
+            onOpenChange={(open) => !open && setRecategorizeStatement(null)}
+            profileId={activeProfileId}
+            statementId={recategorizeStatement.id}
+            targetName={recategorizeStatement.originalFilename || 'Statement'}
+            targetType="statement"
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['transactions'] })
             }}
           />
         )}

@@ -109,6 +109,7 @@ function normalizeHolding(h: RawInvestmentHolding): RawInvestmentHolding {
     maturity_date: typeof h.maturity_date === 'string' ? h.maturity_date.trim() || null : null,
     interest_rate:
       typeof h.interest_rate === 'number' && !isNaN(h.interest_rate) ? h.interest_rate : null,
+    currency: typeof h.currency === 'string' ? h.currency.trim() || null : null,
   }
 }
 

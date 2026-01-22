@@ -18,6 +18,7 @@ import {
   useConstants,
 } from '@/hooks'
 import { BankAccountCard, CreditCardDisplay, AccountForm } from '@/components/accounts'
+import { RecategorizeModal } from '@/components/transactions/recategorize-modal'
 
 export const Route = createFileRoute('/accounts')({
   component: AccountsPage,
@@ -29,6 +30,7 @@ function AccountsPage() {
   const { user } = useAuthStatus()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [recategorizeAccount, setRecategorizeAccount] = useState<Account | null>(null)
 
   // Use default profile if none selected
   const activeProfileId = selectedProfileId || defaultProfile?.id
@@ -121,6 +123,7 @@ function AccountsPage() {
                       }
                       onEdit={() => setEditingAccount(account)}
                       onDelete={() => deleteMutation.mutate(account.id)}
+                      onRecategorize={() => setRecategorizeAccount(account)}
                     />
                   ))}
                 </div>
@@ -147,6 +150,7 @@ function AccountsPage() {
                       statement={statementsByAccount.get(account.id)}
                       onEdit={() => setEditingAccount(account)}
                       onDelete={() => deleteMutation.mutate(account.id)}
+                      onRecategorize={() => setRecategorizeAccount(account)}
                     />
                   ))}
                 </div>
@@ -162,6 +166,23 @@ function AccountsPage() {
               label: 'Upload Statement',
               href: '/statements?upload=true',
               icon: Upload,
+            }}
+          />
+        )}
+
+        {/* Recategorize Modal */}
+        {activeProfileId && recategorizeAccount && (
+          <RecategorizeModal
+            open={!!recategorizeAccount}
+            onOpenChange={(open) => !open && setRecategorizeAccount(null)}
+            profileId={activeProfileId}
+            accountId={recategorizeAccount.id}
+            targetName={
+              recategorizeAccount.accountName || recategorizeAccount.institution || 'Account'
+            }
+            targetType="account"
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['transactions'] })
             }}
           />
         )}

@@ -86,7 +86,7 @@ export interface CategorizedTransaction {
  */
 export interface ParserConfig {
   dateColumn: string | number
-  amountColumn: string | number
+  amountColumn?: string | number // optional when using split columns
   descriptionColumn: string | number
   typeColumn?: string | number
   balanceColumn?: string | number

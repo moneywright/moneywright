@@ -66,6 +66,12 @@ export async function parseSpreadsheetStatement(options: {
     throw new Error('Statement not found')
   }
 
+  if (!statement.accountId) {
+    throw new Error('Statement has no associated account')
+  }
+
+  const accountId = statement.accountId
+
   // Phase 1: Extract metadata
   logger.info(`[SpreadsheetParser] Phase 1: Extracting metadata`)
   const metadata = extractMetadata(buffer, fileName)
@@ -162,7 +168,7 @@ export async function parseSpreadsheetStatement(options: {
 
     try {
       await db.insert(tables.transactions).values({
-        accountId: statement.accountId,
+        accountId,
         statementId,
         profileId,
         userId,

@@ -136,8 +136,6 @@ export async function getAllPreferences(
   userId: string,
   profileId?: string | null
 ): Promise<Record<string, string>> {
-  const conditions = [eq(tables.userPreferences.userId, userId)]
-
   // Get user-level preferences (profileId is null)
   const userPrefs = await db
     .select()

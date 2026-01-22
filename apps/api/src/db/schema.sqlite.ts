@@ -45,6 +45,7 @@ export const profiles = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(), // e.g., "Personal", "Spouse"
     relationship: text('relationship'), // e.g., "self", "spouse", "parent"
+    summary: text('summary'), // Free-form text about the profile owner (employer, income sources, etc.) - used to help LLM categorize transactions
     isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // Primary profile for quick access
     createdAt: text('created_at')
       .notNull()

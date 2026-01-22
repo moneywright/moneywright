@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { ProcessingStatus } from '@/components/domain/processing-status'
 
 export interface PageHeaderProps {
   /** Page title */
@@ -34,7 +35,10 @@ export function PageHeader({ title, description, actions, className }: PageHeade
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description && <p className="text-muted-foreground text-sm mt-1">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
+      <div className="flex flex-wrap items-center gap-3">
+        <ProcessingStatus />
+        {actions}
+      </div>
     </div>
   )
 }

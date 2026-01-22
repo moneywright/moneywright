@@ -20,6 +20,7 @@ export interface Profile {
   id: string
   name: string
   relationship: string | null
+  summary: string | null
   isDefault: boolean
   createdAt: string
   updatedAt: string
@@ -260,6 +261,7 @@ export async function getProfile(profileId: string): Promise<Profile> {
 export async function createProfile(data: {
   name: string
   relationship?: string | null
+  summary?: string | null
   isDefault?: boolean
 }): Promise<Profile> {
   const response = await api.post('/profiles', data)
@@ -274,6 +276,7 @@ export async function updateProfile(
   data: {
     name?: string
     relationship?: string | null
+    summary?: string | null
     isDefault?: boolean
   }
 ): Promise<Profile> {
@@ -561,10 +564,20 @@ export async function getStatementStatus(
 }
 
 /**
- * Upload a statement
+ * Upload response for multiple files
  */
-export async function uploadStatement(
-  file: File,
+export interface StatementsUploadResponse {
+  statementIds: string[]
+  status: 'pending'
+  processedCount: number
+  errors?: Array<{ filename: string; error: string }>
+}
+
+/**
+ * Upload one or more statements
+ */
+export async function uploadStatements(
+  files: File[],
   profileId: string,
   options?: {
     /** Document type: bank_statement or investment_statement */
@@ -580,9 +593,11 @@ export async function uploadStatement(
     /** Model for transaction categorization */
     categorizationModel?: string
   }
-): Promise<StatementUploadResponse> {
+): Promise<StatementsUploadResponse> {
   const formData = new FormData()
-  formData.append('file', file)
+  for (const file of files) {
+    formData.append('files', file)
+  }
   formData.append('profileId', profileId)
   if (options?.documentType) formData.append('documentType', options.documentType)
   if (options?.accountId) formData.append('accountId', options.accountId)
@@ -806,6 +821,61 @@ export async function unlinkTransaction(transactionId: string): Promise<void> {
 export async function getLinkCandidates(transactionId: string): Promise<Transaction[]> {
   const response = await api.get(`/transactions/${transactionId}/link-candidates`)
   return response.data.candidates
+}
+
+// ============================================
+// Recategorization API
+// ============================================
+
+/**
+ * Recategorize job status
+ */
+export interface RecategorizeJob {
+  id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  transactionCount?: number
+  processedCount?: number
+  errorMessage?: string
+  createdAt: string
+  completedAt?: string
+}
+
+/**
+ * Trigger recategorization for an account or statement
+ */
+export async function recategorizeTransactions(data: {
+  profileId: string
+  accountId?: string
+  statementId?: string
+  categorizationModel: string
+}): Promise<{ success: boolean; jobId: string; message: string }> {
+  const response = await api.post('/transactions/recategorize', data)
+  return response.data
+}
+
+/**
+ * Get recategorization job status
+ */
+export async function getRecategorizeJobStatus(jobId: string): Promise<RecategorizeJob> {
+  const response = await api.get(`/transactions/recategorize/${jobId}`)
+  return response.data
+}
+
+/**
+ * Categorization status
+ */
+export interface CategorizationStatus {
+  active: boolean
+  type: 'parsing' | 'categorizing' | 'recategorizing' | null
+  progress?: { current: number; total: number }
+}
+
+/**
+ * Get current categorization status
+ */
+export async function getCategorizationStatus(): Promise<CategorizationStatus> {
+  const response = await api.get('/transactions/categorization-status')
+  return response.data
 }
 
 // ============================================
@@ -1236,16 +1306,40 @@ export interface MonthlyTrendsResponse {
 }
 
 /**
+ * Options for monthly trends query
+ */
+export interface MonthlyTrendsOptions {
+  /** Number of months to fetch (default: 12) - used if startDate/endDate not provided */
+  months?: number
+  /** Start date in YYYY-MM-DD format - takes precedence over months */
+  startDate?: string
+  /** End date in YYYY-MM-DD format - takes precedence over months */
+  endDate?: string
+  /** Categories to exclude from calculations */
+  excludeCategories?: string[]
+}
+
+/**
  * Get monthly income/expense trends
  */
 export async function getMonthlyTrends(
   profileId: string,
-  months: number = 12,
-  excludeCategories?: string[]
+  options: MonthlyTrendsOptions = {}
 ): Promise<MonthlyTrendsResponse> {
+  const { months = 12, startDate, endDate, excludeCategories } = options
+
   const params = new URLSearchParams()
   params.set('profileId', profileId)
-  params.set('months', months.toString())
+
+  if (startDate) {
+    params.set('startDate', startDate)
+    if (endDate) {
+      params.set('endDate', endDate)
+    }
+  } else {
+    params.set('months', months.toString())
+  }
+
   if (excludeCategories?.length) {
     params.set('excludeCategories', excludeCategories.join(','))
   }
@@ -1298,7 +1392,10 @@ export async function getMonthTransactions(
  * Preference keys
  */
 export const PREFERENCE_KEYS = {
-  DASHBOARD_EXCLUDED_CATEGORIES: 'dashboard.excluded_categories',
+  // Per-card category exclusions
+  INCOME_EXPENSES_EXCLUDED_CATEGORIES: 'dashboard.income_expenses.excluded_categories',
+  SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES: 'dashboard.spending_by_category.excluded_categories',
+  // Other preferences
   DASHBOARD_CHART_TIMEFRAME: 'dashboard.chart_timeframe',
 } as const
 
@@ -1386,6 +1483,50 @@ export async function getFxRates(baseCurrency: string = 'USD'): Promise<FxRatesR
  */
 export async function getFxRate(from: string, to: string): Promise<FxRateResponse> {
   const response = await api.get(`/summary/fx-rate?from=${from}&to=${to}`)
+  return response.data
+}
+
+// ============================================
+// Subscriptions API
+// ============================================
+
+/**
+ * Detected subscription
+ */
+export interface DetectedSubscription {
+  name: string
+  category: string
+  amount: number
+  frequency: 'monthly' | 'quarterly' | 'yearly' | 'unknown'
+  lastChargeDate: string
+  chargeCount: number
+  transactions: Array<{ id: string; date: string; amount: number }>
+  // Account info
+  accountId: string | null
+  accountLast4: string | null
+  accountType: string | null
+  institution: string | null
+  // Active status
+  isActive: boolean
+}
+
+/**
+ * Subscriptions response
+ */
+export interface SubscriptionsResponse {
+  subscriptions: DetectedSubscription[]
+  totalMonthly: number
+  currency: string
+}
+
+/**
+ * Get detected subscriptions
+ */
+export async function getSubscriptions(profileId: string): Promise<SubscriptionsResponse> {
+  const params = new URLSearchParams()
+  params.set('profileId', profileId)
+
+  const response = await api.get(`/summary/subscriptions?${params.toString()}`)
   return response.data
 }
 

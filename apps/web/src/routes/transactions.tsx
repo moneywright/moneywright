@@ -221,6 +221,7 @@ function TransactionsPage() {
           categories={categories}
           accounts={accounts || []}
           statements={statements || []}
+          country={user?.country}
           onFiltersChange={handleFiltersChange}
           onSearchChange={handleSearchChange}
           onClearFilters={clearFilters}

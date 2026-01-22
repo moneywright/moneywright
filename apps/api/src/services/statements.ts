@@ -2,22 +2,15 @@ import { eq, and, desc } from 'drizzle-orm'
 import { db, tables, dbType } from '../db'
 import type { Statement } from '../db'
 import { logger } from '../lib/logger'
-import { nanoid } from '../lib/id'
 import type { CountryCode, FileType } from '../lib/constants'
+import { nanoid } from '../lib/id'
 
 /**
- * Statement service
- * Handles statement upload, parsing status, and management
+ * Statement service - simplified
  */
 
-/**
- * Statement status types
- */
 export type StatementStatus = 'pending' | 'parsing' | 'completed' | 'failed'
 
-/**
- * Bank statement summary structure
- */
 export interface BankStatementSummary {
   type: 'bank_statement'
   openingBalance?: number
@@ -28,9 +21,6 @@ export interface BankStatementSummary {
   debitCount?: number
 }
 
-/**
- * Credit card statement summary structure
- */
 export interface CreditCardStatementSummary {
   type: 'credit_card_statement'
   creditLimit?: number
@@ -47,19 +37,16 @@ export interface CreditCardStatementSummary {
 
 export type StatementSummary = BankStatementSummary | CreditCardStatementSummary
 
-/**
- * Statement response type
- */
 export interface StatementResponse {
   id: string
   accountId: string | null
-  sourceId: string | null // For investment statements
+  sourceId: string | null
   profileId: string
   userId: string
   originalFilename: string
   fileType: string
   fileSizeBytes: number | null
-  documentType: string // bank_statement, credit_card_statement, investment_statement
+  documentType: string
   periodStart: string | null
   periodEnd: string | null
   openingBalance: number | null
@@ -68,7 +55,7 @@ export interface StatementResponse {
   errorMessage: string | null
   summary: StatementSummary | null
   transactionCount: number
-  holdingsCount: number | null // For investment statements
+  holdingsCount: number | null
   parseStartedAt: string | Date | null
   parseCompletedAt: string | Date | null
   parseDurationMs: number | null
@@ -77,38 +64,24 @@ export interface StatementResponse {
 }
 
 /**
- * Parse job for background processing
+ * Input for processing a statement
  */
-export interface ParseJob {
-  id: string
+export interface StatementInput {
   statementId: string
   profileId: string
   userId: string
-  countryCode: CountryCode
   pages: string[]
-  /** File type (pdf, csv, xlsx) - affects cache key and parsing strategy */
   fileType: FileType
-  /** Document type specified by user (bank_statement or investment_statement) */
   documentType?: 'bank_statement' | 'investment_statement'
-  /** For investment statements: source type specified by user (e.g., zerodha, groww, mf_central) */
   sourceType?: string
-  /** Model for statement parsing (code generation) */
   parsingModel?: string
-  /** Model for transaction categorization */
-  categorizationModel?: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  createdAt: Date
+  /** Password used to decrypt the file (for saving to account after parsing) */
+  password?: string
+  /** Whether to save the password to the account */
+  savePassword?: boolean
 }
 
-// In-memory job queue
-const parseJobs: Map<string, ParseJob> = new Map()
-let isProcessing = false
-
-/**
- * Transform statement to response format
- */
 function toStatementResponse(statement: Statement): StatementResponse {
-  // Parse summary JSON for SQLite
   let summary: StatementSummary | null = null
   if (statement.summary) {
     if (typeof statement.summary === 'string') {
@@ -122,7 +95,6 @@ function toStatementResponse(statement: Statement): StatementResponse {
     }
   }
 
-  // Calculate parse duration
   let parseDurationMs: number | null = null
   if (statement.parseStartedAt && statement.parseCompletedAt) {
     const startTime =
@@ -163,25 +135,13 @@ function toStatementResponse(statement: Statement): StatementResponse {
   }
 }
 
-/**
- * Get all statements for a user
- */
 export async function getStatementsByUserId(
   userId: string,
-  options?: {
-    profileId?: string
-    accountId?: string
-  }
+  options?: { profileId?: string; accountId?: string }
 ): Promise<StatementResponse[]> {
   const conditions = [eq(tables.statements.userId, userId)]
-
-  if (options?.profileId) {
-    conditions.push(eq(tables.statements.profileId, options.profileId))
-  }
-
-  if (options?.accountId) {
-    conditions.push(eq(tables.statements.accountId, options.accountId))
-  }
+  if (options?.profileId) conditions.push(eq(tables.statements.profileId, options.profileId))
+  if (options?.accountId) conditions.push(eq(tables.statements.accountId, options.accountId))
 
   const statements = await db
     .select()
@@ -192,9 +152,6 @@ export async function getStatementsByUserId(
   return statements.map(toStatementResponse)
 }
 
-/**
- * Get a statement by ID
- */
 export async function getStatementById(
   statementId: string,
   userId: string
@@ -208,9 +165,6 @@ export async function getStatementById(
   return statement ? toStatementResponse(statement) : null
 }
 
-/**
- * Get statement status (for polling)
- */
 export async function getStatementStatus(
   statementId: string,
   userId: string
@@ -236,7 +190,6 @@ export async function getStatementStatus(
 
   if (!statement) return null
 
-  // Calculate parse duration
   let parseDurationMs: number | null = null
   if (statement.parseStartedAt && statement.parseCompletedAt) {
     const startTime =
@@ -260,10 +213,6 @@ export async function getStatementStatus(
   }
 }
 
-/**
- * Create a statement record (called after file upload validation)
- * accountId is optional - for investment statements, the parser will set sourceId instead
- */
 export async function createStatement(data: {
   accountId: string | null
   profileId: string
@@ -292,17 +241,10 @@ export async function createStatement(data: {
     })
     .returning()
 
-  if (!statement) {
-    throw new Error('Failed to create statement record')
-  }
-
-  logger.debug(`[Statement] Created statement ${statement.id}`)
+  if (!statement) throw new Error('Failed to create statement record')
   return statement
 }
 
-/**
- * Update statement status
- */
 export async function updateStatementStatus(
   statementId: string,
   status: StatementStatus,
@@ -318,13 +260,8 @@ export async function updateStatementStatus(
       updatedAt: now as Date,
     })
     .where(eq(tables.statements.id, statementId))
-
-  logger.debug(`[Statement] Updated statement ${statementId} status to ${status}`)
 }
 
-/**
- * Update statement with parsing results
- */
 export async function updateStatementResults(
   statementId: string,
   data: {
@@ -340,11 +277,9 @@ export async function updateStatementResults(
 ): Promise<void> {
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
-  // For SQLite, stringify the summary
   const summaryValue =
     dbType === 'postgres' ? data.summary : data.summary ? JSON.stringify(data.summary) : null
 
-  // Format timestamps for SQLite vs Postgres
   const parseStartedAt = data.parseStartedAt
     ? dbType === 'postgres'
       ? data.parseStartedAt
@@ -356,7 +291,6 @@ export async function updateStatementResults(
       : data.parseCompletedAt.toISOString()
     : null
 
-  // Handle balance values - Postgres decimal expects string, SQLite real expects number
   const openingBalanceValue =
     data.openingBalance != null
       ? dbType === 'postgres'
@@ -385,135 +319,271 @@ export async function updateStatementResults(
       updatedAt: now as Date,
     })
     .where(eq(tables.statements.id, statementId))
-
-  // Calculate duration for logging
-  const durationMs =
-    data.parseStartedAt && data.parseCompletedAt
-      ? data.parseCompletedAt.getTime() - data.parseStartedAt.getTime()
-      : null
-  const durationSec = durationMs ? (durationMs / 1000).toFixed(2) : 'unknown'
-
-  logger.debug(
-    `[Statement] Updated statement ${statementId} with results (parsed in ${durationSec}s)`
-  )
 }
 
-/**
- * Delete a statement (cascades to transactions)
- */
 export async function deleteStatement(statementId: string, userId: string): Promise<void> {
-  // Verify ownership
   const statement = await getStatementById(statementId, userId)
-  if (!statement) {
-    throw new Error('Statement not found')
-  }
+  if (!statement) throw new Error('Statement not found')
 
   await db.delete(tables.statements).where(eq(tables.statements.id, statementId))
+}
 
-  logger.debug(`[Statement] Deleted statement ${statementId}`)
+// ============================================================================
+// SIMPLE ASYNC PROCESSING
+// ============================================================================
+
+// Flag to prevent concurrent processing
+let isProcessing = false
+// Queue of jobs waiting to be processed
+const processingQueue: Array<{
+  statements: StatementInput[]
+  countryCode: CountryCode
+  categorizationModel?: string
+}> = []
+
+// Categorization status tracking
+let categorizationStatus: {
+  active: boolean
+  type: 'parsing' | 'categorizing' | 'recategorizing' | null
+  progress?: { current: number; total: number }
+} = { active: false, type: null }
+
+/**
+ * Get current categorization status
+ */
+export function getCategorizationStatus() {
+  return { ...categorizationStatus }
 }
 
 /**
- * Add a parsing job to the queue
+ * Queue statements for processing (async, non-blocking)
+ * Returns immediately, processing happens in background
  */
-export function queueParseJob(data: {
-  statementId: string
+export function queueStatements(data: {
+  statements: StatementInput[]
+  countryCode: CountryCode
+  categorizationModel?: string
+}): void {
+  processingQueue.push(data)
+  logger.info(`[Statement] Queued ${data.statements.length} statements for processing`)
+  processQueue()
+}
+
+/**
+ * Process the queue - one job at a time
+ */
+async function processQueue(): Promise<void> {
+  if (isProcessing) return
+
+  const job = processingQueue.shift()
+  if (!job) return
+
+  isProcessing = true
+
+  try {
+    await processStatements(job.statements, job.countryCode, job.categorizationModel)
+  } catch (error) {
+    logger.error('[Statement] Processing failed:', error)
+  } finally {
+    isProcessing = false
+    processQueue() // Process next job if any
+  }
+}
+
+/**
+ * Process statements: parse serially, then categorize all together
+ */
+async function processStatements(
+  statements: StatementInput[],
+  countryCode: CountryCode,
+  categorizationModel?: string
+): Promise<void> {
+  const { parseStatement } = await import('../llm/parser')
+  const { categorizeStatements } = await import('../lib/pdf')
+  const { updateStatementPassword } = await import('./accounts')
+
+  const successfulStatementIds: string[] = []
+
+  // Step 1: Parse each statement serially (for caching benefits)
+  logger.info(`[Statement] Parsing ${statements.length} statements serially`)
+  categorizationStatus = {
+    active: true,
+    type: 'parsing',
+    progress: { current: 0, total: statements.length },
+  }
+
+  for (let i = 0; i < statements.length; i++) {
+    const stmt = statements[i]!
+    categorizationStatus.progress = { current: i + 1, total: statements.length }
+    logger.info(`[Statement] Parsing ${i + 1}/${statements.length}: ${stmt.statementId}`)
+
+    try {
+      await updateStatementStatus(stmt.statementId, 'parsing')
+
+      await parseStatement({
+        statementId: stmt.statementId,
+        profileId: stmt.profileId,
+        userId: stmt.userId,
+        countryCode,
+        pages: stmt.pages,
+        fileType: stmt.fileType,
+        documentType: stmt.documentType,
+        sourceType: stmt.sourceType,
+        parsingModel: stmt.parsingModel,
+      })
+
+      successfulStatementIds.push(stmt.statementId)
+
+      // Save password to account if requested (after parsing, account is now created)
+      if (stmt.password && stmt.savePassword) {
+        // Get the statement to find the account ID
+        const [parsedStatement] = await db
+          .select({ accountId: tables.statements.accountId })
+          .from(tables.statements)
+          .where(eq(tables.statements.id, stmt.statementId))
+          .limit(1)
+
+        if (parsedStatement?.accountId) {
+          await updateStatementPassword(parsedStatement.accountId, stmt.userId, stmt.password)
+          logger.info(`[Statement] Saved password for account ${parsedStatement.accountId}`)
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      logger.error(`[Statement] Failed to parse ${stmt.statementId}:`, errorMessage)
+      await updateStatementStatus(stmt.statementId, 'failed', errorMessage)
+
+      // Clean up partial transactions
+      await db
+        .delete(tables.transactions)
+        .where(eq(tables.transactions.statementId, stmt.statementId))
+    }
+  }
+
+  logger.info(
+    `[Statement] Parsing complete: ${successfulStatementIds.length}/${statements.length} succeeded`
+  )
+
+  // Step 2: Categorize all successful statements together
+  if (successfulStatementIds.length > 0) {
+    logger.info(`[Statement] Categorizing ${successfulStatementIds.length} statements together`)
+    categorizationStatus = { active: true, type: 'categorizing' }
+
+    // Get profileId from first statement (all statements in batch should have same profileId)
+    const profileId = statements[0]?.profileId
+
+    try {
+      const result = await categorizeStatements(
+        successfulStatementIds,
+        countryCode,
+        categorizationModel,
+        undefined,
+        profileId
+      )
+      logger.info(
+        `[Statement] Categorized ${result.categorizedCount}/${result.totalCount} transactions`
+      )
+    } catch (error) {
+      logger.error('[Statement] Categorization failed:', error)
+    }
+  }
+
+  categorizationStatus = { active: false, type: null }
+}
+
+// ============================================================================
+// RECATEGORIZATION (kept simple)
+// ============================================================================
+
+export interface RecategorizeJob {
+  id: string
   profileId: string
   userId: string
   countryCode: CountryCode
-  pages: string[]
-  /** File type (pdf, csv, xlsx) - affects cache key and parsing strategy */
-  fileType: FileType
-  /** Document type specified by user (bank_statement or investment_statement) */
-  documentType?: 'bank_statement' | 'investment_statement'
-  /** For investment statements: source type specified by user (e.g., zerodha, groww, mf_central) */
-  sourceType?: string
-  /** Model for statement parsing (code generation) */
-  parsingModel?: string
-  /** Model for transaction categorization */
-  categorizationModel?: string
+  accountId?: string
+  statementId?: string
+  categorizationModel: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  transactionCount?: number
+  processedCount?: number
+  errorMessage?: string
+  createdAt: Date
+  completedAt?: Date
+}
+
+const recategorizeJobs: Map<string, RecategorizeJob> = new Map()
+let isRecategorizing = false
+
+export function queueRecategorizeJob(data: {
+  profileId: string
+  userId: string
+  countryCode: CountryCode
+  accountId?: string
+  statementId?: string
+  categorizationModel: string
 }): string {
   const jobId = nanoid()
-  const job: ParseJob = {
+
+  const job: RecategorizeJob = {
     id: jobId,
-    statementId: data.statementId,
-    profileId: data.profileId,
-    userId: data.userId,
-    countryCode: data.countryCode,
-    pages: data.pages,
-    fileType: data.fileType,
-    documentType: data.documentType,
-    sourceType: data.sourceType,
-    parsingModel: data.parsingModel,
-    categorizationModel: data.categorizationModel,
+    ...data,
     status: 'pending',
     createdAt: new Date(),
   }
 
-  parseJobs.set(jobId, job)
-  logger.debug(`[Statement] Queued parse job ${jobId} for statement ${data.statementId}`)
-
-  // Trigger processing
-  processNextJob()
+  recategorizeJobs.set(jobId, job)
+  logger.info(`[Recategorize] Queued job ${jobId}`)
+  processNextRecategorizeJob()
 
   return jobId
 }
 
-/**
- * Process the next job in the queue
- */
-async function processNextJob(): Promise<void> {
-  if (isProcessing) return
+async function processNextRecategorizeJob(): Promise<void> {
+  if (isRecategorizing) return
 
-  const pendingJob = Array.from(parseJobs.values()).find((j) => j.status === 'pending')
-  if (!pendingJob) return
+  const job = Array.from(recategorizeJobs.values()).find((j) => j.status === 'pending')
+  if (!job) return
 
-  isProcessing = true
-  pendingJob.status = 'processing'
+  isRecategorizing = true
+  job.status = 'processing'
+  categorizationStatus = { active: true, type: 'recategorizing' }
 
   try {
-    await updateStatementStatus(pendingJob.statementId, 'parsing')
+    const { recategorizeTransactions } = await import('./recategorize')
 
-    // Import parser dynamically to avoid circular dependencies
-    const { parseStatement } = await import('../llm/parser')
-
-    await parseStatement({
-      statementId: pendingJob.statementId,
-      profileId: pendingJob.profileId,
-      userId: pendingJob.userId,
-      countryCode: pendingJob.countryCode,
-      pages: pendingJob.pages,
-      fileType: pendingJob.fileType,
-      documentType: pendingJob.documentType,
-      sourceType: pendingJob.sourceType,
-      parsingModel: pendingJob.parsingModel,
-      categorizationModel: pendingJob.categorizationModel,
+    const result = await recategorizeTransactions({
+      profileId: job.profileId,
+      userId: job.userId,
+      countryCode: job.countryCode,
+      accountId: job.accountId,
+      statementId: job.statementId,
+      categorizationModel: job.categorizationModel,
+      onProgress: (processed, total) => {
+        job.processedCount = processed
+        job.transactionCount = total
+        categorizationStatus.progress = { current: processed, total }
+      },
     })
 
-    pendingJob.status = 'completed'
-    logger.debug(`[Statement] Parse job ${pendingJob.id} completed`)
+    job.status = 'completed'
+    job.transactionCount = result.totalCount
+    job.processedCount = result.categorizedCount
+    job.completedAt = new Date()
+    logger.info(
+      `[Recategorize] Job ${job.id} completed: ${result.categorizedCount}/${result.totalCount}`
+    )
   } catch (error) {
-    pendingJob.status = 'failed'
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    logger.error(`[Statement] Parse job ${pendingJob.id} failed:`, errorMessage)
-
-    // Update statement with error
-    await updateStatementStatus(pendingJob.statementId, 'failed', errorMessage)
-
-    // Delete any partial transactions
-    await db
-      .delete(tables.transactions)
-      .where(eq(tables.transactions.statementId, pendingJob.statementId))
+    job.status = 'failed'
+    job.errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    job.completedAt = new Date()
+    logger.error(`[Recategorize] Job ${job.id} failed:`, job.errorMessage)
   } finally {
-    isProcessing = false
-    // Process next job if any
-    processNextJob()
+    isRecategorizing = false
+    categorizationStatus = { active: false, type: null }
+    processNextRecategorizeJob()
   }
 }
 
-/**
- * Get job status
- */
-export function getJobStatus(jobId: string): ParseJob | undefined {
-  return parseJobs.get(jobId)
+export function getRecategorizeJobStatus(jobId: string): RecategorizeJob | undefined {
+  return recategorizeJobs.get(jobId)
 }

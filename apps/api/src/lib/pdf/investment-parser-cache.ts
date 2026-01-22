@@ -276,7 +276,7 @@ export async function runInvestmentParserWithVersions(
     symbol: string | null
     name: string
     isin: string | null
-    units: number
+    units: number | null
     average_cost: number | null
     current_price: number | null
     current_value: number
@@ -284,6 +284,7 @@ export async function runInvestmentParserWithVersions(
     folio_number: string | null
     maturity_date: string | null
     interest_rate: number | null
+    currency: string | null
   }>
   usedVersion?: number
   triedVersions: number[]

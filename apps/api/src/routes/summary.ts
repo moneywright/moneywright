@@ -6,6 +6,7 @@ import {
   getTransactionStats,
   getMonthlyTrends,
   getMonthTransactions,
+  getDetectedSubscriptions,
 } from '../services/transactions'
 import { fetchFxRates, getConversionRate } from '../services/fx-rates'
 import { getDashboardExcludedCategories } from '../services/preferences'
@@ -102,6 +103,8 @@ summaryRoutes.get('/', async (c) => {
  * Query params:
  *   - profileId (required): Profile to get trends for
  *   - months (optional): Number of months to fetch (default: 12, max: 120)
+ *   - startDate (optional): Start date in YYYY-MM-DD format (takes precedence over months)
+ *   - endDate (optional): End date in YYYY-MM-DD format
  *   - excludeCategories (optional): Comma-separated list of category codes to exclude
  *     If not provided, uses user's saved preferences
  */
@@ -109,6 +112,8 @@ summaryRoutes.get('/monthly-trends', async (c) => {
   const userId = c.get('userId')
   const profileId = c.req.query('profileId')
   const monthsParam = c.req.query('months')
+  const startDate = c.req.query('startDate')
+  const endDate = c.req.query('endDate')
   const excludeCategoriesParam = c.req.query('excludeCategories')
 
   if (!profileId) {
@@ -133,7 +138,12 @@ summaryRoutes.get('/monthly-trends', async (c) => {
     }
   }
 
-  const result = await getMonthlyTrends(userId, profileId, months, excludeCategories)
+  const result = await getMonthlyTrends(userId, profileId, {
+    months,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    excludeCategories,
+  })
 
   return c.json({ ...result, excludedCategories: excludeCategories || [] })
 })
@@ -181,6 +191,25 @@ summaryRoutes.get('/month-transactions', async (c) => {
   const result = await getMonthTransactions(userId, profileId, month, excludeCategories)
 
   return c.json({ ...result, excludedCategories: excludeCategories || [] })
+})
+
+/**
+ * GET /summary/subscriptions
+ * Get detected recurring subscriptions
+ * Query params:
+ *   - profileId (required): Profile to get subscriptions for
+ */
+summaryRoutes.get('/subscriptions', async (c) => {
+  const userId = c.get('userId')
+  const profileId = c.req.query('profileId')
+
+  if (!profileId) {
+    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
+  }
+
+  const result = await getDetectedSubscriptions(userId, profileId)
+
+  return c.json(result)
 })
 
 /**

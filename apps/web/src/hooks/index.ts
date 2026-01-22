@@ -46,6 +46,7 @@ export {
   useUpdateTransaction,
   useLinkTransactions,
   useUnlinkTransaction,
+  useCategorizationStatus,
 } from './useTransactions'
 
 // Statement hooks
@@ -54,7 +55,7 @@ export {
   useStatements,
   useStatement,
   useStatementStatus,
-  useUploadStatement,
+  useUploadStatements,
   useDeleteStatement,
   useStatementProcessing,
 } from './useStatements'

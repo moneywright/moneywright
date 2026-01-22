@@ -10,7 +10,15 @@ import {
   findLinkCandidates,
   getTransactionStats,
 } from '../services/transactions'
-import { TRANSACTION_LINK_TYPES } from '../lib/constants'
+import {
+  queueRecategorizeJob,
+  getRecategorizeJobStatus,
+  getCategorizationStatus,
+} from '../services/statements'
+import { getProfileById } from '../services/profiles'
+import { getAccountByIdRaw } from '../services/accounts'
+import { findUserById } from '../services/user'
+import { TRANSACTION_LINK_TYPES, type CountryCode } from '../lib/constants'
 
 const transactionRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -33,6 +41,20 @@ const linkTransactionsSchema = z.object({
   transactionId2: z.string().min(1, 'Transaction ID 2 is required'),
   linkType: z.enum(TRANSACTION_LINK_TYPES),
 })
+
+/**
+ * Recategorize transactions request schema
+ */
+const recategorizeSchema = z
+  .object({
+    profileId: z.string().min(1, 'Profile ID is required'),
+    accountId: z.string().optional(),
+    statementId: z.string().optional(),
+    categorizationModel: z.string().min(1, 'Categorization model is required'),
+  })
+  .refine((data) => data.accountId || data.statementId, {
+    message: 'Either accountId or statementId is required',
+  })
 
 /**
  * Parse comma-separated query param into array
@@ -138,6 +160,16 @@ transactionRoutes.get('/stats', async (c) => {
   })
 
   return c.json(stats)
+})
+
+/**
+ * GET /transactions/categorization-status
+ * Get current categorization status (parsing, categorizing, recategorizing)
+ * NOTE: This must be defined BEFORE /:id to avoid matching "categorization-status" as an ID
+ */
+transactionRoutes.get('/categorization-status', (c) => {
+  const status = getCategorizationStatus()
+  return c.json(status)
 })
 
 /**
@@ -277,6 +309,90 @@ transactionRoutes.delete('/:id/link', async (c) => {
 
     return c.json({ error: 'unlink_failed', message }, 400)
   }
+})
+
+/**
+ * POST /transactions/recategorize
+ * Trigger recategorization for transactions in an account or statement
+ * All existing categories will be overwritten with new AI-generated categories
+ */
+transactionRoutes.post('/recategorize', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({}))
+
+  // Validate request body
+  const result = recategorizeSchema.safeParse(body)
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'validation_error',
+        message: result.error.issues[0]?.message || 'Invalid request',
+      },
+      400
+    )
+  }
+
+  const { profileId, accountId, statementId, categorizationModel } = result.data
+
+  // Verify profile belongs to user
+  const profile = await getProfileById(profileId, userId)
+  if (!profile) {
+    return c.json({ error: 'not_found', message: 'Profile not found' }, 404)
+  }
+
+  // If accountId provided, verify it belongs to user
+  if (accountId) {
+    const account = await getAccountByIdRaw(accountId, userId)
+    if (!account) {
+      return c.json({ error: 'not_found', message: 'Account not found' }, 404)
+    }
+  }
+
+  // Get user for country code
+  const user = await findUserById(userId)
+  if (!user || !user.country) {
+    return c.json({ error: 'validation_error', message: 'User country not set' }, 400)
+  }
+
+  // Queue recategorization job
+  const jobId = queueRecategorizeJob({
+    profileId,
+    userId,
+    countryCode: user.country as CountryCode,
+    accountId,
+    statementId,
+    categorizationModel,
+  })
+
+  return c.json({
+    success: true,
+    jobId,
+    message: 'Recategorization job queued',
+  })
+})
+
+/**
+ * GET /transactions/recategorize/:jobId
+ * Get recategorization job status
+ */
+transactionRoutes.get('/recategorize/:jobId', async (c) => {
+  const jobId = c.req.param('jobId')
+
+  const job = getRecategorizeJobStatus(jobId)
+
+  if (!job) {
+    return c.json({ error: 'not_found', message: 'Job not found' }, 404)
+  }
+
+  return c.json({
+    id: job.id,
+    status: job.status,
+    transactionCount: job.transactionCount,
+    processedCount: job.processedCount,
+    errorMessage: job.errorMessage,
+    createdAt: job.createdAt,
+    completedAt: job.completedAt,
+  })
 })
 
 export default transactionRoutes

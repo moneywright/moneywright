@@ -42,6 +42,7 @@ export async function createProfile(data: {
   userId: string
   name: string
   relationship?: string | null
+  summary?: string | null
   isDefault?: boolean
 }): Promise<Profile> {
   // Validate name length
@@ -85,6 +86,7 @@ export async function createProfile(data: {
       userId: data.userId,
       name: data.name.trim(),
       relationship: (data.relationship as RelationshipType) || null,
+      summary: data.summary?.trim() || null,
       isDefault: data.isDefault || false,
       createdAt: now as Date,
       updatedAt: now as Date,
@@ -108,6 +110,7 @@ export async function updateProfile(
   data: {
     name?: string
     relationship?: string | null
+    summary?: string | null
     isDefault?: boolean
   }
 ): Promise<Profile> {
@@ -177,6 +180,10 @@ export async function updateProfile(
 
   if (data.isDefault !== undefined) {
     updateData.isDefault = data.isDefault
+  }
+
+  if (data.summary !== undefined) {
+    updateData.summary = data.summary?.trim() || null
   }
 
   const [updatedProfile] = await db

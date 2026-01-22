@@ -50,7 +50,6 @@ import {
   generateParserCode,
   runParserWithVersions,
   insertRawTransactions,
-  categorizeTransactionsStreaming,
   getParserCodes,
   saveParserCode,
   generateBankKey,
@@ -585,13 +584,25 @@ export async function parseStatement(options: {
   }
 
   // Handle account - either update placeholder or link to existing account
+  // This is where we link the statement to the correct account after extracting account info
   const account = await getAccountByIdRaw(accountIdToUse, userId)
+
+  logger.info(
+    `[Parser] Account handling: accountIdToUse=${accountIdToUse}, accountName="${account?.accountName}", isPending=${account?.accountName?.startsWith('Pending -')}, hasAccountInfo=${!!accountInfo}`
+  )
+
   if (account && account.accountName?.startsWith('Pending -') && accountInfo) {
+    // Look for existing account with same account number
     const existingAccount = await findAccountByNumber(profileId, accountInfo.account_number)
 
+    logger.info(
+      `[Parser] Checking for existing account with number ending in ...${accountInfo.account_number.slice(-4)}: found=${!!existingAccount}, existingId=${existingAccount?.id || 'none'}`
+    )
+
     if (existingAccount) {
+      // Found existing account - use it and delete the placeholder
       logger.info(
-        `[Parser] Found existing account ${existingAccount.id} for account number, using it instead of placeholder`
+        `[Parser] Found existing account ${existingAccount.id} for account number ...${accountInfo.account_number.slice(-4)}, using it instead of placeholder ${accountIdToUse}`
       )
 
       await db
@@ -602,44 +613,67 @@ export async function parseStatement(options: {
       await db.delete(tables.accounts).where(eq(tables.accounts.id, accountIdToUse))
       accountIdToUse = existingAccount.id
 
-      logger.debug(
-        `[Parser] Deleted placeholder account ${account.id}, using existing account ${existingAccount.id}`
+      logger.info(
+        `[Parser] Deleted placeholder account ${account.id}, now using existing account ${existingAccount.id}`
       )
     } else {
-      const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
-      // Lowercase institution ID for consistent storage
-      const institutionId = accountInfo.institution_id.toLowerCase()
-      // Use institution_name for display
-      const institutionDisplayName = getInstitutionName(countryCode, institutionId)
+      // No existing account found - double-check before updating placeholder
+      // (defensive: re-query in case another statement just created the account)
+      const doubleCheckAccount = await findAccountByNumber(profileId, accountInfo.account_number)
+      if (doubleCheckAccount && doubleCheckAccount.id !== accountIdToUse) {
+        // Race condition detected! Another process created the account
+        logger.warn(
+          `[Parser] Race condition detected! Account ${doubleCheckAccount.id} was just created. Using it instead of placeholder ${accountIdToUse}`
+        )
 
-      // Get last 4 digits of account number for display
-      const accountNumber = accountInfo.account_number
-      const last4Digits = accountNumber.slice(-4)
+        await db
+          .update(tables.statements)
+          .set({ accountId: doubleCheckAccount.id })
+          .where(eq(tables.statements.id, statementId))
 
-      // For credit cards: "Institution ProductName" (e.g., "HDFC Bank Regalia")
-      // For bank accounts: "Institution Name (last 4)" (e.g., "HDFC Bank (5955)")
-      let accountName: string
-      if (accountInfo.account_type === 'credit_card') {
-        accountName = accountInfo.product_name
-          ? `${institutionDisplayName} ${accountInfo.product_name}`
-          : `${institutionDisplayName} Credit Card (${last4Digits})`
+        await db.delete(tables.accounts).where(eq(tables.accounts.id, accountIdToUse))
+        accountIdToUse = doubleCheckAccount.id
       } else {
-        accountName = `${institutionDisplayName} (${last4Digits})`
+        // Safe to update placeholder with real info
+        const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
+        // Lowercase institution ID for consistent storage
+        const institutionId = accountInfo.institution_id.toLowerCase()
+        // Use institution_name for display
+        const institutionDisplayName = getInstitutionName(countryCode, institutionId)
+
+        // Get last 4 digits of account number for display
+        const accountNumber = accountInfo.account_number
+        const last4Digits = accountNumber.slice(-4)
+
+        // For credit cards: "Institution ProductName" (e.g., "HDFC Bank Regalia")
+        // For bank accounts: "Institution Name (last 4)" (e.g., "HDFC Bank (5955)")
+        let accountName: string
+        if (accountInfo.account_type === 'credit_card') {
+          accountName = accountInfo.product_name
+            ? `${institutionDisplayName} ${accountInfo.product_name}`
+            : `${institutionDisplayName} Credit Card (${last4Digits})`
+        } else {
+          accountName = `${institutionDisplayName} (${last4Digits})`
+        }
+
+        logger.info(
+          `[Parser] Updating placeholder account ${accountIdToUse} -> "${accountName}" with number ...${last4Digits}`
+        )
+
+        await db
+          .update(tables.accounts)
+          .set({
+            type: accountInfo.account_type,
+            institution: institutionId, // Store lowercase ID for consistent lookups
+            accountNumber: encryptOptional(accountInfo.account_number),
+            accountName,
+            productName: accountInfo.product_name || null,
+            updatedAt: now as Date,
+          })
+          .where(eq(tables.accounts.id, accountIdToUse))
+
+        logger.info(`[Parser] Updated account ${accountIdToUse} with extracted info`)
       }
-
-      await db
-        .update(tables.accounts)
-        .set({
-          type: accountInfo.account_type,
-          institution: institutionId, // Store lowercase ID for consistent lookups
-          accountNumber: encryptOptional(accountInfo.account_number),
-          accountName,
-          productName: accountInfo.product_name || null,
-          updatedAt: now as Date,
-        })
-        .where(eq(tables.accounts.id, accountIdToUse))
-
-      logger.debug(`[Parser] Updated account ${accountIdToUse} with extracted info`)
     }
   }
 
@@ -813,37 +847,6 @@ export async function parseStatement(options: {
     `[Parser] Inserted ${insertResult.insertedCount} transactions, skipped ${insertResult.skippedDuplicates} duplicates`
   )
 
-  // Get account type for categorization context
-  const accountType = accountInfo?.account_type || account?.type || undefined
-
-  // Step 6: Stream categorization with mini-batches
-  if (insertResult.transactionIds.length > 0) {
-    logger.info(
-      `[Parser] Starting streaming categorization for ${insertResult.transactionIds.length} transactions (account type: ${accountType || 'unknown'})...`
-    )
-
-    const catResult = await categorizeTransactionsStreaming(
-      insertResult.transactionIds,
-      countryCode,
-      effectiveCategorizationModel,
-      0, // Start from beginning
-      (categorized, total) => {
-        logger.debug(`[Parser] Categorization progress: ${categorized}/${total}`)
-      },
-      accountType
-    )
-
-    if (catResult.failedAtIndex !== undefined) {
-      logger.warn(
-        `[Parser] Categorization partially completed: ${catResult.categorizedCount} of ${insertResult.transactionIds.length}`
-      )
-      // Note: Transactions after failedAtIndex still have category=null
-      // They can be categorized later by resuming from failedAtIndex
-    } else {
-      logger.info(`[Parser] Categorization complete: ${catResult.categorizedCount} transactions`)
-    }
-  }
-
   const parseEndTime = Date.now()
   const parseDurationMs = parseEndTime - parseStartTime
   const parseDurationSec = (parseDurationMs / 1000).toFixed(2)
@@ -884,4 +887,42 @@ export async function parseStatement(options: {
   logger.info(
     `[Parser] Completed parsing statement ${statementId}: ${insertResult.insertedCount} transactions in ${parseDurationSec}s`
   )
+}
+
+/**
+ * Parse options for a single statement
+ */
+export interface ParseStatementOptions {
+  statementId: string
+  profileId: string
+  userId: string
+  countryCode: CountryCode
+  pages: string[]
+  fileType: FileType
+  documentType?: 'bank_statement' | 'investment_statement'
+  sourceType?: string
+  parsingModel?: string
+}
+
+/**
+ * Parse multiple statements serially (for caching benefits)
+ * Does NOT categorize - call categorizeStatements separately after all parsing is done
+ */
+export async function parseStatements(statements: ParseStatementOptions[]): Promise<void> {
+  logger.info(`[Parser] Starting batch parse of ${statements.length} statements`)
+
+  for (let i = 0; i < statements.length; i++) {
+    const stmt = statements[i]!
+    logger.info(`[Parser] Processing statement ${i + 1}/${statements.length}: ${stmt.statementId}`)
+
+    try {
+      await parseStatement(stmt)
+    } catch (error) {
+      // Log error but continue with next statement
+      logger.error(`[Parser] Failed to parse statement ${stmt.statementId}:`, error)
+      // The parseStatement function already updates the statement status to 'failed'
+    }
+  }
+
+  logger.info(`[Parser] Batch parse complete for ${statements.length} statements`)
 }

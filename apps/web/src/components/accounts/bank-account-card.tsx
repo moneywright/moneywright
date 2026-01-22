@@ -8,12 +8,14 @@ import {
   XCircle,
   AlertTriangle,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -38,6 +40,7 @@ interface BankAccountCardProps {
   statement?: Statement
   onEdit: () => void
   onDelete: () => void
+  onRecategorize?: () => void
 }
 
 export function BankAccountCard({
@@ -48,6 +51,7 @@ export function BankAccountCard({
   statement,
   onEdit,
   onDelete,
+  onRecategorize,
 }: BankAccountCardProps) {
   const [logoError, setLogoError] = useState(false)
   const logoPath = account.institution
@@ -225,6 +229,13 @@ export function BankAccountCard({
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
+            {onRecategorize && (
+              <DropdownMenuItem onClick={onRecategorize}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Recategorize
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>

@@ -446,7 +446,7 @@ export async function getInvestmentSummary(
       }
 
       logger.debug(`[InvestmentSummary] FX rates loaded: USD/INR=${usdToInr}`)
-    } catch (error) {
+    } catch {
       logger.warn(`[InvestmentSummary] Failed to fetch FX rates, using fallback values`)
       // Fallback rates
       fxRates['USD'] = 83
