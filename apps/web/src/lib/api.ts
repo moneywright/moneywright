@@ -37,15 +37,6 @@ export interface Country {
 }
 
 /**
- * Auth status response
- */
-export interface AuthStatus {
-  authEnabled: boolean
-  authenticated: boolean
-  user: User | null
-}
-
-/**
  * Session type
  */
 export interface Session {
@@ -58,63 +49,85 @@ export interface Session {
 }
 
 /**
- * Setup status
+ * LLM configured providers map
  */
-export interface SetupStatus {
-  setupRequired: boolean
-  llmConfigured: boolean
-  googleConfigured: boolean
-  authEnabled: boolean
-  setupComplete: boolean
+export interface ConfiguredProviders {
+  openai: boolean
+  anthropic: boolean
+  google: boolean
+  ollama: boolean
+  vercel: boolean
 }
 
 /**
- * Get setup status
+ * Setup status
  */
-export async function getSetupStatus(): Promise<SetupStatus> {
-  const response = await api.get('/setup/status')
+export interface SetupStatus {
+  authEnabled: boolean
+  llm: {
+    isConfigured: boolean
+    ollamaBaseUrl: string | null
+    configuredProviders: ConfiguredProviders
+  }
+  providers: Array<{
+    id: string
+    name: string
+    models: AIModel[]
+    requiresApiKey: boolean
+    isConfigured: boolean
+  }>
+}
+
+/**
+ * Auth status (unauthenticated endpoint)
+ */
+export interface AuthStatus {
+  authEnabled: boolean
+}
+
+/**
+ * Get auth status - unauthenticated, used for initial app load
+ */
+export async function getAuthStatus(): Promise<AuthStatus> {
+  const response = await api.get('/setup/auth')
   return response.data
 }
 
 /**
- * Save setup configuration (legacy)
+ * Get setup status (requires authentication)
  */
-export async function saveSetupConfig(config: {
-  googleClientId: string
-  googleClientSecret: string
-  appUrl?: string
-}): Promise<void> {
-  await api.post('/setup/config', config)
+export async function getSetupStatus(): Promise<SetupStatus> {
+  const response = await api.get('/setup')
+  return response.data
 }
 
 /**
- * Save LLM setup configuration
+ * Update setup configuration (PATCH /setup)
+ * Note: Google OAuth must be configured via environment variables
  */
-export async function saveLLMSetup(config: {
-  provider: string
-  model: string
-  apiKey?: string
-  apiBaseUrl?: string | null
-}): Promise<void> {
-  await api.post('/setup/llm', config)
+export async function updateSetup(data: {
+  llm?: {
+    ollamaBaseUrl?: string | null
+    openaiApiKey?: string | null
+    anthropicApiKey?: string | null
+    googleAiApiKey?: string | null
+    vercelApiKey?: string | null
+  }
+}): Promise<SetupStatus> {
+  const response = await api.patch('/setup', data)
+  return response.data
 }
 
 /**
- * Save Google OAuth setup configuration
+ * Local mode login (for AUTH_ENABLED=false)
  */
-export async function saveGoogleSetup(config: {
-  googleClientId: string
-  googleClientSecret: string
-  appUrl?: string
-}): Promise<void> {
-  await api.post('/setup/google', config)
-}
-
-/**
- * Mark setup as complete
- */
-export async function completeSetup(): Promise<void> {
-  await api.post('/setup/complete')
+export async function localLogin(): Promise<{
+  success: boolean
+  type: string
+  user: { id: string; name: string | null; email: string | null }
+}> {
+  const response = await api.post('/auth/local')
+  return response.data
 }
 
 /**
@@ -151,7 +164,7 @@ export async function exchangeOAuthCode(
  */
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const response = await api.get('/auth/me')
+    const response = await api.get('/user/me')
     return response.data
   } catch {
     return null
@@ -193,18 +206,6 @@ export async function revokeOtherSessions(): Promise<{ revokedCount: number }> {
  */
 export async function deleteAccount(): Promise<void> {
   await api.delete('/auth/account', { data: { confirmation: 'DELETE' } })
-}
-
-// ============================================
-// Auth Status API
-// ============================================
-
-/**
- * Get auth status - called on app initialization
- */
-export async function getAuthStatus(): Promise<AuthStatus> {
-  const response = await api.get('/auth/status')
-  return response.data
 }
 
 // ============================================
@@ -299,13 +300,7 @@ export async function deleteProfile(profileId: string): Promise<void> {
  * LLM Settings type
  */
 export interface LLMSettings {
-  provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'vercel'
-  model: string
-  /** Model for statement parsing (code generation) - requires strong reasoning */
-  parsingModel: string
-  /** Model for transaction categorization - can be a smaller/faster model */
-  categorizationModel: string
-  apiBaseUrl: string | null
+  ollamaBaseUrl: string | null
   hasOpenaiApiKey: boolean
   hasAnthropicApiKey: boolean
   hasGoogleAiApiKey: boolean
@@ -337,6 +332,7 @@ export interface LLMProvider {
   label: string
   models: AIModel[]
   requiresApiKey: boolean
+  isConfigured: boolean
 }
 
 /**
@@ -361,16 +357,10 @@ export async function getLLMSettings(): Promise<LLMSettings> {
 }
 
 /**
- * Update LLM settings
+ * Update LLM settings (API keys only)
  */
 export async function updateLLMSettings(data: {
-  provider?: string
-  model?: string
-  /** Model for statement parsing (code generation) */
-  parsingModel?: string
-  /** Model for transaction categorization */
-  categorizationModel?: string
-  apiBaseUrl?: string | null
+  ollamaBaseUrl?: string | null
   openaiApiKey?: string | null
   anthropicApiKey?: string | null
   googleAiApiKey?: string | null
@@ -391,8 +381,13 @@ export async function getLLMProviders(): Promise<LLMProvider[]> {
 /**
  * Test LLM connection
  */
-export async function testLLMConnection(): Promise<LLMTestResult> {
-  const response = await api.post('/llm/test')
+export async function testLLMConnection(params: {
+  provider: string
+  model: string
+  apiKey?: string
+  ollamaBaseUrl?: string
+}): Promise<LLMTestResult> {
+  const response = await api.post('/llm/test', params)
   return response.data
 }
 
@@ -588,8 +583,12 @@ export async function uploadStatements(
     sourceType?: string
     password?: string
     savePassword?: boolean
+    /** Provider for statement parsing */
+    parsingProvider?: string
     /** Model for statement parsing (code generation) */
     parsingModel?: string
+    /** Provider for transaction categorization */
+    categorizationProvider?: string
     /** Model for transaction categorization */
     categorizationModel?: string
   }
@@ -605,9 +604,16 @@ export async function uploadStatements(
   if (options?.password) formData.append('password', options.password)
   if (options?.savePassword !== undefined)
     formData.append('savePassword', String(options.savePassword))
-  if (options?.parsingModel) formData.append('parsingModel', options.parsingModel)
-  if (options?.categorizationModel)
-    formData.append('categorizationModel', options.categorizationModel)
+  // Combine provider and model in format "provider:model" for backend
+  if (options?.parsingProvider && options?.parsingModel) {
+    formData.append('parsingModel', `${options.parsingProvider}:${options.parsingModel}`)
+  }
+  if (options?.categorizationProvider && options?.categorizationModel) {
+    formData.append(
+      'categorizationModel',
+      `${options.categorizationProvider}:${options.categorizationModel}`
+    )
+  }
 
   const response = await api.post('/statements/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -847,9 +853,17 @@ export async function recategorizeTransactions(data: {
   profileId: string
   accountId?: string
   statementId?: string
+  categorizationProvider: string
   categorizationModel: string
 }): Promise<{ success: boolean; jobId: string; message: string }> {
-  const response = await api.post('/transactions/recategorize', data)
+  // Combine provider and model in format "provider:model" for backend
+  const categorizationModel = `${data.categorizationProvider}:${data.categorizationModel}`
+  const response = await api.post('/transactions/recategorize', {
+    profileId: data.profileId,
+    accountId: data.accountId,
+    statementId: data.statementId,
+    categorizationModel,
+  })
   return response.data
 }
 
@@ -1397,6 +1411,17 @@ export const PREFERENCE_KEYS = {
   SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES: 'dashboard.spending_by_category.excluded_categories',
   // Other preferences
   DASHBOARD_CHART_TIMEFRAME: 'dashboard.chart_timeframe',
+  // Profile selection
+  SELECTED_PROFILE: 'selected_profile',
+  // Chat preferences
+  CHAT_PROVIDER: 'chat.provider',
+  CHAT_MODEL: 'chat.model',
+  CHAT_THINKING_LEVEL: 'chat.thinking_level',
+  // Statement processing preferences
+  STATEMENT_PARSING_PROVIDER: 'statement.parsing.provider',
+  STATEMENT_PARSING_MODEL: 'statement.parsing.model',
+  STATEMENT_CATEGORISATION_PROVIDER: 'statement.categorisation.provider',
+  STATEMENT_CATEGORISATION_MODEL: 'statement.categorisation.model',
 } as const
 
 /**
@@ -1603,4 +1628,305 @@ export async function getInvestmentSourceTypes(): Promise<{
 }> {
   const response = await api.get('/constants/investment-sources')
   return response.data
+}
+
+// ============================================
+// Chat API
+// ============================================
+
+/**
+ * Chat message role
+ */
+export type ChatMessageRole = 'user' | 'assistant' | 'tool'
+
+/**
+ * Step types for streaming response
+ */
+export type ReasoningStep = { type: 'reasoning'; content: string }
+export type ToolCallStep = {
+  type: 'tool-call'
+  toolCallId: string
+  toolName: string
+  args: unknown
+}
+export type TextStep = { type: 'text'; content: string }
+export type ChatStep = ReasoningStep | ToolCallStep | TextStep
+
+/**
+ * Chat message type
+ */
+export interface ChatMessage {
+  id: string
+  conversationId: string
+  role: ChatMessageRole
+  content: string | null
+  provider: string | null
+  model: string | null
+  toolCalls: Array<{ toolCallId: string; toolName: string; args: unknown }> | null
+  toolResults: Array<{ toolCallId: string; toolName: string; result: unknown }> | null
+  reasoning: ChatStep[] | null
+  approvalState: Array<{
+    type: 'pending'
+    toolCallId: string
+    toolName: string
+    confirmationData?: unknown
+  }> | null
+  createdAt: string
+}
+
+/**
+ * Chat conversation type
+ */
+export interface ChatConversation {
+  id: string
+  profileId: string
+  userId: string
+  title: string | null
+  summary: string | null
+  createdAt: string
+  updatedAt: string
+  messages: ChatMessage[]
+}
+
+/**
+ * AI model type
+ */
+export interface AIModel {
+  id: string
+  name: string
+  supportsParsing?: boolean
+  recommendedForParsing?: boolean
+  recommendedForCategorization?: boolean
+  supportsThinking?: boolean
+  reasoningBuiltIn?: boolean
+}
+
+/**
+ * AI provider type
+ */
+export interface AIProvider {
+  id: string
+  name: string
+  hasApiKey: boolean
+  models: AIModel[]
+}
+
+/**
+ * Chat config response
+ */
+export interface ChatConfig {
+  providers: AIProvider[]
+  defaultProvider: string
+  defaultModel: string
+  isConfigured: boolean
+}
+
+/**
+ * Get chat configuration
+ */
+export async function getChatConfig(): Promise<ChatConfig> {
+  const response = await api.get('/chat/config')
+  return response.data
+}
+
+/**
+ * Get or create conversation for a profile
+ */
+/**
+ * List all conversations for a profile
+ */
+export async function listConversations(
+  profileId: string
+): Promise<Omit<ChatConversation, 'messages'>[]> {
+  const response = await api.get(`/chat/profiles/${profileId}/conversations`)
+  return response.data
+}
+
+/**
+ * Create a new conversation for a profile
+ */
+export async function createConversation(
+  profileId: string
+): Promise<Omit<ChatConversation, 'messages'>> {
+  const response = await api.post(`/chat/profiles/${profileId}/conversations`)
+  return response.data
+}
+
+/**
+ * Get a specific conversation with messages
+ */
+export async function getConversationById(conversationId: string): Promise<ChatConversation> {
+  const response = await api.get(`/chat/conversations/${conversationId}`)
+  return response.data
+}
+
+/**
+ * Get or create conversation for a profile (legacy - returns most recent)
+ */
+export async function getConversation(profileId: string): Promise<ChatConversation> {
+  const response = await api.get(`/chat/profiles/${profileId}/conversation`)
+  return response.data
+}
+
+/**
+ * Delete a conversation
+ */
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await api.delete(`/chat/conversations/${conversationId}`)
+}
+
+/**
+ * Clear conversation messages (but keep the conversation)
+ */
+export async function clearConversation(conversationId: string): Promise<void> {
+  await api.delete(`/chat/conversations/${conversationId}/messages`)
+}
+
+/**
+ * Query data response for data-table components
+ */
+export interface QueryDataResponse {
+  queryId: string
+  dataType: 'transactions' | 'holdings' | 'accounts' | 'subscriptions' | 'monthly_trends' | 'stats'
+  count: number
+  schema: {
+    fields: Array<{
+      name: string
+      type: 'string' | 'number' | 'boolean' | 'date' | 'object'
+      description?: string
+    }>
+  }
+  data: unknown[]
+}
+
+/**
+ * Get query data for rendering in data-table components
+ */
+export async function getQueryData(queryId: string): Promise<QueryDataResponse> {
+  const response = await api.get(`/chat/query/${queryId}`)
+  return response.data
+}
+
+/**
+ * SSE Event types
+ */
+export type ChatSSEEvent =
+  | { type: 'text'; text: string }
+  | { type: 'reasoning'; text: string }
+  | { type: 'tool-call'; toolCallId: string; toolName: string; args: unknown }
+  | { type: 'tool-result'; toolCallId: string; toolName: string; result: unknown }
+  | { type: 'done' }
+  | { type: 'error'; error: string }
+
+/**
+ * Send a message and stream the response
+ */
+export async function sendChatMessage(
+  conversationId: string,
+  content: string,
+  options: {
+    provider: string
+    model: string
+    thinkingEnabled?: boolean
+    thinkingBudget?: number
+    reasoningEffort?: 'low' | 'medium' | 'high'
+    thinkingLevel?: 'low' | 'medium' | 'high'
+    onEvent: (event: ChatSSEEvent) => void
+    signal?: AbortSignal
+  }
+): Promise<void> {
+  const response = await fetch(
+    `${api.defaults.baseURL}/chat/conversations/${conversationId}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        content,
+        provider: options.provider,
+        model: options.model,
+        thinkingEnabled: options.thinkingEnabled,
+        thinkingBudget: options.thinkingBudget,
+        reasoningEffort: options.reasoningEffort,
+        thinkingLevel: options.thinkingLevel,
+      }),
+      signal: options.signal,
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to send message' }))
+    throw new Error(error.error || 'Failed to send message')
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error('No response body')
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+
+    // Process SSE events
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+    let currentEvent = ''
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        currentEvent = line.slice(6).trim()
+        continue
+      }
+      if (line.startsWith('data:')) {
+        const data = line.slice(5).trim()
+        if (!data) continue
+
+        try {
+          const parsed = JSON.parse(data)
+
+          // Handle events based on the event type from SSE
+          switch (currentEvent) {
+            case 'text':
+              options.onEvent({ type: 'text', text: parsed.text })
+              break
+            case 'reasoning':
+              options.onEvent({ type: 'reasoning', text: parsed.text })
+              break
+            case 'tool-call':
+              options.onEvent({
+                type: 'tool-call',
+                toolCallId: parsed.toolCallId,
+                toolName: parsed.toolName,
+                args: parsed.args,
+              })
+              break
+            case 'tool-result':
+              options.onEvent({
+                type: 'tool-result',
+                toolCallId: parsed.toolCallId,
+                toolName: parsed.toolName,
+                result: parsed.result,
+              })
+              break
+            case 'done':
+              options.onEvent({ type: 'done' })
+              break
+            case 'error':
+              options.onEvent({ type: 'error', error: parsed.error })
+              break
+          }
+        } catch {
+          // Skip malformed JSON
+        }
+      }
+    }
+  }
 }

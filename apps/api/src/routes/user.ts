@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod/v4'
 import { auth, type AuthVariables } from '../middleware/auth'
-import { updateUserCountry, findUserById } from '../services/user'
+import { updateUserCountry, findUserById, isOnboardingComplete } from '../services/user'
 
 const userRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -61,15 +61,16 @@ userRoutes.get('/me', auth(), async (c) => {
     return c.json({ error: 'user_not_found' }, 404)
   }
 
+  const { complete: onboardingComplete } = await isOnboardingComplete(userId)
+
   return c.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      picture: user.picture,
-      country: user.country,
-      createdAt: user.createdAt,
-    },
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    picture: user.picture,
+    country: user.country,
+    createdAt: user.createdAt,
+    onboardingComplete,
   })
 })
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { exchangeOAuthCode } from '@/lib/api'
@@ -11,6 +11,7 @@ export const Route = createFileRoute('/auth/$provider/callback')({
 function OAuthCallback() {
   const navigate = useNavigate()
   const { provider: _provider } = Route.useParams()
+  const hasExchangedRef = useRef(false)
 
   // Check URL params once on mount
   const urlParams =
@@ -40,18 +41,12 @@ function OAuthCallback() {
   })
 
   useEffect(() => {
-    // Only exchange if we have valid params and haven't started yet
-    if (
-      code &&
-      state &&
-      !urlError &&
-      !exchangeMutation.isPending &&
-      !exchangeMutation.isSuccess &&
-      !exchangeMutation.isError
-    ) {
+    // Only exchange once - use ref to prevent double calls from StrictMode or re-renders
+    if (code && state && !urlError && !hasExchangedRef.current) {
+      hasExchangedRef.current = true
       exchangeMutation.mutate({ code, state })
     }
-  }, [code, state, urlError, exchangeMutation])
+  }, [code, state, urlError]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const error =
     urlError ||

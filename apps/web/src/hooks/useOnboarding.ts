@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCountries, setUserCountry, createProfile } from '@/lib/api'
 import { toast } from 'sonner'
 
-export const ONBOARDING_STEPS = ['Country', 'Profile'] as const
+export const ONBOARDING_STEPS = ['Country', 'Profile', 'Statements'] as const
 
 export const RELATIONSHIP_OPTIONS = [
   {
@@ -63,7 +63,7 @@ export function getCountryFlag(countryCode: string): string {
   return COUNTRY_FLAGS[countryCode] || '🌍'
 }
 
-export function useCountrySelection() {
+export function useCountrySelection(redirectTo?: string) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -76,13 +76,15 @@ export function useCountrySelection() {
   } = useQuery({
     queryKey: ['countries'],
     queryFn: getCountries,
+    enabled: true, // Countries are needed during onboarding, auth is already done
   })
 
   const saveMutation = useMutation({
     mutationFn: (country: string) => setUserCountry(country),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['auth', 'status'] })
-      navigate({ to: '/onboarding/profile', replace: true })
+      // Invalidate user data so __root.tsx knows country is set
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] })
+      navigate({ to: '/onboarding/profile', search: { redirect: redirectTo }, replace: true })
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to save country')
@@ -115,7 +117,7 @@ export function useCountrySelection() {
   }
 }
 
-export function useProfileCreation() {
+export function useProfileCreation(redirectTo?: string) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
@@ -132,10 +134,12 @@ export function useProfileCreation() {
         isDefault: true,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['auth', 'status'] })
+      // Invalidate user data so __root.tsx knows onboarding is complete
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
       toast.success('Profile created successfully!')
-      navigate({ to: '/', replace: true })
+      // Navigate to statements upload step
+      navigate({ to: '/onboarding/statements', search: { redirect: redirectTo }, replace: true })
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to create profile')

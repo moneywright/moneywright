@@ -1,12 +1,14 @@
-import { useState, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -29,24 +31,14 @@ import { toast } from 'sonner'
 import {
   getAccounts,
   getInvestmentTypes,
-  getLLMSettings,
   getLLMProviders,
   uploadStatements,
+  getPreferences,
+  setPreference,
+  PREFERENCE_KEYS,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
-
-const PARSING_MODEL_STORAGE_KEY = 'statements_parsing_model'
-const CATEGORIZATION_MODEL_STORAGE_KEY = 'statements_categorization_model'
-
-const providerLogos: Record<string, string> = {
-  openai: '/openai.svg',
-  anthropic: '/anthropic.svg',
-  google: '/google.svg',
-  ollama: '/ollama.svg',
-  vercel: '/vercel.svg',
-}
-
-const invertedLogos = ['openai', 'vercel', 'ollama']
+import { PROVIDER_LOGOS, getLogoInvertStyle } from '@/lib/provider-logos'
 
 type DocumentType = 'bank_statement' | 'investment_statement'
 type WizardStep = 'type' | 'source' | 'upload'
@@ -58,20 +50,18 @@ interface UploadFormProps {
 }
 
 export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
+  const queryClient = useQueryClient()
   const [currentStep, setCurrentStep] = useState<WizardStep>('type')
   const [documentType, setDocumentType] = useState<DocumentType | null>(null)
   const [sourceType, setSourceType] = useState<string>('')
 
   const [files, setFiles] = useState<File[]>([])
   const [accountId, setAccountId] = useState<string>('auto')
-  const [parsingModel, setParsingModel] = useState<string>(() => {
-    return localStorage.getItem(PARSING_MODEL_STORAGE_KEY) || ''
-  })
-  const [categorizationModel, setCategorizationModel] = useState<string>(() => {
-    return localStorage.getItem(CATEGORIZATION_MODEL_STORAGE_KEY) || ''
-  })
+  // Combined provider:model values (e.g., "openai:gpt-4o")
+  const [parsingModelValue, setParsingModelValue] = useState<string>('')
+  const [categorizationModelValue, setCategorizationModelValue] = useState<string>('')
   const [password, setPassword] = useState('')
-  const [savePassword, setSavePassword] = useState(false)
+  const [savePassword, setSavePassword] = useState(true)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -88,61 +78,133 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
     queryFn: getInvestmentTypes,
   })
 
-  const { data: llmSettings } = useQuery({
-    queryKey: ['llm-settings'],
-    queryFn: getLLMSettings,
-  })
-
   const { data: providers } = useQuery({
     queryKey: ['llm-providers'],
     queryFn: getLLMProviders,
   })
 
-  const currentProvider = providers?.find((p) => p.code === llmSettings?.provider)
-  const availableModels = currentProvider?.models || []
-  const parsingModels = availableModels.filter((m) => m.supportsParsing)
-  const categorizationModels = availableModels
+  const { data: preferences } = useQuery({
+    queryKey: ['preferences'],
+    queryFn: () => getPreferences(),
+  })
 
-  const handleParsingModelChange = (modelId: string) => {
-    setParsingModel(modelId)
-    localStorage.setItem(PARSING_MODEL_STORAGE_KEY, modelId)
+  // Save preference mutation
+  const savePreferenceMutation = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) => setPreference(key, value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preferences'] })
+    },
+  })
+
+  // Get only configured providers
+  const configuredProviders = useMemo(
+    () => providers?.filter((p) => p.isConfigured) || [],
+    [providers]
+  )
+
+  // Helper to parse combined value
+  const parseModelValue = (value: string) => {
+    const colonIndex = value.indexOf(':')
+    if (colonIndex > 0) {
+      return { provider: value.slice(0, colonIndex), model: value.slice(colonIndex + 1) }
+    }
+    return { provider: '', model: '' }
   }
 
-  const handleCategorizationModelChange = (modelId: string) => {
-    setCategorizationModel(modelId)
-    localStorage.setItem(CATEGORIZATION_MODEL_STORAGE_KEY, modelId)
+  // Helper to find model info
+  const findModelInfo = (value: string) => {
+    const { provider, model } = parseModelValue(value)
+    const providerData = configuredProviders.find((p) => p.code === provider)
+    const modelData = providerData?.models.find((m) => m.id === model)
+    return { providerData, modelData }
   }
 
-  if (parsingModels.length > 0) {
-    const savedParsingModel = localStorage.getItem(PARSING_MODEL_STORAGE_KEY)
-    const isValidSavedParsing =
-      savedParsingModel && parsingModels.some((m) => m.id === savedParsingModel)
+  // Initialize from preferences - syncs state with async-loaded preferences
 
-    if (!parsingModel || (!isValidSavedParsing && parsingModel === savedParsingModel)) {
-      const recommended = parsingModels.find((m) => m.recommendedForParsing)
-      const defaultModel = recommended?.id || parsingModels[0]?.id || ''
-      if (parsingModel !== defaultModel) {
-        setParsingModel(defaultModel)
+  useEffect(() => {
+    if (!preferences || configuredProviders.length === 0) return
+
+    // Parsing model
+    if (!parsingModelValue) {
+      const savedParsingProvider = preferences[PREFERENCE_KEYS.STATEMENT_PARSING_PROVIDER]
+      const savedParsingModel = preferences[PREFERENCE_KEYS.STATEMENT_PARSING_MODEL]
+
+      let parsingSet = false
+      if (savedParsingProvider && savedParsingModel) {
+        // Verify the saved provider is still configured
+        const providerData = configuredProviders.find((p) => p.code === savedParsingProvider)
+        if (providerData?.models.some((m) => m.id === savedParsingModel)) {
+          setParsingModelValue(`${savedParsingProvider}:${savedParsingModel}`)
+          parsingSet = true
+        }
+      }
+      // If no saved preference or invalid, set a default
+      if (!parsingSet) {
+        for (const provider of configuredProviders) {
+          const parsingModels = provider.models.filter((m) => m.supportsParsing)
+          if (parsingModels.length > 0) {
+            const recommended = parsingModels.find((m) => m.recommendedForParsing)
+            const model = recommended || parsingModels[0]
+            if (model) {
+              setParsingModelValue(`${provider.code}:${model.id}`)
+              break
+            }
+          }
+        }
       }
     }
-  }
 
-  if (categorizationModels.length > 0) {
-    const savedCategorizationModel = localStorage.getItem(CATEGORIZATION_MODEL_STORAGE_KEY)
-    const isValidSavedCategorization =
-      savedCategorizationModel &&
-      categorizationModels.some((m) => m.id === savedCategorizationModel)
+    // Categorization model
+    if (!categorizationModelValue) {
+      const savedCategorizationProvider =
+        preferences[PREFERENCE_KEYS.STATEMENT_CATEGORISATION_PROVIDER]
+      const savedCategorizationModel = preferences[PREFERENCE_KEYS.STATEMENT_CATEGORISATION_MODEL]
 
-    if (
-      !categorizationModel ||
-      (!isValidSavedCategorization && categorizationModel === savedCategorizationModel)
-    ) {
-      const recommended = categorizationModels.find((m) => m.recommendedForCategorization)
-      const defaultModel = recommended?.id || categorizationModels[0]?.id || ''
-      if (categorizationModel !== defaultModel) {
-        setCategorizationModel(defaultModel)
+      let categorizationSet = false
+      if (savedCategorizationProvider && savedCategorizationModel) {
+        const providerData = configuredProviders.find((p) => p.code === savedCategorizationProvider)
+        if (providerData?.models.some((m) => m.id === savedCategorizationModel)) {
+          setCategorizationModelValue(`${savedCategorizationProvider}:${savedCategorizationModel}`)
+          categorizationSet = true
+        }
+      }
+      // If no saved preference or invalid, set a default
+      if (!categorizationSet) {
+        for (const provider of configuredProviders) {
+          if (provider.models.length > 0) {
+            const recommended = provider.models.find((m) => m.recommendedForCategorization)
+            const model = recommended || provider.models[0]
+            if (model) {
+              setCategorizationModelValue(`${provider.code}:${model.id}`)
+              break
+            }
+          }
+        }
       }
     }
+  }, [preferences, configuredProviders, parsingModelValue, categorizationModelValue])
+
+  const handleParsingModelChange = (value: string) => {
+    setParsingModelValue(value)
+    const { provider, model } = parseModelValue(value)
+    savePreferenceMutation.mutate({
+      key: PREFERENCE_KEYS.STATEMENT_PARSING_PROVIDER,
+      value: provider,
+    })
+    savePreferenceMutation.mutate({ key: PREFERENCE_KEYS.STATEMENT_PARSING_MODEL, value: model })
+  }
+
+  const handleCategorizationModelChange = (value: string) => {
+    setCategorizationModelValue(value)
+    const { provider, model } = parseModelValue(value)
+    savePreferenceMutation.mutate({
+      key: PREFERENCE_KEYS.STATEMENT_CATEGORISATION_PROVIDER,
+      value: provider,
+    })
+    savePreferenceMutation.mutate({
+      key: PREFERENCE_KEYS.STATEMENT_CATEGORISATION_MODEL,
+      value: model,
+    })
   }
 
   const uploadFiles = async () => {
@@ -165,6 +227,9 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
     setError(null)
 
     try {
+      const parsing = parseModelValue(parsingModelValue)
+      const categorization = parseModelValue(categorizationModelValue)
+
       const result = await uploadStatements(files, profileId, {
         documentType,
         accountId:
@@ -172,8 +237,10 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
         sourceType: documentType === 'investment_statement' ? sourceType : undefined,
         password: password || undefined,
         savePassword,
-        parsingModel: parsingModel || undefined,
-        categorizationModel: categorizationModel || undefined,
+        parsingProvider: parsing.provider || undefined,
+        parsingModel: parsing.model || undefined,
+        categorizationProvider: categorization.provider || undefined,
+        categorizationModel: categorization.model || undefined,
       })
 
       const successCount = result.processedCount
@@ -632,73 +699,146 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
             )}
 
             {/* AI Models - Always visible */}
-            <div className="space-y-3 p-3 rounded-xl bg-muted/30 border border-border/50">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium">AI Models</Label>
-                {currentProvider && (
-                  <img
-                    src={providerLogos[currentProvider.code]}
-                    alt={currentProvider.label}
-                    className={cn(
-                      'h-4 w-4',
-                      invertedLogos.includes(currentProvider.code) && 'invert dark:invert-0'
-                    )}
-                  />
-                )}
-              </div>
+            <div className="space-y-2 p-3 rounded-xl bg-muted/30 border border-border/50">
+              <Label className="text-sm font-medium">AI Models</Label>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Parsing</Label>
-                  <Select value={parsingModel} onValueChange={handleParsingModelChange}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {parsingModels.map((model) => (
-                        <SelectItem key={model.id} value={model.id}>
-                          <span className="flex items-center gap-2">
-                            {model.name}
-                            {model.recommendedForParsing && (
-                              <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                                Best
-                              </span>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {documentType === 'bank_statement' && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Categorization</Label>
-                    <Select
-                      value={categorizationModel}
-                      onValueChange={handleCategorizationModelChange}
-                    >
+              {configuredProviders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No AI providers configured. Please configure one in settings.
+                </p>
+              ) : (
+                <div
+                  className={cn(
+                    'grid gap-3',
+                    documentType === 'bank_statement' ? 'grid-cols-2' : 'grid-cols-1'
+                  )}
+                >
+                  {/* Parsing model */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Parsing</Label>
+                    <Select value={parsingModelValue} onValueChange={handleParsingModelChange}>
                       <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select model" />
+                        <SelectValue placeholder="Select model">
+                          {parsingModelValue &&
+                            (() => {
+                              const { providerData, modelData } = findModelInfo(parsingModelValue)
+                              return providerData && modelData ? (
+                                <span className="flex items-center gap-2">
+                                  <img
+                                    src={PROVIDER_LOGOS[providerData.code]}
+                                    alt={providerData.label}
+                                    className="h-4 w-4 shrink-0"
+                                    style={getLogoInvertStyle(providerData.code)}
+                                  />
+                                  <span className="truncate">{modelData.name}</span>
+                                </span>
+                              ) : null
+                            })()}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {categorizationModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            <span className="flex items-center gap-2">
-                              {model.name}
-                              {model.recommendedForCategorization && (
-                                <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                                  Best
-                                </span>
-                              )}
-                            </span>
-                          </SelectItem>
-                        ))}
+                        {configuredProviders.map((provider) => {
+                          const parsingModels = provider.models.filter((m) => m.supportsParsing)
+                          if (parsingModels.length === 0) return null
+                          return (
+                            <SelectGroup key={provider.code}>
+                              <SelectLabel className="flex items-center gap-2 pl-2">
+                                <img
+                                  src={PROVIDER_LOGOS[provider.code]}
+                                  alt={provider.label}
+                                  className="h-4 w-4"
+                                  style={getLogoInvertStyle(provider.code)}
+                                />
+                                {provider.label}
+                              </SelectLabel>
+                              {parsingModels.map((model) => (
+                                <SelectItem
+                                  key={`${provider.code}:${model.id}`}
+                                  value={`${provider.code}:${model.id}`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {model.name}
+                                    {model.recommendedForParsing && (
+                                      <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                        Best
+                                      </span>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
+
+                  {/* Categorization model - only for bank statements */}
+                  {documentType === 'bank_statement' && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Categorization</Label>
+                      <Select
+                        value={categorizationModelValue}
+                        onValueChange={handleCategorizationModelChange}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select model">
+                            {categorizationModelValue &&
+                              (() => {
+                                const { providerData, modelData } =
+                                  findModelInfo(categorizationModelValue)
+                                return providerData && modelData ? (
+                                  <span className="flex items-center gap-2">
+                                    <img
+                                      src={PROVIDER_LOGOS[providerData.code]}
+                                      alt={providerData.label}
+                                      className="h-4 w-4 shrink-0"
+                                      style={getLogoInvertStyle(providerData.code)}
+                                    />
+                                    <span className="truncate">{modelData.name}</span>
+                                  </span>
+                                ) : null
+                              })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {configuredProviders.map((provider) => {
+                            if (provider.models.length === 0) return null
+                            return (
+                              <SelectGroup key={provider.code}>
+                                <SelectLabel className="flex items-center gap-2 pl-2">
+                                  <img
+                                    src={PROVIDER_LOGOS[provider.code]}
+                                    alt={provider.label}
+                                    className="h-4 w-4"
+                                    style={getLogoInvertStyle(provider.code)}
+                                  />
+                                  {provider.label}
+                                </SelectLabel>
+                                {provider.models.map((model) => (
+                                  <SelectItem
+                                    key={`${provider.code}:${model.id}`}
+                                    value={`${provider.code}:${model.id}`}
+                                  >
+                                    <span className="flex items-center gap-2">
+                                      {model.name}
+                                      {model.recommendedForCategorization && (
+                                        <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                          Best
+                                        </span>
+                                      )}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

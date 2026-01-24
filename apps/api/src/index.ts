@@ -10,7 +10,6 @@ initializeBinaryEnvironment()
 import { validateEnv } from './lib/env'
 import { dbType, checkDatabaseHealth, runMigrations } from './db'
 import { deleteConfig } from './services/config'
-import { ensureDefaultUser } from './services/user'
 import authRoutes from './routes/auth'
 import setupRoutes from './routes/setup'
 import userRoutes from './routes/user'
@@ -24,10 +23,10 @@ import llmRoutes from './routes/llm'
 import summaryRoutes from './routes/summary'
 import constantsRoutes from './routes/constants'
 import preferencesRoutes from './routes/preferences'
+import chatRoutes from './routes/chat'
 import { securityHeaders } from './middleware/security-headers'
 import { printBanner, printStartupInfo, getVersion } from './lib/banner'
 import { logger } from './lib/logger'
-import { isAuthEnabled } from './lib/startup'
 
 // Get the directory where the binary/script is located
 const APP_DIR = getAppDir()
@@ -45,15 +44,6 @@ validateEnv()
 // In dev mode, use `bun run db:migrate` or `bun run db:push` manually
 if (!isDevelopment()) {
   await runMigrations()
-}
-
-// Ensure default user exists in local mode (AUTH_ENABLED=false)
-if (!isAuthEnabled()) {
-  try {
-    await ensureDefaultUser()
-  } catch (error) {
-    logger.error('[Startup] Failed to create default user:', error)
-  }
 }
 
 // Handle CLI arguments
@@ -128,6 +118,7 @@ app.route('/api/llm', llmRoutes)
 app.route('/api/summary', summaryRoutes)
 app.route('/api/constants', constantsRoutes)
 app.route('/api/preferences', preferencesRoutes)
+app.route('/api/chat', chatRoutes)
 
 // Static file serving for SPA (non-development mode)
 // In development, Vite dev server handles this

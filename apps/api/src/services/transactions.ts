@@ -549,6 +549,136 @@ export async function getTransactionStats(
   }
 }
 
+// ============================================================================
+// AI CATEGORY BREAKDOWN
+// ============================================================================
+
+/**
+ * Category breakdown for AI analysis
+ */
+export interface CategoryBreakdown {
+  period: {
+    startDate: string
+    endDate: string
+  }
+  categories: {
+    category: string
+    credits: number
+    debits: number
+    creditCount: number
+    debitCount: number
+    net: number // credits - debits (positive = net inflow, negative = net outflow)
+  }[]
+  totals: {
+    credits: number
+    debits: number
+    creditCount: number
+    debitCount: number
+    net: number
+  }
+  currency: string
+}
+
+/**
+ * Get category breakdown for AI chat
+ *
+ * Returns credits and debits for each category, letting the AI
+ * determine what counts as income, expenses, investments, etc.
+ */
+export async function getCategoryBreakdown(
+  userId: string,
+  filters: {
+    profileId: string
+    startDate?: string
+    endDate?: string
+  }
+): Promise<CategoryBreakdown> {
+  const conditions = [
+    eq(tables.transactions.userId, userId),
+    eq(tables.transactions.profileId, filters.profileId),
+  ]
+
+  if (filters.startDate) {
+    conditions.push(gte(tables.transactions.date, filters.startDate))
+  }
+
+  if (filters.endDate) {
+    conditions.push(lte(tables.transactions.date, filters.endDate))
+  }
+
+  // Get all matching transactions
+  const transactions = await db
+    .select()
+    .from(tables.transactions)
+    .where(and(...conditions))
+
+  // Track per category
+  const categoryMap = new Map<
+    string,
+    { credits: number; debits: number; creditCount: number; debitCount: number }
+  >()
+
+  let totalCredits = 0
+  let totalDebits = 0
+  let totalCreditCount = 0
+  let totalDebitCount = 0
+
+  for (const txn of transactions) {
+    const amount = typeof txn.amount === 'string' ? parseFloat(txn.amount) : Number(txn.amount)
+
+    const existing = categoryMap.get(txn.category) || {
+      credits: 0,
+      debits: 0,
+      creditCount: 0,
+      debitCount: 0,
+    }
+
+    if (txn.type === 'credit') {
+      existing.credits += amount
+      existing.creditCount++
+      totalCredits += amount
+      totalCreditCount++
+    } else {
+      existing.debits += amount
+      existing.debitCount++
+      totalDebits += amount
+      totalDebitCount++
+    }
+
+    categoryMap.set(txn.category, existing)
+  }
+
+  // Build category list sorted by total volume (debits + credits)
+  const categories = Array.from(categoryMap.entries())
+    .map(([category, data]) => ({
+      category,
+      credits: Math.round(data.credits * 100) / 100,
+      debits: Math.round(data.debits * 100) / 100,
+      creditCount: data.creditCount,
+      debitCount: data.debitCount,
+      net: Math.round((data.credits - data.debits) * 100) / 100,
+    }))
+    .sort((a, b) => b.debits + b.credits - (a.debits + a.credits))
+
+  const currency = transactions[0]?.currency || 'INR'
+
+  return {
+    period: {
+      startDate: filters.startDate || 'all time',
+      endDate: filters.endDate || 'now',
+    },
+    categories,
+    totals: {
+      credits: Math.round(totalCredits * 100) / 100,
+      debits: Math.round(totalDebits * 100) / 100,
+      creditCount: totalCreditCount,
+      debitCount: totalDebitCount,
+      net: Math.round((totalCredits - totalDebits) * 100) / 100,
+    },
+    currency,
+  }
+}
+
 /**
  * Monthly trend data point
  */

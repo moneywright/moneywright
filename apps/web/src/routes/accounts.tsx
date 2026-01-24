@@ -9,8 +9,7 @@ import { CardSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { Account, Statement } from '@/lib/api'
 import {
-  useProfiles,
-  useAuthStatus,
+  useAuth,
   useAccounts,
   useAccountTypes,
   useDeleteAccount,
@@ -26,8 +25,7 @@ export const Route = createFileRoute('/accounts')({
 
 function AccountsPage() {
   const queryClient = useQueryClient()
-  const { defaultProfile } = useProfiles()
-  const { user } = useAuthStatus()
+  const { defaultProfile, user } = useAuth()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [recategorizeAccount, setRecategorizeAccount] = useState<Account | null>(null)
@@ -180,7 +178,7 @@ function AccountsPage() {
             targetName={
               recategorizeAccount.accountName || recategorizeAccount.institution || 'Account'
             }
-            targetType="account"
+            _targetType="account"
             onSuccess={() => {
               queryClient.invalidateQueries({ queryKey: ['transactions'] })
             }}

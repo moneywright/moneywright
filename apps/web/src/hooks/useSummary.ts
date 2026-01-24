@@ -56,12 +56,15 @@ export function useMonthlyTrends(profileId?: string, options: MonthlyTrendsOptio
 
 /**
  * Fetch user preferences
+ * If profileId is provided, fetches profile-specific preferences
+ * If profileId is undefined/null, fetches global user preferences
  */
-export function usePreferences(profileId?: string) {
+export function usePreferences(profileId?: string | null, enabled: boolean = true) {
   return useQuery({
-    queryKey: preferencesKeys.byProfile(profileId),
-    queryFn: () => getPreferences(profileId),
+    queryKey: preferencesKeys.byProfile(profileId ?? undefined),
+    queryFn: () => getPreferences(profileId ?? undefined),
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: enabled,
   })
 }
 

@@ -9,8 +9,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Upload } from 'lucide-react'
 import { CardSkeleton } from '@/components/ui/skeleton'
 import {
-  useProfiles,
-  useAuthStatus,
+  useAuth,
   useStatements,
   useAccounts,
   useInvestmentSources,
@@ -43,8 +42,7 @@ function StatementsPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const searchParams = useSearch({ from: '/statements' })
-  const { defaultProfile } = useProfiles()
-  useAuthStatus()
+  const { defaultProfile } = useAuth()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [accountFilter, setAccountFilter] = useState<string | null>(null)
@@ -262,7 +260,7 @@ function StatementsPage() {
             profileId={activeProfileId}
             statementId={recategorizeStatement.id}
             targetName={recategorizeStatement.originalFilename || 'Statement'}
-            targetType="statement"
+            _targetType="statement"
             onSuccess={() => {
               queryClient.invalidateQueries({ queryKey: ['transactions'] })
             }}

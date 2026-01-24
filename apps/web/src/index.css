@@ -89,9 +89,14 @@
   --negative-muted: rgba(220, 38, 38, 0.1);
   --warning: #d97706;
   --warning-muted: rgba(217, 119, 6, 0.1);
+
+  /* Logo inversion for light mode (make dark logos visible) */
+  --logo-invert: invert(0);
 }
 
 .dark {
+  /* Logo inversion for dark mode (make dark logos visible on dark bg) */
+  --logo-invert: invert(1);
   /* Base backgrounds */
   --background: #030303;
   --foreground: #fafafa;
@@ -379,4 +384,43 @@
 
 .animate-shimmer-slide {
   animation: shimmer-slide 2s ease-in-out infinite;
+}
+
+/* Shimmer effect - single light sweep across the entire container */
+@keyframes shimmer-sweep {
+  0% {
+    mask-position: 150% center;
+    -webkit-mask-position: 150% center;
+  }
+  100% {
+    mask-position: -50% center;
+    -webkit-mask-position: -50% center;
+  }
+}
+
+/* Shimmer container - applies ONE shimmer across all children */
+.shimmer-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+  mask-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.35) 35%,
+    rgba(0, 0, 0, 1) 50%,
+    rgba(0, 0, 0, 0.35) 65%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.35) 35%,
+    rgba(0, 0, 0, 1) 50%,
+    rgba(0, 0, 0, 0.35) 65%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
+  mask-size: 200% 100%;
+  -webkit-mask-size: 200% 100%;
+  animation: shimmer-sweep 2.5s linear infinite;
 }

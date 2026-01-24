@@ -5,7 +5,7 @@ import { getLLMSettings, setLLMSettings } from '../services/config'
 import { createLLMClient } from '../llm'
 import { generateText } from 'ai'
 import { logger } from '../lib/logger'
-import { AI_PROVIDERS, getDefaultParsingModelId } from '../lib/ai'
+import { AI_PROVIDERS } from '../lib/ai'
 import { listCachedBanks, clearParserCache, getParserCodes } from '../lib/pdf'
 
 const llmRoutes = new Hono<{ Variables: AuthVariables }>()
@@ -17,11 +17,10 @@ const LLM_PROVIDERS = ['openai', 'anthropic', 'google', 'ollama', 'vercel'] as c
 
 /**
  * Update LLM settings request schema
+ * Only API keys and Ollama base URL - no provider/model settings
  */
 const updateSettingsSchema = z.object({
-  provider: z.enum(LLM_PROVIDERS).optional(),
-  model: z.string().min(1).optional(),
-  apiBaseUrl: z.string().url().optional().nullable(),
+  ollamaBaseUrl: z.string().url().optional().nullable(),
   openaiApiKey: z.string().min(1).optional().nullable(),
   anthropicApiKey: z.string().min(1).optional().nullable(),
   googleAiApiKey: z.string().min(1).optional().nullable(),
@@ -35,11 +34,9 @@ const updateSettingsSchema = z.object({
 llmRoutes.get('/settings', async (c) => {
   const settings = await getLLMSettings()
 
-  // Mask API keys for security
+  // Return which providers are configured (don't expose actual keys)
   return c.json({
-    provider: settings.provider,
-    model: settings.model,
-    apiBaseUrl: settings.apiBaseUrl,
+    ollamaBaseUrl: settings.ollamaBaseUrl,
     hasOpenaiApiKey: !!settings.openaiApiKey,
     hasAnthropicApiKey: !!settings.anthropicApiKey,
     hasGoogleAiApiKey: !!settings.googleAiApiKey,
@@ -50,7 +47,7 @@ llmRoutes.get('/settings', async (c) => {
 
 /**
  * PUT /llm/settings
- * Update LLM settings
+ * Update LLM settings (API keys only)
  */
 llmRoutes.put('/settings', async (c) => {
   const body = await c.req.json().catch(() => ({}))
@@ -74,9 +71,7 @@ llmRoutes.put('/settings', async (c) => {
     const settings = await getLLMSettings()
 
     return c.json({
-      provider: settings.provider,
-      model: settings.model,
-      apiBaseUrl: settings.apiBaseUrl,
+      ollamaBaseUrl: settings.ollamaBaseUrl,
       hasOpenaiApiKey: !!settings.openaiApiKey,
       hasAnthropicApiKey: !!settings.anthropicApiKey,
       hasGoogleAiApiKey: !!settings.googleAiApiKey,
@@ -94,65 +89,114 @@ llmRoutes.put('/settings', async (c) => {
  * Get available providers and their models
  */
 llmRoutes.get('/providers', async (c) => {
+  const settings = await getLLMSettings()
+
   const providers = AI_PROVIDERS.map((providerConfig) => ({
     code: providerConfig.id,
     label: providerConfig.name,
     models: providerConfig.models,
     requiresApiKey: providerConfig.id !== 'ollama',
+    isConfigured:
+      (providerConfig.id === 'openai' && !!settings.openaiApiKey) ||
+      (providerConfig.id === 'anthropic' && !!settings.anthropicApiKey) ||
+      (providerConfig.id === 'google' && !!settings.googleAiApiKey) ||
+      (providerConfig.id === 'ollama' && !!settings.ollamaBaseUrl) ||
+      (providerConfig.id === 'vercel' && !!settings.vercelApiKey),
   }))
 
   return c.json({ providers })
 })
 
 /**
+ * Test LLM connection request schema
+ * Accepts apiKey/ollamaBaseUrl directly for testing without saving
+ */
+const testConnectionSchema = z.object({
+  provider: z.enum(LLM_PROVIDERS),
+  model: z.string().min(1),
+  apiKey: z.string().min(1).optional(),
+  ollamaBaseUrl: z.string().url().optional(),
+})
+
+/**
  * POST /llm/test
- * Test LLM connection with current settings
+ * Test LLM connection with specified provider and model
+ * Can use provided apiKey/ollamaBaseUrl or fall back to saved settings
  */
 llmRoutes.post('/test', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+
+  // Validate request body
+  const result = testConnectionSchema.safeParse(body)
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'validation_error',
+        message: 'Provider and model are required',
+      },
+      400
+    )
+  }
+
+  const {
+    provider,
+    model,
+    apiKey: providedApiKey,
+    ollamaBaseUrl: providedOllamaBaseUrl,
+  } = result.data
+
   try {
+    // Get saved settings as fallback
     const settings = await getLLMSettings()
 
-    if (!settings.isConfigured) {
-      return c.json(
-        {
-          error: 'not_configured',
-          message: `LLM is not configured. Please provide an API key for ${settings.provider}.`,
-        },
-        400
-      )
-    }
-
-    // Get API key for current provider
+    // Use provided apiKey or fall back to saved settings
     let apiKey: string | undefined
-    switch (settings.provider) {
+    let ollamaBaseUrl: string | undefined
+
+    switch (provider) {
       case 'openai':
-        apiKey = settings.openaiApiKey || undefined
+        apiKey = providedApiKey || settings.openaiApiKey || undefined
+        if (!apiKey) {
+          return c.json({ error: 'not_configured', message: 'OpenAI API key is required' }, 400)
+        }
         break
       case 'anthropic':
-        apiKey = settings.anthropicApiKey || undefined
+        apiKey = providedApiKey || settings.anthropicApiKey || undefined
+        if (!apiKey) {
+          return c.json({ error: 'not_configured', message: 'Anthropic API key is required' }, 400)
+        }
         break
       case 'google':
-        apiKey = settings.googleAiApiKey || undefined
+        apiKey = providedApiKey || settings.googleAiApiKey || undefined
+        if (!apiKey) {
+          return c.json({ error: 'not_configured', message: 'Google AI API key is required' }, 400)
+        }
         break
       case 'vercel':
-        apiKey = settings.vercelApiKey || undefined
+        apiKey = providedApiKey || settings.vercelApiKey || undefined
+        if (!apiKey) {
+          return c.json({ error: 'not_configured', message: 'Vercel API key is required' }, 400)
+        }
+        break
+      case 'ollama':
+        ollamaBaseUrl = providedOllamaBaseUrl || settings.ollamaBaseUrl || undefined
+        if (!ollamaBaseUrl) {
+          return c.json({ error: 'not_configured', message: 'Ollama base URL is required' }, 400)
+        }
         break
     }
 
-    // Use saved model or default model for the provider
-    const modelId = settings.model || getDefaultParsingModelId(settings.provider)
-
-    const model = createLLMClient({
-      provider: settings.provider,
-      model: modelId,
+    const llmClient = createLLMClient({
+      provider,
+      model,
       apiKey,
-      apiBaseUrl: settings.apiBaseUrl || undefined,
+      apiBaseUrl: ollamaBaseUrl,
     })
 
     const startTime = Date.now()
 
     const { text } = await generateText({
-      model,
+      model: llmClient,
       prompt: 'Say "Hello from Moneywright!" in exactly 5 words or less.',
     })
 
@@ -162,8 +206,8 @@ llmRoutes.post('/test', async (c) => {
 
     return c.json({
       success: true,
-      provider: settings.provider,
-      model: modelId,
+      provider,
+      model,
       response: text.trim(),
       latencyMs: latency,
     })

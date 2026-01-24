@@ -34,8 +34,7 @@ import {
 import { StatCardGridSkeleton, CardSkeleton } from '@/components/ui/skeleton'
 import type { InvestmentSource, InvestmentHolding } from '@/lib/api'
 import {
-  useProfiles,
-  useAuthStatus,
+  useAuth,
   useInvestmentTypes,
   useInvestmentSources,
   useInvestmentHoldings,
@@ -64,8 +63,7 @@ export const Route = createFileRoute('/investments')({
 
 function InvestmentsPage() {
   const queryClient = useQueryClient()
-  const { defaultProfile } = useProfiles()
-  useAuthStatus()
+  const { defaultProfile } = useAuth()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [showAddSourceDialog, setShowAddSourceDialog] = useState(false)
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false)

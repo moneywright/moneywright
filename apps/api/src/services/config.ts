@@ -6,7 +6,7 @@
 import { eq } from 'drizzle-orm'
 import { db, tables, dbType } from '../db'
 import { encrypt, decrypt } from '../lib/encryption'
-import { getDefaultParsingModelId, getProviderModels } from '../lib/ai'
+import { getProviderModels } from '../lib/ai'
 
 // Keys that should be encrypted
 const ENCRYPTED_KEYS = [
@@ -134,22 +134,19 @@ export async function isSetupComplete(): Promise<boolean> {
 
 /**
  * LLM Configuration
+ * Only stores API keys and base URL - no default provider or model
+ * Users select provider/model in the app when needed
  */
 
 export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'ollama' | 'vercel'
 
 export interface LLMSettings {
-  provider: LLMProvider
-  model: string
-  /** Model used for statement parsing (code generation) - requires strong reasoning */
-  parsingModel: string
-  /** Model used for transaction categorization - can be a smaller/faster model */
-  categorizationModel: string
-  apiBaseUrl: string | null
+  ollamaBaseUrl: string | null
   openaiApiKey: string | null
   anthropicApiKey: string | null
   googleAiApiKey: string | null
   vercelApiKey: string | null
+  /** True if at least one provider is configured */
   isConfigured: boolean
 }
 
@@ -158,34 +155,10 @@ export interface LLMSettings {
  * Priority: environment variables > database config
  */
 export async function getLLMSettings(): Promise<LLMSettings> {
-  // Provider (default: openai)
-  let provider = (process.env.LLM_PROVIDER as LLMProvider) || null
-  if (!provider) {
-    provider = ((await getConfig('llm_provider')) as LLMProvider) || 'openai'
-  }
-
-  // Default model (legacy, for backwards compatibility)
-  let model = process.env.LLM_MODEL || null
-  if (!model) {
-    model = (await getConfig('llm_model')) || getDefaultModelForProvider(provider)
-  }
-
-  // Parsing model (for code generation - needs strong reasoning)
-  let parsingModel = process.env.LLM_PARSING_MODEL || null
-  if (!parsingModel) {
-    parsingModel = (await getConfig('llm_parsing_model')) || model
-  }
-
-  // Categorization model (for transaction categorization - can be smaller/faster)
-  let categorizationModel = process.env.LLM_CATEGORIZATION_MODEL || null
-  if (!categorizationModel) {
-    categorizationModel = (await getConfig('llm_categorization_model')) || model
-  }
-
-  // API Base URL
-  let apiBaseUrl = process.env.LLM_API_BASE_URL || null
-  if (!apiBaseUrl) {
-    apiBaseUrl = await getConfig('llm_api_base_url')
+  // Ollama Base URL
+  let ollamaBaseUrl = process.env.OLLAMA_BASE_URL || null
+  if (!ollamaBaseUrl) {
+    ollamaBaseUrl = await getConfig('ollama_base_url')
   }
 
   // API Keys - check env first, then database
@@ -209,32 +182,17 @@ export async function getLLMSettings(): Promise<LLMSettings> {
     vercelApiKey = await getConfig('vercel_api_key')
   }
 
-  // Check if configured based on provider
-  let isConfigured = false
-  switch (provider) {
-    case 'openai':
-      isConfigured = !!openaiApiKey
-      break
-    case 'anthropic':
-      isConfigured = !!anthropicApiKey
-      break
-    case 'google':
-      isConfigured = !!googleAiApiKey
-      break
-    case 'ollama':
-      isConfigured = true // Ollama doesn't require API key
-      break
-    case 'vercel':
-      isConfigured = !!vercelApiKey
-      break
-  }
+  // At least one provider must be configured
+  const isConfigured = !!(
+    openaiApiKey ||
+    anthropicApiKey ||
+    googleAiApiKey ||
+    ollamaBaseUrl ||
+    vercelApiKey
+  )
 
   return {
-    provider,
-    model,
-    parsingModel,
-    categorizationModel,
-    apiBaseUrl,
+    ollamaBaseUrl,
     openaiApiKey,
     anthropicApiKey,
     googleAiApiKey,
@@ -247,37 +205,17 @@ export async function getLLMSettings(): Promise<LLMSettings> {
  * Update LLM settings
  */
 export async function setLLMSettings(settings: {
-  provider?: LLMProvider
-  model?: string
-  parsingModel?: string
-  categorizationModel?: string
-  apiBaseUrl?: string | null
+  ollamaBaseUrl?: string | null
   openaiApiKey?: string | null
   anthropicApiKey?: string | null
   googleAiApiKey?: string | null
   vercelApiKey?: string | null
 }): Promise<void> {
-  if (settings.provider !== undefined) {
-    await setConfig('llm_provider', settings.provider)
-  }
-
-  if (settings.model !== undefined) {
-    await setConfig('llm_model', settings.model)
-  }
-
-  if (settings.parsingModel !== undefined) {
-    await setConfig('llm_parsing_model', settings.parsingModel)
-  }
-
-  if (settings.categorizationModel !== undefined) {
-    await setConfig('llm_categorization_model', settings.categorizationModel)
-  }
-
-  if (settings.apiBaseUrl !== undefined) {
-    if (settings.apiBaseUrl) {
-      await setConfig('llm_api_base_url', settings.apiBaseUrl)
+  if (settings.ollamaBaseUrl !== undefined) {
+    if (settings.ollamaBaseUrl) {
+      await setConfig('ollama_base_url', settings.ollamaBaseUrl)
     } else {
-      await deleteConfig('llm_api_base_url')
+      await deleteConfig('ollama_base_url')
     }
   }
 
@@ -312,13 +250,6 @@ export async function setLLMSettings(settings: {
       await deleteConfig('vercel_api_key')
     }
   }
-}
-
-/**
- * Get default model for a provider
- */
-function getDefaultModelForProvider(provider: LLMProvider): string {
-  return getDefaultParsingModelId(provider)
 }
 
 /**

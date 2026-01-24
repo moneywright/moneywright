@@ -14,8 +14,7 @@ import {
 import { TableSkeleton } from '@/components/ui/skeleton'
 import type { Transaction, TransactionFilters } from '@/lib/api'
 import {
-  useProfiles,
-  useAuthStatus,
+  useAuth,
   useTransactions,
   useTransactionStats,
   useCategories,
@@ -40,8 +39,7 @@ export const Route = createFileRoute('/transactions')({
 
 function TransactionsPage() {
   const queryClient = useQueryClient()
-  const { defaultProfile } = useProfiles()
-  const { user } = useAuthStatus()
+  const { defaultProfile, user } = useAuth()
   const countryCode = user?.country?.toLowerCase() || 'in'
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
@@ -121,7 +119,7 @@ function TransactionsPage() {
           month: 'short',
           year: '2-digit',
         })
-    return `${statement.originalFilename.replace(/\.[^/.]+$/, '')} (${date})`
+    return `${statement.originalFilename.replace(/\.[^/.]+$/, ``)} (${date})`
   }
 
   const clearFilters = () => {

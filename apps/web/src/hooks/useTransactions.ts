@@ -77,11 +77,12 @@ export function useTransactionStats(filters?: {
 /**
  * Fetch categories for user's country
  */
-export function useCategories() {
+export function useCategories(enabled: boolean = true) {
   return useQuery({
     queryKey: transactionKeys.categories(),
     queryFn: getCategories,
     staleTime: 30 * 60 * 1000, // 30 minutes - categories don't change often
+    enabled,
   })
 }
 
@@ -174,10 +175,11 @@ export function useUnlinkTransaction() {
  * Only polls when active (every 5 seconds)
  * Query should be invalidated when uploads/recategorization triggers
  */
-export function useCategorizationStatus() {
+export function useCategorizationStatus(enabled: boolean = true) {
   return useQuery({
     queryKey: ['categorization-status'],
     queryFn: getCategorizationStatus,
+    enabled,
     // Only poll when processing is active
     refetchInterval: (query) => {
       const data = query.state.data

@@ -34,11 +34,12 @@ function buildLookup<T extends { code?: string; id?: string; label?: string; nam
  *   const bankName = institutions['hdfc'] // "HDFC Bank"
  *   const sourceName = investmentSourceTypes['zerodha'] // "Zerodha"
  */
-export function useConstants() {
+export function useConstants(enabled: boolean = true) {
   const query = useQuery({
     queryKey: constantsKeys.all,
     queryFn: getConstants,
     staleTime: 60 * 60 * 1000, // 1 hour - constants rarely change
+    enabled,
     select: (data) => ({
       raw: data,
       institutions: buildLookup(data.institutions, 'id', 'name'),

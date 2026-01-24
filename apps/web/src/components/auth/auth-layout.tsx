@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { motion } from 'motion/react'
+import { Shield, Zap, Users } from 'lucide-react'
 
 export interface AuthStep {
   id: string
@@ -16,17 +17,45 @@ interface AuthLayoutProps {
   title?: string
   /** Custom subtitle for the left panel */
   subtitle?: string
+  /** Custom description for the left panel */
+  description?: string
+  /** Feature highlights to show */
+  features?: Array<{
+    icon: React.ReactNode
+    title: string
+    description: string
+  }>
 }
+
+const DEFAULT_FEATURES = [
+  {
+    icon: <Zap className="w-4 h-4" />,
+    title: 'AI-Powered Insights',
+    description: 'Smart categorization that learns from your spending patterns',
+  },
+  {
+    icon: <Shield className="w-4 h-4" />,
+    title: '100% Open Source',
+    description: 'Self-hosted and transparent - your data never leaves your control',
+  },
+  {
+    icon: <Users className="w-4 h-4" />,
+    title: 'Family Profiles',
+    description: 'Track finances for your entire household in one place',
+  },
+]
 
 export function AuthLayout({
   children,
   currentStep,
   steps,
-  title = 'Your finances,',
-  subtitle = 'simplified',
+  title = 'Take control of',
+  subtitle = 'your finances',
+  description = 'Moneywright helps you understand your spending, grow your savings, and make smarter financial decisions.',
+  features = DEFAULT_FEATURES,
 }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex bg-[#030303] font-body">
+    <div className="h-screen flex bg-[#030303] font-body overflow-hidden">
       {/* Left Panel - Branding (exactly 50%) */}
       <div className="hidden lg:flex w-1/2 flex-col justify-between p-8 xl:p-12 relative overflow-hidden">
         {/* Animated mesh gradient background */}
@@ -109,22 +138,22 @@ export function AuthLayout({
 
         {/* Logo */}
         <motion.div
-          className="relative z-10 flex items-center gap-3"
+          className="relative z-10 flex items-center gap-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="relative">
-            <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
-            <img src="/logo.png" alt="Moneywright" className="relative h-10 w-10" />
+            <div className="absolute inset-0 bg-emerald-500/30 blur-2xl rounded-full scale-150" />
+            <img src="/logo.png" alt="Moneywright" className="relative h-14 w-14" />
           </div>
-          <span className="text-lg font-medium text-white/90 tracking-tight font-display">
+          <span className="text-xl font-medium text-white/90 tracking-tight font-display">
             Moneywright
           </span>
         </motion.div>
 
         {/* Center content */}
-        <div className="relative z-10 flex flex-col items-start justify-center flex-1 max-w-md mx-auto w-full">
+        <div className="relative z-10 flex flex-col items-start justify-center flex-1 max-w-lg mx-auto w-full">
           {/* Decorative line */}
           <motion.div
             className="w-12 h-px bg-linear-to-r from-emerald-500/50 to-transparent mb-8"
@@ -139,7 +168,7 @@ export function AuthLayout({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           >
-            <h1 className="font-display text-[3.5rem] xl:text-[4rem] font-semibold text-white leading-[1.05] tracking-tight">
+            <h1 className="font-display text-[3rem] xl:text-[3.5rem] font-semibold text-white leading-[1.1] tracking-tight">
               {title}
               <br />
               <span className="bg-linear-to-r from-emerald-400 via-teal-400 to-emerald-300 bg-clip-text text-transparent">
@@ -149,31 +178,37 @@ export function AuthLayout({
           </motion.div>
 
           <motion.p
-            className="mt-6 text-zinc-500 text-base leading-relaxed max-w-sm"
+            className="mt-5 text-zinc-400 text-[15px] leading-relaxed max-w-md"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
-            AI-powered insights to track expenses, analyze investments, and grow your wealth.
+            {description}
           </motion.p>
 
-          {/* Feature pills */}
+          {/* Feature list */}
           <motion.div
-            className="flex flex-wrap gap-2 mt-8"
+            className="mt-10 space-y-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
           >
-            {['Smart Categorization', 'Multi-Currency', 'Family Profiles'].map((feature, i) => (
-              <motion.span
-                key={feature}
-                className="px-3 py-1.5 text-xs font-medium text-emerald-400/80 bg-emerald-500/10 rounded-full border border-emerald-500/20"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
+            {features.map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                className="flex items-start gap-3"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.6 + i * 0.1 }}
               >
-                {feature}
-              </motion.span>
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0 mt-0.5">
+                  {feature.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">{feature.title}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{feature.description}</p>
+                </div>
+              </motion.div>
             ))}
           </motion.div>
         </div>
@@ -192,15 +227,15 @@ export function AuthLayout({
       </div>
 
       {/* Right Panel - Form (exactly 50%) */}
-      <div className="w-full lg:w-1/2 flex flex-col min-h-screen relative bg-[#0a0a0a]">
+      <div className="w-full lg:w-1/2 flex flex-col h-screen relative bg-[#0a0a0a] overflow-hidden">
         {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-emerald-950/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-emerald-950/5 pointer-events-none z-0" />
 
         {/* Border glow effect */}
-        <div className="absolute left-0 top-0 bottom-0 w-px bg-linear-to-b from-transparent via-emerald-500/20 to-transparent hidden lg:block" />
+        <div className="absolute left-0 top-0 bottom-0 w-px bg-linear-to-b from-transparent via-emerald-500/20 to-transparent hidden lg:block z-0" />
 
         {/* Mobile header */}
-        <div className="lg:hidden p-6 flex items-center justify-between border-b border-white/5">
+        <div className="lg:hidden p-6 flex items-center justify-between border-b border-white/5 shrink-0 relative z-10">
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Moneywright" className="h-8 w-8" />
             <span className="text-white font-medium font-display">Moneywright</span>
@@ -210,9 +245,11 @@ export function AuthLayout({
           )}
         </div>
 
-        {/* Form content - centered */}
-        <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12 xl:p-16">
-          <div className="w-full max-w-105">{children}</div>
+        {/* Form content - centered with scroll if needed */}
+        <div className="flex-1 min-h-0 relative z-10 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-6 sm:p-8 lg:p-12 xl:p-16">
+            <div className="w-full max-w-sm">{children}</div>
+          </div>
         </div>
       </div>
     </div>

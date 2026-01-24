@@ -3,7 +3,6 @@ import { db, tables, dbType } from '../db'
 import type { User } from '../db'
 import { DEFAULT_USER_ID, isValidCountryCode, type CountryCode } from '../lib/constants'
 import { logger } from '../lib/logger'
-import { isAuthEnabled } from '../lib/startup'
 
 /**
  * User service
@@ -118,55 +117,4 @@ export async function isOnboardingComplete(userId: string): Promise<{
   }
 
   return { complete: true, missingStep: null }
-}
-
-/**
- * Get auth status response for frontend
- */
-export async function getAuthStatus(userId: string | null): Promise<{
-  authEnabled: boolean
-  authenticated: boolean
-  user: {
-    id: string
-    email: string | null
-    name: string | null
-    picture: string | null
-    country: string | null
-    onboardingComplete: boolean
-  } | null
-}> {
-  const authEnabled = isAuthEnabled()
-
-  if (!userId) {
-    return {
-      authEnabled,
-      authenticated: false,
-      user: null,
-    }
-  }
-
-  const user = await findUserById(userId)
-
-  if (!user) {
-    return {
-      authEnabled,
-      authenticated: false,
-      user: null,
-    }
-  }
-
-  const { complete } = await isOnboardingComplete(userId)
-
-  return {
-    authEnabled,
-    authenticated: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      picture: user.picture,
-      country: user.country,
-      onboardingComplete: complete,
-    },
-  }
 }

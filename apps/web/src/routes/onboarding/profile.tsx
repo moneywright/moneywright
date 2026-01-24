@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'motion/react'
-import { Loader2, ArrowRight, Check, Sparkles } from 'lucide-react'
+import { Loader2, ArrowRight, Check, Sparkles, Users, Link2, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AuthLayout, type AuthStep } from '@/components/auth/auth-layout'
 import { useProfileCreation, RELATIONSHIP_OPTIONS } from '@/hooks/useOnboarding'
@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export const Route = createFileRoute('/onboarding/profile')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: (search.redirect as string) || undefined,
+  }),
   component: ProfileCreationPage,
 })
 
@@ -15,9 +18,11 @@ export const Route = createFileRoute('/onboarding/profile')({
 const ONBOARDING_STEPS: AuthStep[] = [
   { id: 'country', label: 'Country' },
   { id: 'profile', label: 'Profile' },
+  { id: 'statements', label: 'Statements' },
 ]
 
 function ProfileCreationPage() {
+  const { redirect: redirectTo } = Route.useSearch()
   const {
     name,
     relationship,
@@ -28,10 +33,33 @@ function ProfileCreationPage() {
     handleRelationshipChange,
     handleSummaryChange,
     handleSubmit,
-  } = useProfileCreation()
+  } = useProfileCreation(redirectTo)
 
   return (
-    <AuthLayout currentStep={2} steps={ONBOARDING_STEPS} title="Almost there," subtitle="let's go">
+    <AuthLayout
+      currentStep={2}
+      steps={ONBOARDING_STEPS}
+      title="Create your"
+      subtitle="profile"
+      description="Create your profile to start tracking finances for yourself or your entire household."
+      features={[
+        {
+          icon: <Users className="w-4 h-4" />,
+          title: 'Multiple Profiles',
+          description: 'Track spending for family members separately',
+        },
+        {
+          icon: <Link2 className="w-4 h-4" />,
+          title: 'Family View',
+          description: 'See combined spending across all household members',
+        },
+        {
+          icon: <BarChart3 className="w-4 h-4" />,
+          title: 'Individual Insights',
+          description: 'See spending patterns per person',
+        },
+      ]}
+    >
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -121,7 +149,7 @@ function ProfileCreationPage() {
             <label className="block text-sm font-medium text-zinc-400 mb-2.5">
               Who is this profile for?
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-wrap gap-2">
               {RELATIONSHIP_OPTIONS.map((option, index) => (
                 <RelationshipOption
                   key={option.value}
@@ -146,7 +174,7 @@ function ProfileCreationPage() {
             <textarea
               value={summary}
               onChange={(e) => handleSummaryChange(e.target.value)}
-              placeholder="e.g., Software engineer, paid monthly. Has rental property income. Pays home loan EMI and school fees for 2 kids."
+              placeholder="e.g., Software engineer at Acme. Has rental property income. Pays home loan EMI and school fees for 2 kids."
               maxLength={1000}
               rows={3}
               className="w-full px-4 py-3 rounded-xl text-[15px] bg-zinc-900/50 border border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 focus:outline-none transition-all duration-200 resize-none"
@@ -218,58 +246,26 @@ function RelationshipOption({ option, isSelected, onSelect, index }: Relationshi
       type="button"
       onClick={onSelect}
       className={cn(
-        'relative flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 text-left group',
+        'flex items-center gap-2 px-3 py-2 rounded-full border transition-all duration-200 text-left',
         isSelected
-          ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/20'
-          : 'bg-zinc-900/50 border-zinc-800/80 hover:bg-zinc-800/50 hover:border-zinc-700'
+          ? 'bg-emerald-500/15 border-emerald-500/40 text-white'
+          : 'bg-zinc-900/50 border-zinc-800/80 text-zinc-400 hover:bg-zinc-800/50 hover:border-zinc-700 hover:text-zinc-300'
       )}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.25, delay: 0.03 * index }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
     >
-      {/* Icon */}
-      <div
-        className={cn(
-          'flex items-center justify-center w-9 h-9 rounded-lg text-base transition-colors',
-          isSelected ? 'bg-emerald-500/20' : 'bg-zinc-800/80 group-hover:bg-zinc-800'
-        )}
-      >
-        {option.icon}
-      </div>
-
-      {/* Text */}
-      <div className="flex-1 min-w-0">
-        <div
-          className={cn(
-            'text-sm font-medium transition-colors',
-            isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'
-          )}
-        >
-          {option.label}
-        </div>
-        <div
-          className={cn(
-            'text-[11px] mt-0.5 transition-colors truncate',
-            isSelected ? 'text-emerald-400/70' : 'text-zinc-600'
-          )}
-        >
-          {option.description}
-        </div>
-      </div>
-
-      {/* Selection indicator */}
+      <span className="text-sm">{option.icon}</span>
+      <span className="text-sm font-medium">{option.label}</span>
       {isSelected && (
         <motion.div
-          className="absolute top-2 right-2"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         >
-          <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
-            <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
-          </div>
+          <Check className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2.5} />
         </motion.div>
       )}
     </motion.button>

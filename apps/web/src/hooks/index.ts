@@ -1,5 +1,5 @@
-// Auth hooks
-export { useAuthStatus, useProfiles } from './useAuthStatus'
+// Auth hook - re-export from root route
+export { useAuth } from '@/routes/__root'
 
 // Investment hooks
 export {
@@ -86,8 +86,20 @@ export {
 // Constants hooks
 export { constantsKeys, useConstants } from './useConstants'
 
+// Chat hooks
+export {
+  useChatConfig,
+  useConversations,
+  useCreateConversation,
+  useConversationById,
+  useConversation,
+  useDeleteConversation,
+  useClearConversation,
+  useChatStream,
+  type ChatStreamState,
+} from './useChat'
+
 // Other hooks
 export { useTheme } from './useTheme'
-export { useAuth } from './useAuth'
 export { useIsMobile } from './use-mobile'
 export { useDebounce } from './useDebounce'

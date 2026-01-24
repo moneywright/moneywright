@@ -535,3 +535,97 @@ export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
 
 export type UserPreferences = typeof userPreferences.$inferSelect
 export type NewUserPreferences = typeof userPreferences.$inferInsert
+
+/**
+ * Chat Conversations table - one conversation per profile
+ * Used for AI-powered financial assistant chat
+ */
+export const chatConversations = pgTable(
+  'chat_conversations',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    profileId: varchar('profile_id', { length: 21 })
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title'), // Auto-generated from first message
+    summary: text('summary'), // Compressed context from older messages
+    summaryUpToMessageId: varchar('summary_up_to_message_id', { length: 21 }), // Last message included in summary
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('chat_conversations_profile_id_idx').on(table.profileId),
+    index('chat_conversations_user_id_idx').on(table.userId),
+  ]
+)
+
+/**
+ * Chat Messages table - individual messages in a conversation
+ * Stores user messages, assistant responses, tool calls, and reasoning
+ */
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    conversationId: varchar('conversation_id', { length: 21 })
+      .notNull()
+      .references(() => chatConversations.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 20 }).notNull(), // 'user' | 'assistant' | 'tool'
+    content: text('content'), // Message text content
+    provider: varchar('provider', { length: 50 }), // AI provider used (openai, anthropic, etc.)
+    model: varchar('model', { length: 100 }), // Model ID used
+    toolCalls: text('tool_calls'), // JSON: Array of {toolCallId, toolName, args}
+    toolResults: text('tool_results'), // JSON: Array of {toolCallId, toolName, result}
+    reasoning: text('reasoning'), // JSON: Array of steps [{type: 'reasoning'|'tool-call'|'text', ...}]
+    approvalState: text('approval_state'), // JSON: Pending approval data if waiting for user
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('chat_messages_conversation_id_idx').on(table.conversationId),
+    index('chat_messages_created_at_idx').on(table.createdAt),
+  ]
+)
+
+/**
+ * Chat Query Cache table - stores query results for data registry pattern
+ * Allows E2B code execution to access full data without bloating AI context
+ *
+ * Data flow:
+ * 1. Tool (e.g., queryTransactions) stores filters + full results here
+ * 2. LLM receives only summary + sample + queryId
+ * 3. executeCode tool fetches full data by queryId, injects into E2B sandbox
+ * 4. Frontend fetches full data by queryId to display in data-table
+ *
+ * Note: Entries are permanent (no expiration) since they're used in chat history.
+ */
+export const chatQueryCache = pgTable(
+  'chat_query_cache',
+  {
+    queryId: varchar('query_id', { length: 50 }).primaryKey(),
+    profileId: varchar('profile_id', { length: 21 }).notNull(),
+    dataType: varchar('data_type', { length: 50 }).notNull(), // 'transactions' | 'holdings' | 'accounts' | etc.
+    filters: text('filters').notNull(), // JSON: Query filters used
+    count: integer('count').notNull(), // Number of records
+    data: text('data').notNull(), // JSON: Full result array
+    schema: text('schema').notNull(), // JSON: Field names and types for LLM reference
+    dataSizeBytes: integer('data_size_bytes'), // Size of data field in bytes
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('chat_query_cache_profile_id_idx').on(table.profileId)]
+)
+
+export type ChatConversation = typeof chatConversations.$inferSelect
+export type NewChatConversation = typeof chatConversations.$inferInsert
+
+export type ChatMessage = typeof chatMessages.$inferSelect
+export type NewChatMessage = typeof chatMessages.$inferInsert
+
+export type ChatQueryCache = typeof chatQueryCache.$inferSelect
+export type NewChatQueryCache = typeof chatQueryCache.$inferInsert

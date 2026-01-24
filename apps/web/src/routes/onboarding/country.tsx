@@ -1,12 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'motion/react'
-import { Loader2, ArrowRight, Check } from 'lucide-react'
+import { Loader2, ArrowRight, Check, Banknote, Tags, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AuthLayout, type AuthStep } from '@/components/auth/auth-layout'
 import { useCountrySelection, getCountryFlag } from '@/hooks/useOnboarding'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/onboarding/country')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: (search.redirect as string) || undefined,
+  }),
   component: CountrySelectionPage,
 })
 
@@ -14,18 +17,38 @@ export const Route = createFileRoute('/onboarding/country')({
 const ONBOARDING_STEPS: AuthStep[] = [
   { id: 'country', label: 'Country' },
   { id: 'profile', label: 'Profile' },
+  { id: 'statements', label: 'Statements' },
 ]
 
 function CountrySelectionPage() {
+  const { redirect: redirectTo } = Route.useSearch()
   const { countries, selectedCountry, isLoading, isSaving, error, handleSelect, handleContinue } =
-    useCountrySelection()
+    useCountrySelection(redirectTo)
 
   return (
     <AuthLayout
       currentStep={1}
       steps={ONBOARDING_STEPS}
-      title="Your finances,"
-      subtitle="simplified"
+      title="Personalized"
+      subtitle="for you"
+      description="We'll customize your experience based on your location — currency formats, tax categories, and local financial insights."
+      features={[
+        {
+          icon: <Banknote className="w-4 h-4" />,
+          title: 'Local Currency',
+          description: 'Automatic formatting for your region',
+        },
+        {
+          icon: <Tags className="w-4 h-4" />,
+          title: 'Smart Categories',
+          description: 'Expense categories relevant to your country',
+        },
+        {
+          icon: <ShieldCheck className="w-4 h-4" />,
+          title: 'Auto FX Conversion',
+          description: 'Automatic currency conversion for international investments',
+        },
+      ]}
     >
       <motion.div
         initial={{ opacity: 0, x: 20 }}

@@ -1,16 +1,21 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import {
-  getGoogleCredentials,
-  setConfig,
-  isSetupComplete,
-  getLLMSettings,
-  setLLMSettings,
-} from '../services/config'
+import { getLLMSettings, setLLMSettings } from '../services/config'
 import { isAuthEnabled } from '../lib/startup'
 import { SUPPORTED_COUNTRIES } from '../lib/constants'
+import { AI_PROVIDERS } from '../lib/ai'
 
 const setupRoutes = new Hono()
+
+/**
+ * GET /setup/auth
+ * Returns only auth status - unauthenticated endpoint for initial app load
+ */
+setupRoutes.get('/auth', (c) => {
+  return c.json({
+    authEnabled: isAuthEnabled(),
+  })
+})
 
 /**
  * GET /setup/countries
@@ -28,188 +33,120 @@ setupRoutes.get('/countries', (c) => {
 })
 
 /**
- * GET /setup/status
- * Check if initial setup is required
+ * GET /setup
+ * Returns setup configuration
  */
-setupRoutes.get('/status', async (c) => {
-  const { isConfigured: googleConfigured } = await getGoogleCredentials()
+setupRoutes.get('/', async (c) => {
   const llmSettings = await getLLMSettings()
-  const setupComplete = await isSetupComplete()
   const authEnabled = isAuthEnabled()
 
-  // Setup is required if:
-  // 1. LLM is not configured (always required)
-  // 2. Auth is enabled but Google OAuth is not configured
-  const llmConfigured = llmSettings.isConfigured
-  const googleRequired = authEnabled && !googleConfigured
+  const configuredProviders: Record<string, boolean> = {
+    openai: !!llmSettings.openaiApiKey,
+    anthropic: !!llmSettings.anthropicApiKey,
+    google: !!llmSettings.googleAiApiKey,
+    ollama: !!llmSettings.ollamaBaseUrl,
+    vercel: !!llmSettings.vercelApiKey,
+  }
+
+  const providers = AI_PROVIDERS.map((providerConfig) => ({
+    id: providerConfig.id,
+    name: providerConfig.name,
+    models: providerConfig.models,
+    requiresApiKey: providerConfig.id !== 'ollama',
+    isConfigured: configuredProviders[providerConfig.id] ?? false,
+  }))
 
   return c.json({
-    setupRequired: !llmConfigured || googleRequired,
-    llmConfigured,
-    googleConfigured,
     authEnabled,
-    setupComplete,
+    llm: {
+      isConfigured: llmSettings.isConfigured,
+      ollamaBaseUrl: llmSettings.ollamaBaseUrl,
+      configuredProviders,
+    },
+    providers,
   })
 })
 
 /**
- * LLM Setup request schema
+ * PATCH /setup
+ * Update setup configuration (LLM settings only)
+ *
+ * Body structure:
+ * {
+ *   llm?: {
+ *     ollamaBaseUrl?: string | null,
+ *     openaiApiKey?: string | null,
+ *     anthropicApiKey?: string | null,
+ *     googleAiApiKey?: string | null,
+ *     vercelApiKey?: string | null,
+ *   }
+ * }
+ *
+ * Note: Google OAuth must be configured via environment variables
  */
-const llmSetupSchema = z.object({
-  provider: z.enum(['openai', 'anthropic', 'google', 'ollama', 'vercel']),
-  model: z.string().optional(), // Model is optional - will be selected per-statement
-  apiKey: z.string().min(1).optional(),
-  apiBaseUrl: z.string().url().optional().nullable(),
+const patchSetupSchema = z.object({
+  llm: z
+    .object({
+      ollamaBaseUrl: z.string().url().optional().nullable(),
+      openaiApiKey: z.string().min(1).optional().nullable(),
+      anthropicApiKey: z.string().min(1).optional().nullable(),
+      googleAiApiKey: z.string().min(1).optional().nullable(),
+      vercelApiKey: z.string().min(1).optional().nullable(),
+    })
+    .optional(),
 })
 
-/**
- * POST /setup/llm
- * Save LLM configuration
- */
-setupRoutes.post('/llm', async (c) => {
+setupRoutes.patch('/', async (c) => {
   try {
     const body = await c.req.json()
-    const validated = llmSetupSchema.parse(body)
+    const validated = patchSetupSchema.parse(body)
 
-    // Build settings object based on provider
-    const settings: Parameters<typeof setLLMSettings>[0] = {
-      provider: validated.provider,
-      model: validated.model || '', // Model will be selected per-statement
-      apiBaseUrl: validated.apiBaseUrl,
+    // Update LLM settings if provided
+    if (validated.llm) {
+      await setLLMSettings({
+        ollamaBaseUrl: validated.llm.ollamaBaseUrl,
+        openaiApiKey: validated.llm.openaiApiKey,
+        anthropicApiKey: validated.llm.anthropicApiKey,
+        googleAiApiKey: validated.llm.googleAiApiKey,
+        vercelApiKey: validated.llm.vercelApiKey,
+      })
     }
 
-    // Set the API key for the correct provider
-    if (validated.apiKey) {
-      switch (validated.provider) {
-        case 'openai':
-          settings.openaiApiKey = validated.apiKey
-          break
-        case 'anthropic':
-          settings.anthropicApiKey = validated.apiKey
-          break
-        case 'google':
-          settings.googleAiApiKey = validated.apiKey
-          break
-        case 'vercel':
-          settings.vercelApiKey = validated.apiKey
-          break
-      }
+    // Return updated status
+    const llmSettings = await getLLMSettings()
+    const authEnabled = isAuthEnabled()
+
+    const configuredProviders: Record<string, boolean> = {
+      openai: !!llmSettings.openaiApiKey,
+      anthropic: !!llmSettings.anthropicApiKey,
+      google: !!llmSettings.googleAiApiKey,
+      ollama: !!llmSettings.ollamaBaseUrl,
+      vercel: !!llmSettings.vercelApiKey,
     }
 
-    await setLLMSettings(settings)
+    const providers = AI_PROVIDERS.map((providerConfig) => ({
+      id: providerConfig.id,
+      name: providerConfig.name,
+      models: providerConfig.models,
+      requiresApiKey: providerConfig.id !== 'ollama',
+      isConfigured: configuredProviders[providerConfig.id] ?? false,
+    }))
 
-    return c.json({ success: true })
+    return c.json({
+      authEnabled,
+      llm: {
+        isConfigured: llmSettings.isConfigured,
+        ollamaBaseUrl: llmSettings.ollamaBaseUrl,
+        configuredProviders,
+      },
+      providers,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: 'validation_error',
-          issues: error.issues,
-        },
-        400
-      )
+      return c.json({ error: 'validation_error', issues: error.issues }, 400)
     }
     throw error
   }
-})
-
-/**
- * Google OAuth Setup request schema
- */
-const googleSetupSchema = z.object({
-  googleClientId: z.string().min(1, 'Google Client ID is required'),
-  googleClientSecret: z.string().min(1, 'Google Client Secret is required'),
-  appUrl: z.string().url().optional(),
-})
-
-/**
- * POST /setup/google
- * Save Google OAuth configuration
- */
-setupRoutes.post('/google', async (c) => {
-  try {
-    const body = await c.req.json()
-    const validated = googleSetupSchema.parse(body)
-
-    // Save configuration to database
-    await setConfig('google_client_id', validated.googleClientId)
-    await setConfig('google_client_secret', validated.googleClientSecret)
-
-    if (validated.appUrl) {
-      await setConfig('app_url', validated.appUrl)
-    }
-
-    return c.json({ success: true })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: 'validation_error',
-          issues: error.issues,
-        },
-        400
-      )
-    }
-    throw error
-  }
-})
-
-/**
- * POST /setup/complete
- * Mark setup as complete
- */
-setupRoutes.post('/complete', async (c) => {
-  await setConfig('setup_completed', 'true')
-  return c.json({ success: true })
-})
-
-/**
- * Legacy: POST /setup/config
- * Save initial configuration (kept for backwards compatibility)
- */
-setupRoutes.post('/config', async (c) => {
-  try {
-    const body = await c.req.json()
-    const validated = googleSetupSchema.parse(body)
-
-    // Save configuration to database
-    await setConfig('google_client_id', validated.googleClientId)
-    await setConfig('google_client_secret', validated.googleClientSecret)
-
-    if (validated.appUrl) {
-      await setConfig('app_url', validated.appUrl)
-    }
-
-    // Mark setup as complete
-    await setConfig('setup_completed', 'true')
-
-    return c.json({ success: true })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: 'validation_error',
-          issues: error.issues,
-        },
-        400
-      )
-    }
-    throw error
-  }
-})
-
-/**
- * GET /setup/config
- * Get current configuration (masked secrets)
- */
-setupRoutes.get('/config', async (c) => {
-  const { clientId, isConfigured } = await getGoogleCredentials()
-
-  return c.json({
-    googleClientId: clientId ? `${clientId.slice(0, 20)}...` : null,
-    googleClientSecretSet: isConfigured,
-    isConfigured,
-  })
 })
 
 export default setupRoutes

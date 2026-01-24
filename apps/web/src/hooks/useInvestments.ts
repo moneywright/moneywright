@@ -44,11 +44,12 @@ export const investmentKeys = {
 /**
  * Fetch investment types (source types and holding types)
  */
-export function useInvestmentTypes() {
+export function useInvestmentTypes(enabled: boolean = true) {
   return useQuery({
     queryKey: investmentKeys.types(),
     queryFn: getInvestmentTypes,
     staleTime: 30 * 60 * 1000, // 30 minutes - types don't change often
+    enabled,
   })
 }
 

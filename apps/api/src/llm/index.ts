@@ -145,9 +145,67 @@ export function isLLMConfigured(): boolean {
 }
 
 /**
- * Create LLM client using database settings
- * Use this for background jobs like statement parsing
- * @param modelOverride - Optional model ID to use instead of the saved setting
+ * Parse model override string to extract provider and model
+ * Format: "provider:model" (e.g., "openai:gpt-4o") or just "model" (uses first configured provider)
+ */
+function parseModelOverride(
+  modelOverride: string | undefined,
+  settings: {
+    openaiApiKey: string | null
+    anthropicApiKey: string | null
+    googleAiApiKey: string | null
+    vercelApiKey: string | null
+    ollamaBaseUrl: string | null
+  }
+): { provider: LLMProvider; model: string } {
+  if (!modelOverride) {
+    // Find first configured provider and use its default model
+    if (settings.openaiApiKey) return { provider: 'openai', model: getDefaultModel('openai') }
+    if (settings.anthropicApiKey)
+      return { provider: 'anthropic', model: getDefaultModel('anthropic') }
+    if (settings.googleAiApiKey) return { provider: 'google', model: getDefaultModel('google') }
+    if (settings.vercelApiKey) return { provider: 'vercel', model: getDefaultModel('vercel') }
+    if (settings.ollamaBaseUrl) return { provider: 'ollama', model: getDefaultModel('ollama') }
+    throw new Error('No LLM provider configured')
+  }
+
+  // Check if format is "provider:model"
+  const colonIndex = modelOverride.indexOf(':')
+  if (colonIndex > 0) {
+    const provider = modelOverride.slice(0, colonIndex) as LLMProvider
+    const model = modelOverride.slice(colonIndex + 1)
+    if (LLM_PROVIDERS.includes(provider)) {
+      return { provider, model }
+    }
+  }
+
+  // Just model name - infer provider from model name
+  if (
+    modelOverride.startsWith('gpt-') ||
+    modelOverride.startsWith('o1') ||
+    modelOverride.startsWith('o3')
+  ) {
+    return { provider: 'openai', model: modelOverride }
+  }
+  if (modelOverride.startsWith('claude-')) {
+    return { provider: 'anthropic', model: modelOverride }
+  }
+  if (modelOverride.startsWith('gemini-')) {
+    return { provider: 'google', model: modelOverride }
+  }
+  if (modelOverride.includes('/')) {
+    // Vercel gateway format: "provider/model"
+    return { provider: 'vercel', model: modelOverride }
+  }
+
+  // Assume Ollama for unknown models (e.g., llama3, mistral)
+  return { provider: 'ollama', model: modelOverride }
+}
+
+/**
+ * Create LLM client using database settings for API keys
+ * Accepts model override in format "provider:model" (e.g., "openai:gpt-4o")
+ * or just model name which will be inferred
  */
 export async function createLLMClientFromSettings(modelOverride?: string): Promise<LanguageModel> {
   // Import here to avoid circular dependency
@@ -155,12 +213,14 @@ export async function createLLMClientFromSettings(modelOverride?: string): Promi
   const settings = await getLLMSettings()
 
   if (!settings.isConfigured) {
-    throw new Error(`LLM is not configured. Please configure ${settings.provider} API key.`)
+    throw new Error('LLM is not configured. Please configure at least one provider.')
   }
+
+  const { provider, model } = parseModelOverride(modelOverride, settings)
 
   // Get the appropriate API key for the provider
   let apiKey: string | undefined
-  switch (settings.provider) {
+  switch (provider) {
     case 'openai':
       apiKey = settings.openaiApiKey || undefined
       break
@@ -173,16 +233,16 @@ export async function createLLMClientFromSettings(modelOverride?: string): Promi
     case 'vercel':
       apiKey = settings.vercelApiKey || undefined
       break
+    case 'ollama':
+      // Ollama doesn't need API key
+      break
   }
 
-  // Use modelOverride if provided, otherwise fall back to saved setting or default
-  const modelId = modelOverride || settings.model || getDefaultModel(settings.provider)
-
   return createLLMClient({
-    provider: settings.provider,
-    model: modelId,
+    provider,
+    model,
     apiKey,
-    apiBaseUrl: settings.apiBaseUrl || undefined,
+    apiBaseUrl: provider === 'ollama' ? settings.ollamaBaseUrl || undefined : undefined,
   })
 }
 

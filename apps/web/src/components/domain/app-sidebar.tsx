@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useAuthContext } from '@/routes/__root'
+import { useAuth } from '@/hooks'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 import {
@@ -28,7 +28,6 @@ import {
   Wallet,
   Building2,
   TrendingUp,
-  PieChart,
   MessageSquare,
   Settings,
   ChevronUp,
@@ -36,7 +35,6 @@ import {
   Moon,
   Sun,
   Check,
-  Cpu,
   Repeat,
 } from 'lucide-react'
 
@@ -46,6 +44,11 @@ const mainNavItems = [
     title: 'Dashboard',
     icon: LayoutDashboard,
     href: '/',
+  },
+  {
+    title: 'Ask Penny',
+    icon: MessageSquare,
+    href: '/chat',
   },
   {
     title: 'Accounts',
@@ -74,29 +77,8 @@ const mainNavItems = [
   },
 ]
 
-// Upcoming features
-const upcomingNavItems = [
-  {
-    title: 'Analytics',
-    icon: PieChart,
-    href: '/analytics',
-    disabled: true,
-  },
-  {
-    title: 'AI Chat',
-    icon: MessageSquare,
-    href: '/chat',
-    disabled: true,
-  },
-]
-
 // Settings items
 const settingsNavItems = [
-  {
-    title: 'LLM Settings',
-    icon: Cpu,
-    href: '/settings/llm',
-  },
   {
     title: 'Settings',
     icon: Settings,
@@ -107,7 +89,7 @@ const settingsNavItems = [
 export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, authEnabled, logout } = useAuthContext()
+  const { user, authEnabled, logout } = useAuth()
   const { theme, setTheme } = useTheme()
 
   const initials = user?.name
@@ -172,13 +154,6 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">{mainNavItems.map(renderNavItem)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Upcoming Features */}
-        <SidebarGroup className="mt-4">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">{upcomingNavItems.map(renderNavItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

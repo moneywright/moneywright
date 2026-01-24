@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import { auth, optionalAuth, COOKIE_NAMES, type AuthVariables } from '../middleware/auth'
+import { auth, COOKIE_NAMES, type AuthVariables } from '../middleware/auth'
 import { authSecurityHeaders } from '../middleware/security-headers'
 import {
   verifyJWT,
@@ -14,7 +14,6 @@ import {
   parseOAuthState,
   exchangeAuthCode,
   findUserByGoogleId,
-  findUserById,
   createUser,
   createSession,
   refreshSession,
@@ -24,24 +23,13 @@ import {
   getUserSessions,
   deleteUser,
 } from '../services/auth'
-import { getAuthStatus } from '../services/user'
-import { isDevelopment } from '../lib/startup'
+import { ensureDefaultUser } from '../services/user'
+import { isDevelopment, isAuthEnabled } from '../lib/startup'
 
 const authRoutes = new Hono<{ Variables: AuthVariables }>()
 
 // Apply security headers to all auth routes
 authRoutes.use('*', authSecurityHeaders())
-
-/**
- * GET /auth/status
- * Returns auth configuration and current user state
- * Called on app load to determine auth requirements and user state
- */
-authRoutes.get('/status', optionalAuth(), async (c) => {
-  const userId = c.get('userId') || null
-  const status = await getAuthStatus(userId)
-  return c.json(status)
-})
 
 /**
  * Token expiry times in seconds
@@ -67,9 +55,24 @@ interface AuthTokens {
 }
 
 /**
+ * Local mode token expiry (in seconds)
+ * Note: Cookie max-age cannot exceed 400 days (34560000 seconds)
+ */
+const LOCAL_MODE_EXPIRY = {
+  accessToken: 7 * 24 * 60 * 60, // 7 days
+  refreshToken: 365 * 24 * 60 * 60, // 1 year
+}
+
+/**
  * Set auth cookies on response
  */
-function setAuthCookies(c: Context, tokens: AuthTokens): void {
+function setAuthCookies(
+  c: Context,
+  tokens: AuthTokens,
+  expiry?: { accessToken: number; refreshToken: number }
+): void {
+  const tokenExpiry = expiry || TOKEN_EXPIRY
+
   const cookieOptions = {
     httpOnly: true,
     secure: !isDevelopment(),
@@ -80,19 +83,19 @@ function setAuthCookies(c: Context, tokens: AuthTokens): void {
   // Access token cookie
   setCookie(c, COOKIE_NAMES.ACCESS_TOKEN, tokens.accessToken, {
     ...cookieOptions,
-    maxAge: TOKEN_EXPIRY.accessToken,
+    maxAge: tokenExpiry.accessToken,
   })
 
   // Refresh token cookie
   setCookie(c, COOKIE_NAMES.REFRESH_TOKEN, tokens.refreshToken, {
     ...cookieOptions,
-    maxAge: TOKEN_EXPIRY.refreshToken,
+    maxAge: tokenExpiry.refreshToken,
   })
 
   // Fingerprint cookie
   setCookie(c, COOKIE_NAMES.FINGERPRINT, tokens.fingerprint, {
     ...cookieOptions,
-    maxAge: TOKEN_EXPIRY.refreshToken,
+    maxAge: tokenExpiry.refreshToken,
   })
 
   // Session hint cookie (JS-accessible)
@@ -101,7 +104,7 @@ function setAuthCookies(c: Context, tokens: AuthTokens): void {
     secure: !isDevelopment(),
     sameSite: 'strict',
     path: '/',
-    maxAge: TOKEN_EXPIRY.refreshToken,
+    maxAge: tokenExpiry.refreshToken,
   })
 }
 
@@ -120,6 +123,56 @@ function clearAuthCookies(c: Context): void {
   deleteCookie(c, COOKIE_NAMES.FINGERPRINT, cookieOptions)
   deleteCookie(c, SESSION_HINT_COOKIE, { ...cookieOptions, httpOnly: false })
 }
+
+/**
+ * POST /auth/local
+ * Auto-login for local mode (AUTH_ENABLED=false)
+ * Creates default user if needed and creates session
+ * Same flow as /auth/google/exchange but for local mode
+ */
+authRoutes.post('/local', async (c) => {
+  // Only allow local login when auth is disabled
+  if (isAuthEnabled()) {
+    return c.json(
+      { error: 'auth_enabled', message: 'Local login is not available when auth is enabled' },
+      403
+    )
+  }
+
+  try {
+    // Ensure default user exists (creates if not)
+    const user = await ensureDefaultUser()
+
+    // Create session (same as Google OAuth flow)
+    const session = await createSession(user.id, {
+      userAgent: c.req.header('User-Agent'),
+      ipAddress: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP'),
+    })
+
+    // Set auth cookies with local mode expiry (7-day access, 10-year refresh)
+    setAuthCookies(
+      c,
+      {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        fingerprint: session.fingerprint,
+        expiresIn: session.expiresIn,
+      },
+      LOCAL_MODE_EXPIRY
+    )
+
+    // Return success (same format as Google OAuth)
+    return c.json({
+      success: true,
+      type: 'local',
+      isNewUser: false,
+      redirectUrl: '/',
+    })
+  } catch (error) {
+    console.error('[Auth] Local login error:', error)
+    return c.json({ error: 'auth_failed', message: 'Local authentication failed' }, 500)
+  }
+})
 
 /**
  * GET /auth/google
@@ -287,27 +340,6 @@ authRoutes.post('/logout', async (c) => {
   clearAuthCookies(c)
 
   return c.json({ success: true })
-})
-
-/**
- * GET /auth/me
- * Returns current authenticated user
- */
-authRoutes.get('/me', auth(), async (c) => {
-  const userId = c.get('userId')
-  const user = await findUserById(userId)
-
-  if (!user) {
-    return c.json({ error: 'user_not_found' }, 404)
-  }
-
-  return c.json({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    picture: user.picture,
-    createdAt: user.createdAt,
-  })
 })
 
 /**

@@ -4,7 +4,6 @@ import { verifyJWT, type AccessTokenPayload } from '../lib/jwt'
 import { verifyFingerprint, hashForLog } from '../lib/hash'
 import { logger } from '../lib/logger'
 import { isDevelopment, isAuthEnabled } from '../lib/startup'
-import { DEFAULT_USER_ID } from '../lib/constants'
 
 /**
  * Auth context variables set by middleware.
@@ -37,34 +36,44 @@ function extractBearerToken(authHeader: string | undefined): string | null {
 
 /**
  * Auth middleware - verifies JWT access token and fingerprint.
- * In local mode (AUTH_ENABLED=false), auto-authenticates as default user.
+ * Always validates tokens (even in local mode).
  *
  * Sets context variables:
- * - userId: The authenticated user's ID (or "default" in local mode)
- * - sessionId: The current session ID (or null in local mode)
+ * - userId: The authenticated user's ID
+ * - sessionId: The current session ID
  *
  * Returns 401 if:
- * - Auth is enabled AND no access token provided
- * - Auth is enabled AND token is invalid or expired
- * - Auth is enabled AND fingerprint validation fails
+ * - No access token provided
+ * - Token is invalid or expired
+ * - Fingerprint validation fails
+ *
+ * In local mode (AUTH_ENABLED=false):
+ * - Returns 401 with 'local_login_required' error (frontend should call POST /auth/local)
+ * - Tokens have extended expiry (7 day access, 1 year refresh)
  */
 export const auth = () => {
   return createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
-    // In local mode, auto-authenticate as default user
-    if (!isAuthEnabled()) {
-      c.set('userId', DEFAULT_USER_ID)
-      c.set('sessionId', null)
-      await next()
-      return
-    }
-
     // Get access token from cookie or Authorization header
     const accessToken =
       getCookie(c, COOKIE_NAMES.ACCESS_TOKEN) || extractBearerToken(c.req.header('Authorization'))
 
     if (!accessToken) {
       logger.debug('[Auth] No access token provided')
-      return c.json({ error: 'unauthorized', message: 'Authentication required' }, 401)
+      // Different error for local mode to help frontend auto-login
+      if (!isAuthEnabled()) {
+        return c.json(
+          {
+            error: 'local_login_required',
+            message: 'Local authentication required',
+            authEnabled: false,
+          },
+          401
+        )
+      }
+      return c.json(
+        { error: 'unauthorized', message: 'Authentication required', authEnabled: true },
+        401
+      )
     }
 
     // Verify token
@@ -72,7 +81,20 @@ export const auth = () => {
 
     if (!result.valid || !result.payload) {
       logger.debug(`[Auth] Invalid token: ${result.error}`)
-      return c.json({ error: 'unauthorized', message: result.error || 'Invalid token' }, 401)
+      if (!isAuthEnabled()) {
+        return c.json(
+          {
+            error: 'local_login_required',
+            message: 'Local authentication required',
+            authEnabled: false,
+          },
+          401
+        )
+      }
+      return c.json(
+        { error: 'unauthorized', message: result.error || 'Invalid token', authEnabled: true },
+        401
+      )
     }
 
     // Verify token type
@@ -104,19 +126,10 @@ export const auth = () => {
 /**
  * Optional auth middleware - same as auth but doesn't return 401.
  * Sets userId to null if not authenticated.
- * In local mode, always authenticates as default user.
  * Useful for routes that have different behavior for authenticated vs anonymous users.
  */
 export const optionalAuth = () => {
   return createMiddleware<{ Variables: Partial<AuthVariables> }>(async (c, next) => {
-    // In local mode, auto-authenticate as default user
-    if (!isAuthEnabled()) {
-      c.set('userId', DEFAULT_USER_ID)
-      c.set('sessionId', null)
-      await next()
-      return
-    }
-
     const accessToken =
       getCookie(c, COOKIE_NAMES.ACCESS_TOKEN) || extractBearerToken(c.req.header('Authorization'))
 

@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Search, Calendar, TrendingUp, Repeat, Receipt, Info, ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useProfiles, useCategories, useAuthStatus } from '@/hooks'
+import { useAuth, useCategories } from '@/hooks'
 import { getSubscriptions } from '@/lib/api'
 import type { DetectedSubscription, Profile } from '@/lib/api'
 
@@ -98,8 +98,7 @@ type FrequencyFilter = 'all' | 'monthly' | 'quarterly' | 'yearly'
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 function SubscriptionsPage() {
-  const { defaultProfile } = useProfiles()
-  const { user } = useAuthStatus()
+  const { defaultProfile, user } = useAuth()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>('all')

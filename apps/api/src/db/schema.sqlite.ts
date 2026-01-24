@@ -554,3 +554,105 @@ export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
 
 export type UserPreferences = typeof userPreferences.$inferSelect
 export type NewUserPreferences = typeof userPreferences.$inferInsert
+
+/**
+ * Chat Conversations table - one conversation per profile
+ * Used for AI-powered financial assistant chat
+ */
+export const chatConversations = sqliteTable(
+  'chat_conversations',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title'), // Auto-generated from first message
+    summary: text('summary'), // Compressed context from older messages
+    summaryUpToMessageId: text('summary_up_to_message_id'), // Last message included in summary
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('chat_conversations_profile_id_idx').on(table.profileId),
+    index('chat_conversations_user_id_idx').on(table.userId),
+  ]
+)
+
+/**
+ * Chat Messages table - individual messages in a conversation
+ * Stores user messages, assistant responses, tool calls, and reasoning
+ */
+export const chatMessages = sqliteTable(
+  'chat_messages',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    conversationId: text('conversation_id')
+      .notNull()
+      .references(() => chatConversations.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'user' | 'assistant' | 'tool'
+    content: text('content'), // Message text content
+    provider: text('provider'), // AI provider used (openai, anthropic, etc.)
+    model: text('model'), // Model ID used
+    toolCalls: text('tool_calls'), // JSON: Array of {toolCallId, toolName, args}
+    toolResults: text('tool_results'), // JSON: Array of {toolCallId, toolName, result}
+    reasoning: text('reasoning'), // JSON: Array of steps [{type: 'reasoning'|'tool-call'|'text', ...}]
+    approvalState: text('approval_state'), // JSON: Pending approval data if waiting for user
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('chat_messages_conversation_id_idx').on(table.conversationId),
+    index('chat_messages_created_at_idx').on(table.createdAt),
+  ]
+)
+
+/**
+ * Chat Query Cache table - stores query results for data registry pattern
+ * Allows E2B code execution to access full data without bloating AI context
+ *
+ * Data flow:
+ * 1. Tool (e.g., queryTransactions) stores filters + full results here
+ * 2. LLM receives only summary + sample + queryId
+ * 3. executeCode tool fetches full data by queryId, injects into E2B sandbox
+ * 4. Frontend fetches full data by queryId to display in data-table
+ *
+ * Note: Entries are permanent (no expiration) since they're used in chat history.
+ */
+export const chatQueryCache = sqliteTable(
+  'chat_query_cache',
+  {
+    queryId: text('query_id').primaryKey(),
+    profileId: text('profile_id').notNull(),
+    dataType: text('data_type').notNull(), // 'transactions' | 'holdings' | 'accounts' | etc.
+    filters: text('filters').notNull(), // JSON: Query filters used
+    count: integer('count').notNull(), // Number of records
+    data: text('data').notNull(), // JSON: Full result array (compressed if large)
+    schema: text('schema').notNull(), // JSON: Field names and types for LLM reference
+    dataSizeBytes: integer('data_size_bytes'), // Size of data field in bytes
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [index('chat_query_cache_profile_id_idx').on(table.profileId)]
+)
+
+export type ChatConversation = typeof chatConversations.$inferSelect
+export type NewChatConversation = typeof chatConversations.$inferInsert
+
+export type ChatMessage = typeof chatMessages.$inferSelect
+export type NewChatMessage = typeof chatMessages.$inferInsert
+
+export type ChatQueryCache = typeof chatQueryCache.$inferSelect
+export type NewChatQueryCache = typeof chatQueryCache.$inferInsert

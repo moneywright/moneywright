@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
@@ -13,31 +13,23 @@ import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  getLLMSettings,
   getLLMProviders,
   recategorizeTransactions,
   getRecategorizeJobStatus,
+  getPreferences,
+  setPreference,
+  PREFERENCE_KEYS,
 } from '@/lib/api'
-import { cn } from '@/lib/utils'
-
-const CATEGORIZATION_MODEL_STORAGE_KEY = 'statements_categorization_model'
-
-const providerLogos: Record<string, string> = {
-  openai: '/openai.svg',
-  anthropic: '/anthropic.svg',
-  google: '/google.svg',
-  ollama: '/ollama.svg',
-  vercel: '/vercel.svg',
-}
-
-const invertedLogos = ['openai', 'vercel', 'ollama']
+import { PROVIDER_LOGOS, getLogoInvertStyle } from '@/lib/provider-logos'
 
 interface RecategorizeModalProps {
   open: boolean
@@ -49,8 +41,6 @@ interface RecategorizeModalProps {
   statementId?: string
   /** Display name for the target (account or statement name) */
   targetName: string
-  /** Type of target (unused but kept for API compatibility) */
-  _targetType?: 'account' | 'statement'
   /** Callback when recategorization completes */
   onSuccess?: () => void
 }
@@ -62,13 +52,11 @@ export function RecategorizeModal({
   accountId,
   statementId,
   targetName,
-  _targetType,
   onSuccess,
 }: RecategorizeModalProps) {
   const queryClient = useQueryClient()
-  const [categorizationModel, setCategorizationModel] = useState<string>(() => {
-    return localStorage.getItem(CATEGORIZATION_MODEL_STORAGE_KEY) || ''
-  })
+  // Combined provider:model value (e.g., "openai:gpt-4o")
+  const [modelValue, setModelValue] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<
@@ -77,30 +65,89 @@ export function RecategorizeModal({
   const [jobProgress, setJobProgress] = useState<{ processed: number; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: llmSettings } = useQuery({
-    queryKey: ['llm-settings'],
-    queryFn: getLLMSettings,
-  })
-
   const { data: providers } = useQuery({
     queryKey: ['llm-providers'],
     queryFn: getLLMProviders,
   })
 
-  const currentProvider = providers?.find((p) => p.code === llmSettings?.provider)
-  const availableModels = useMemo(() => currentProvider?.models || [], [currentProvider?.models])
+  const { data: preferences } = useQuery({
+    queryKey: ['preferences'],
+    queryFn: () => getPreferences(),
+  })
 
-  // Compute the effective model to use (saved, or default from available models)
-  const effectiveModel = useMemo(() => {
-    if (categorizationModel) {
-      // Check if saved model is still valid
-      const isValid = availableModels.some((m) => m.id === categorizationModel)
-      if (isValid) return categorizationModel
+  // Save preference mutation
+  const savePreferenceMutation = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) => setPreference(key, value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preferences'] })
+    },
+  })
+
+  // Get only configured providers
+  const configuredProviders = useMemo(
+    () => providers?.filter((p) => p.isConfigured) || [],
+    [providers]
+  )
+
+  // Helper to parse combined value
+  const parseModelValue = (value: string) => {
+    const colonIndex = value.indexOf(':')
+    if (colonIndex > 0) {
+      return { provider: value.slice(0, colonIndex), model: value.slice(colonIndex + 1) }
     }
-    // Fall back to recommended or first available
-    const recommended = availableModels.find((m) => m.recommendedForCategorization)
-    return recommended?.id || availableModels[0]?.id || ''
-  }, [categorizationModel, availableModels])
+    return { provider: '', model: '' }
+  }
+
+  // Helper to find model info
+  const findModelInfo = (value: string) => {
+    const { provider, model } = parseModelValue(value)
+    const providerData = configuredProviders.find((p) => p.code === provider)
+    const modelData = providerData?.models.find((m) => m.id === model)
+    return { providerData, modelData }
+  }
+
+  // Initialize from preferences - this effect syncs state with async-loaded preferences
+  useEffect(() => {
+    if (!preferences || configuredProviders.length === 0) return
+
+    const savedProvider = preferences[PREFERENCE_KEYS.STATEMENT_CATEGORISATION_PROVIDER]
+    const savedModel = preferences[PREFERENCE_KEYS.STATEMENT_CATEGORISATION_MODEL]
+
+    if (!modelValue) {
+      if (savedProvider && savedModel) {
+        const providerData = configuredProviders.find((p) => p.code === savedProvider)
+        if (providerData?.models.some((m) => m.id === savedModel)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setModelValue(`${savedProvider}:${savedModel}`)
+          return
+        }
+      }
+      // If no saved preference or invalid, set a default
+      for (const provider of configuredProviders) {
+        if (provider.models.length > 0) {
+          const recommended = provider.models.find((m) => m.recommendedForCategorization)
+          const model = recommended || provider.models[0]
+          if (model) {
+            setModelValue(`${provider.code}:${model.id}`)
+            break
+          }
+        }
+      }
+    }
+  }, [preferences, configuredProviders, modelValue])
+
+  const handleModelChange = (value: string) => {
+    setModelValue(value)
+    const { provider, model } = parseModelValue(value)
+    savePreferenceMutation.mutate({
+      key: PREFERENCE_KEYS.STATEMENT_CATEGORISATION_PROVIDER,
+      value: provider,
+    })
+    savePreferenceMutation.mutate({
+      key: PREFERENCE_KEYS.STATEMENT_CATEGORISATION_MODEL,
+      value: model,
+    })
+  }
 
   const resetState = useCallback(() => {
     setJobId(null)
@@ -141,14 +188,10 @@ export function RecategorizeModal({
     return () => clearInterval(pollInterval)
   }, [jobId, jobStatus, onOpenChange, onSuccess, resetState])
 
-  const handleModelChange = (modelId: string) => {
-    setCategorizationModel(modelId)
-    localStorage.setItem(CATEGORIZATION_MODEL_STORAGE_KEY, modelId)
-  }
-
   const handleSubmit = async () => {
-    if (!effectiveModel) {
-      setError('Please select a categorization model')
+    const { provider, model } = parseModelValue(modelValue)
+    if (!provider || !model) {
+      setError('Please select a model')
       return
     }
 
@@ -160,7 +203,8 @@ export function RecategorizeModal({
         profileId,
         accountId,
         statementId,
-        categorizationModel: effectiveModel,
+        categorizationProvider: provider,
+        categorizationModel: model,
       })
 
       setJobId(result.jobId)
@@ -247,43 +291,79 @@ export function RecategorizeModal({
           {/* Model selection - only show when not processing */}
           {!isProcessing && !isCompleted && (
             <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border/50">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium">Categorization Model</Label>
-                {currentProvider && (
-                  <img
-                    src={providerLogos[currentProvider.code]}
-                    alt={currentProvider.label}
-                    className={cn(
-                      'h-4 w-4',
-                      invertedLogos.includes(currentProvider.code) && 'invert dark:invert-0'
-                    )}
-                  />
-                )}
-              </div>
+              <Label className="text-sm font-medium">Categorization Model</Label>
 
-              <Select value={effectiveModel} onValueChange={handleModelChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableModels.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      <span className="flex items-center gap-2">
-                        {model.name}
-                        {model.recommendedForCategorization && (
-                          <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                            Best
-                          </span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {configuredProviders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No AI providers configured. Please configure one in settings.
+                </p>
+              ) : (
+                <>
+                  <Select value={modelValue} onValueChange={handleModelChange}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select model">
+                        {modelValue &&
+                          (() => {
+                            const { providerData, modelData } = findModelInfo(modelValue)
+                            return providerData && modelData ? (
+                              <span className="flex items-center gap-2">
+                                <img
+                                  src={PROVIDER_LOGOS[providerData.code]}
+                                  alt={providerData.label}
+                                  className="h-4 w-4"
+                                  style={getLogoInvertStyle(providerData.code)}
+                                />
+                                <span className="truncate">{modelData.name}</span>
+                                {modelData.recommendedForCategorization && (
+                                  <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                    Best
+                                  </span>
+                                )}
+                              </span>
+                            ) : null
+                          })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {configuredProviders.map((provider) => {
+                        if (provider.models.length === 0) return null
+                        return (
+                          <SelectGroup key={provider.code}>
+                            <SelectLabel className="flex items-center gap-2 pl-2">
+                              <img
+                                src={PROVIDER_LOGOS[provider.code]}
+                                alt={provider.label}
+                                className="h-4 w-4"
+                                style={getLogoInvertStyle(provider.code)}
+                              />
+                              {provider.label}
+                            </SelectLabel>
+                            {provider.models.map((model) => (
+                              <SelectItem
+                                key={`${provider.code}:${model.id}`}
+                                value={`${provider.code}:${model.id}`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  {model.name}
+                                  {model.recommendedForCategorization && (
+                                    <span className="text-[10px] uppercase tracking-wide font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                      Best
+                                    </span>
+                                  )}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
 
-              <p className="text-xs text-muted-foreground">
-                All existing categories will be replaced with new AI-generated ones.
-              </p>
+                  <p className="text-xs text-muted-foreground">
+                    All existing categories will be replaced with new AI-generated ones.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -294,7 +374,7 @@ export function RecategorizeModal({
               <Button variant="ghost" onClick={handleClose} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting || !effectiveModel}>
+              <Button onClick={handleSubmit} disabled={isSubmitting || !modelValue}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

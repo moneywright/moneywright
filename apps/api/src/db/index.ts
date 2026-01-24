@@ -173,6 +173,12 @@ export type {
   NewInvestmentSnapshot,
   UserPreferences,
   NewUserPreferences,
+  ChatConversation,
+  NewChatConversation,
+  ChatMessage,
+  NewChatMessage,
+  ChatQueryCache,
+  NewChatQueryCache,
 } from './schema.pg'
 
 // Export table references typed as Postgres for IntelliSense.
@@ -191,6 +197,9 @@ const tablesImpl = isPostgres
       investmentTransactions: pgSchema.investmentTransactions,
       investmentSnapshots: pgSchema.investmentSnapshots,
       userPreferences: pgSchema.userPreferences,
+      chatConversations: pgSchema.chatConversations,
+      chatMessages: pgSchema.chatMessages,
+      chatQueryCache: pgSchema.chatQueryCache,
     }
   : {
       users: sqliteSchema.users,
@@ -205,6 +214,9 @@ const tablesImpl = isPostgres
       investmentTransactions: sqliteSchema.investmentTransactions,
       investmentSnapshots: sqliteSchema.investmentSnapshots,
       userPreferences: sqliteSchema.userPreferences,
+      chatConversations: sqliteSchema.chatConversations,
+      chatMessages: sqliteSchema.chatMessages,
+      chatQueryCache: sqliteSchema.chatQueryCache,
     }
 
 export const tables = tablesImpl as {
@@ -220,6 +232,9 @@ export const tables = tablesImpl as {
   investmentTransactions: typeof pgSchema.investmentTransactions
   investmentSnapshots: typeof pgSchema.investmentSnapshots
   userPreferences: typeof pgSchema.userPreferences
+  chatConversations: typeof pgSchema.chatConversations
+  chatMessages: typeof pgSchema.chatMessages
+  chatQueryCache: typeof pgSchema.chatQueryCache
 }
 
 /**

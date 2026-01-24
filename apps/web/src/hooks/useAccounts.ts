@@ -46,11 +46,12 @@ export function useAccount(accountId: string) {
 /**
  * Fetch account types for user's country
  */
-export function useAccountTypes() {
+export function useAccountTypes(enabled: boolean = true) {
   return useQuery({
     queryKey: accountKeys.types(),
     queryFn: getAccountTypes,
     staleTime: 30 * 60 * 1000, // 30 minutes - types don't change often
+    enabled,
   })
 }
 
