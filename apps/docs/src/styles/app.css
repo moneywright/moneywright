@@ -1,0 +1,325 @@
+/* Fonts - must be first */
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+@import '@fontsource/dm-sans/700.css';
+
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Landing page theme colors */
+  --color-void: #0a0a0c;
+  --color-surface: #111115;
+  --color-elevated: #18181c;
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-accent-emerald: #10b981;
+  --color-accent-emerald-dim: #059669;
+  --color-accent-teal: #14b8a6;
+  --color-accent-cyan: #06b6d4;
+  --color-accent-blue: #3b82f6;
+  --color-accent-purple: #a855f7;
+  --color-accent-orange: #f97316;
+  --color-glow-emerald: rgba(16, 185, 129, 0.15);
+  --color-glow-teal: rgba(20, 184, 166, 0.15);
+
+  /* Font families */
+  --font-display: "DM Sans", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: ui-monospace, monospace;
+  --animate-marquee: marquee var(--duration) infinite linear;
+  --animate-marquee-vertical: marquee-vertical var(--duration) linear infinite;
+  @keyframes marquee {
+  from {
+    transform: translateX(0);
+    }
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+    }
+  }
+  @keyframes marquee-vertical {
+  from {
+    transform: translateY(0);
+    }
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+    }
+  }
+  --animate-shine: shine var(--duration) infinite linear
+;
+  @keyframes shine {
+  0% {
+    background-position: 0% 0%;}
+  50% {
+    background-position: 100% 100%;}
+  to {
+    background-position: 0% 0%;}}}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.696 0.17 162.48);
+  --chart-1: oklch(0.696 0.17 162.48);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.696 0.17 162.48);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.001 286.375);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.696 0.17 162.48);
+}
+
+.dark {
+  --background: #0a0a0c;
+  --foreground: #f5f5f7;
+  --card: #18181c;
+  --card-foreground: #f5f5f7;
+  --popover: #18181c;
+  --popover-foreground: #f5f5f7;
+  --primary: #10b981;
+  --primary-foreground: #022c22;
+  --secondary: #1f1f23;
+  --secondary-foreground: #f5f5f7;
+  --muted: #1f1f23;
+  --muted-foreground: #71717a;
+  --accent: #1f1f23;
+  --accent-foreground: #f5f5f7;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #10b981;
+  --chart-1: #10b981;
+  --chart-2: #14b8a6;
+  --chart-3: #06b6d4;
+  --chart-4: #3b82f6;
+  --chart-5: #a855f7;
+  --sidebar: #111115;
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-primary: #10b981;
+  --sidebar-primary-foreground: #022c22;
+  --sidebar-accent: #1f1f23;
+  --sidebar-accent-foreground: #f5f5f7;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #10b981;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+}
+
+/* ========================================
+   LANDING PAGE ANIMATIONS
+   ======================================== */
+
+/* Spirit orb wandering animations */
+@keyframes spirit-wander-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(60px, 40px) scale(1.05); }
+  40% { transform: translate(20px, 80px) scale(0.98); }
+  60% { transform: translate(-40px, 50px) scale(1.03); }
+  80% { transform: translate(-20px, -30px) scale(0.97); }
+}
+
+@keyframes spirit-wander-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-50px, -40px) scale(1.04); }
+  50% { transform: translate(-80px, 20px) scale(0.96); }
+  75% { transform: translate(-30px, 60px) scale(1.02); }
+}
+
+@keyframes spirit-wander-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, -60px) scale(1.06); }
+  66% { transform: translate(40px, 30px) scale(0.95); }
+}
+
+@keyframes spirit-wander-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(50px, -30px) scale(1.03); }
+  50% { transform: translate(0, 50px) scale(0.97); }
+  75% { transform: translate(-50px, -20px) scale(1.04); }
+}
+
+/* Soft breathing animations */
+@keyframes spirit-breath {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes spirit-breath-dim {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.38; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Spirit orb animation classes */
+.animate-float {
+  animation: spirit-wander-1 25s ease-in-out infinite, spirit-breath 10s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: spirit-wander-2 30s ease-in-out infinite, spirit-breath 12s ease-in-out infinite;
+  animation-delay: -10s, -5s;
+}
+
+.animate-float-delayed-2 {
+  animation: spirit-wander-3 22s ease-in-out infinite, spirit-breath-dim 8s ease-in-out infinite;
+  animation-delay: -7s, -3s;
+}
+
+.animate-float-delayed-3 {
+  animation: spirit-wander-4 28s ease-in-out infinite, spirit-breath-dim 11s ease-in-out infinite;
+  animation-delay: -14s, -6s;
+}
+
+.animate-float-delayed-4 {
+  animation: spirit-wander-1 35s ease-in-out infinite, spirit-breath-dim 14s ease-in-out infinite;
+  animation-delay: -18s, -8s;
+}
+
+.animate-float-delayed-5 {
+  animation: spirit-wander-2 28s ease-in-out infinite, spirit-breath 11s ease-in-out infinite;
+  animation-delay: -5s, -2s;
+}
+
+.animate-float-delayed-6 {
+  animation: spirit-wander-3 32s ease-in-out infinite, spirit-breath-dim 13s ease-in-out infinite;
+  animation-delay: -12s, -4s;
+}
+
+/* Fade in up animations */
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-fade-in-up-1 {
+  animation: fadeInUp 0.8s ease-out 0.1s backwards;
+}
+
+.animate-fade-in-up-2 {
+  animation: fadeInUp 0.8s ease-out 0.2s backwards;
+}
+
+.animate-fade-in-up-3 {
+  animation: fadeInUp 0.8s ease-out 0.3s backwards;
+}
+
+.animate-fade-in-up-4 {
+  animation: fadeInUp 0.8s ease-out 0.4s backwards;
+}
+
+/* Font utility classes */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Noise texture overlay */
+.landing-noise::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

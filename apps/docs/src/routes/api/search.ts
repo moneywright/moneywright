@@ -1,23 +1,16 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
-import { createSearchAPI } from "fumadocs-core/search/server";
-import { source } from "@/lib/source";
+import { createFileRoute } from '@tanstack/react-router';
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
 
-const search = createSearchAPI("advanced", {
-	indexes: source.getPages().map((page) => ({
-		title: page.data.title,
-		description: page.data.description,
-		url: page.url,
-		id: page.url,
-		structuredData: page.data.structuredData,
-	})),
+const server = createFromSource(source, {
+  // https://docs.orama.com/docs/orama-js/supported-languages
+  language: 'english',
 });
 
-export const APIRoute = createAPIFileRoute("/api/search")({
-	GET: async ({ request }) => {
-		const url = new URL(request.url);
-		const query = url.searchParams.get("query") ?? "";
-
-		const results = search(query);
-		return Response.json(results);
-	},
+export const Route = createFileRoute('/api/search')({
+  server: {
+    handlers: {
+      GET: async ({ request }) => server.GET(request),
+    },
+  },
 });

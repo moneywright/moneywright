@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -33,6 +34,94 @@ async fn store_log(log_store: &SharedLogStore, message: &str) {
 
 pub const SERVER_PORT: u16 = 17777;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Kill any process listening on the server port
+/// This ensures we don't have orphaned processes from previous runs
+pub fn kill_process_on_port(port: u16) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, use lsof to find ONLY the process LISTENING on the port
+        // Using -sTCP:LISTEN to filter out client connections
+        let output = Command::new("lsof")
+            .args(["-ti", &format!("tcp:{}", port), "-sTCP:LISTEN"])
+            .output()
+            .map_err(|e| format!("Failed to run lsof: {}", e))?;
+
+        if output.status.success() {
+            let pids = String::from_utf8_lossy(&output.stdout);
+            for pid in pids.lines() {
+                let pid = pid.trim();
+                if !pid.is_empty() {
+                    println!("Killing server process {} on port {}", pid, port);
+                    let _ = Command::new("kill")
+                        .args(["-9", pid])
+                        .output();
+                }
+            }
+            // Give the OS a moment to release the port
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // On Linux, use ss to find ONLY the process LISTENING on the port
+        let output = Command::new("ss")
+            .args(["-tlnp", &format!("sport = :{}", port)])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let lines = String::from_utf8_lossy(&output.stdout);
+                // Parse ss output to extract PID (format: pid=1234)
+                for line in lines.lines() {
+                    if let Some(pid_start) = line.find("pid=") {
+                        let pid_str = &line[pid_start + 4..];
+                        if let Some(end) = pid_str.find(|c: char| !c.is_ascii_digit()) {
+                            let pid = &pid_str[..end];
+                            if !pid.is_empty() {
+                                println!("Killing server process {} on port {}", pid, port);
+                                let _ = Command::new("kill")
+                                    .args(["-9", pid])
+                                    .output();
+                            }
+                        }
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(500));
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use netstat to find ONLY LISTENING processes
+        let output = Command::new("cmd")
+            .args(["/C", &format!("netstat -ano | findstr :{} | findstr LISTENING", port)])
+            .output()
+            .map_err(|e| format!("Failed to run netstat: {}", e))?;
+
+        if output.status.success() {
+            let lines = String::from_utf8_lossy(&output.stdout);
+            for line in lines.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if let Some(pid) = parts.last() {
+                    if let Ok(pid_num) = pid.parse::<u32>() {
+                        if pid_num > 0 {
+                            println!("Killing server process {} on port {}", pid, port);
+                            let _ = Command::new("taskkill")
+                                .args(["/F", "/PID", pid])
+                                .output();
+                        }
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    }
+
+    Ok(())
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServerStatus {
@@ -219,6 +308,11 @@ pub async fn start_server(
 
     mgr.status = ServerStatus::Starting;
 
+    // Kill any existing process on the port (from previous crashed runs)
+    if let Err(e) = kill_process_on_port(SERVER_PORT) {
+        eprintln!("Warning: Failed to check for existing processes: {}", e);
+    }
+
     let data_dir = mgr.data_dir.clone();
 
     // Get the sidecar command
@@ -344,8 +438,15 @@ pub async fn start_server(
 pub async fn stop_server(manager: SharedServerManager) -> Result<(), String> {
     let mut mgr = manager.lock().await;
 
+    // First try to kill via the child handle
     if let Some(child) = mgr.child.take() {
-        child.kill().map_err(|e| format!("Failed to kill server: {}", e))?;
+        let _ = child.kill();
+    }
+
+    // Also kill any process on the port as a fallback
+    // This handles cases where child.kill() didn't work or process spawned children
+    if let Err(e) = kill_process_on_port(SERVER_PORT) {
+        eprintln!("Warning: Failed to kill process on port: {}", e);
     }
 
     mgr.status = ServerStatus::Stopped;

@@ -1,47 +1,49 @@
 ---
 title: Getting Started
-description: Welcome to Moneywright documentation
+description: Welcome to Moneywright - a privacy-focused personal finance manager
+icon: Rocket
 ---
-
-# Welcome to Moneywright
 
 Moneywright is an open-source, self-hostable, AI-powered personal finance helper. Upload your bank statements, credit card statements, and investment data to get intelligent expense analysis, investment insights, and personalized financial advice.
 
+## Features
+
+- **AI-Powered Analysis** - Get intelligent insights into your spending patterns
+- **Statement Upload** - Import bank and credit card statements
+- **Expense Tracking** - Automatic categorization of expenses
+- **Investment Analysis** - Track your portfolio performance
+- **Financial Advice** - Personalized recommendations
+- **Self-Hostable** - Full control over your financial data
+
+<Cards>
+  <Card title="Installation" href="/docs/installation" />
+  <Card title="GitHub Repository" href="https://github.com/moneywright/moneywright" />
+</Cards>
+
 ## Quick Start
 
-1. Install dependencies:
+The fastest way to get started is with the desktop app or one-line installer:
 
 ```bash
-bun install
+# macOS / Linux
+curl -fsSL https://moneywright.com/install.sh | bash
+
+# Windows (PowerShell)
+irm moneywright.com/install.ps1 | iex
 ```
 
-2. Start development server:
-
-```bash
-bun run dev
-```
-
-3. Open [http://localhost:17777](http://localhost:17777) in your browser.
+Then open [http://localhost:17777](http://localhost:17777) in your browser.
 
 ## Project Structure
 
 ```
+moneywright/
 ├── apps/
-│   ├── api/          # Hono backend
+│   ├── api/          # Hono backend server
 │   ├── web/          # React frontend
-│   └── docs/         # Documentation (Fumadocs)
+│   ├── docs/         # Documentation (you are here)
+│   └── desktop/      # System tray app (Tauri)
 ├── scripts/          # Build scripts
 ├── Dockerfile        # Docker configuration
 └── docker-compose.yml
 ```
-
-## Features
-
-- **AI-Powered Analysis**: Get intelligent insights into your spending patterns
-- **Statement Upload**: Import bank and credit card statements
-- **Expense Tracking**: Automatic categorization of expenses
-- **Investment Analysis**: Track your portfolio performance
-- **Financial Advice**: Personalized recommendations
-- **Self-Hostable**: Full control over your financial data
-- **Authentication**: Google OAuth with secure session management
-- **Database**: PostgreSQL or SQLite with Drizzle ORM

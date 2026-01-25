@@ -3,7 +3,7 @@
 mod server;
 mod updater;
 
-use server::{create_server_manager, get_server_url, start_server, stop_server, get_data_dir, ServerStatus, SharedServerManager};
+use server::{create_server_manager, get_server_url, start_server, stop_server, kill_process_on_port, SERVER_PORT, ServerStatus, SharedServerManager};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
 use serde::Serialize;
@@ -185,12 +185,11 @@ async fn clear_logs(log_store: tauri::State<'_, SharedLogStore>) -> Result<(), S
 
 /// Quit the application
 #[tauri::command]
-async fn quit_app_cmd(app: AppHandle, manager: tauri::State<'_, SharedServerManager>) -> Result<(), String> {
+async fn quit_app_cmd(app: AppHandle) -> Result<(), String> {
     emit_log(&app, "Shutting down...", "info");
 
-    // Stop the server first
-    let manager = manager.inner().clone();
-    let _ = stop_server(manager).await;
+    // Kill server process synchronously
+    let _ = kill_process_on_port(SERVER_PORT);
 
     // Exit the app
     app.exit(0);
@@ -214,7 +213,7 @@ fn open_logs_window(app: &AppHandle) {
         WebviewUrl::App("/".into()),
     )
     .title("View Logs")
-    .inner_size(800.0, 500.0)
+    .inner_size(1000.0, 500.0)
     .min_inner_size(400.0, 300.0)
     .build();
 
@@ -290,6 +289,8 @@ fn open_logs_window(app: &AppHandle) {
                 try {
                     const logs = await window.__TAURI__.core.invoke('get_logs');
                     const container = document.getElementById('logs');
+                    // Check if user is near the bottom before updating
+                    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
                     container.innerHTML = logs.map(log => {
                         let cls = 'log-line';
                         if (log.includes('[error]') || log.includes('Error') || log.includes('error:')) cls += ' error';
@@ -298,7 +299,10 @@ fn open_logs_window(app: &AppHandle) {
                         return '<div class="' + cls + '">' + escapeHtml(log) + '</div>';
                     }).join('');
                     document.getElementById('count').textContent = logs.length + ' lines';
-                    container.scrollTop = container.scrollHeight;
+                    // Only auto-scroll if user was already at/near the bottom
+                    if (wasAtBottom) {
+                        container.scrollTop = container.scrollHeight;
+                    }
                 } catch (e) {
                     document.getElementById('logs').innerHTML = '<div class="log-line error">Failed to load logs: ' + e + '</div>';
                 }
@@ -401,10 +405,8 @@ pub fn run() {
                 }
                 "logs" => open_logs_window(app),
                 "quit" => {
-                    let manager = app.state::<SharedServerManager>().inner().clone();
-                    tauri::async_runtime::block_on(async {
-                        let _ = stop_server(manager).await;
-                    });
+                    // Kill server process synchronously before exit
+                    let _ = kill_process_on_port(SERVER_PORT);
                     app.exit(0);
                 }
                 _ => {}
@@ -413,13 +415,20 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                let manager = app.state::<SharedServerManager>().inner().clone();
-                tauri::async_runtime::block_on(async {
-                    if let Err(e) = stop_server(manager).await {
-                        eprintln!("Error stopping server: {}", e);
+            match event {
+                tauri::RunEvent::Reopen { .. } => {
+                    // Show main window when dock icon is clicked (macOS)
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
                     }
-                });
+                }
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                    // Kill server process synchronously - this is critical for cleanup
+                    // We use the direct kill approach because async may not complete before termination
+                    let _ = kill_process_on_port(SERVER_PORT);
+                }
+                _ => {}
             }
         });
 }
