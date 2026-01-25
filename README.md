@@ -37,7 +37,7 @@ bun install
 bun run dev
 ```
 
-Open [http://localhost:7777](http://localhost:7777) in your browser.
+Open [http://localhost:17777](http://localhost:17777) in your browser.
 
 ### First-Time Setup
 
@@ -110,7 +110,7 @@ GOOGLE_CLIENT_SECRET=...
 ```bash
 # Development
 bun run dev              # Start API + Web dev servers
-bun run dev:api          # API only (localhost:7777)
+bun run dev:api          # API only (localhost:17777)
 bun run dev:web          # Web only (localhost:3000)
 
 # Database

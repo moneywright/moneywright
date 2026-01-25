@@ -43,7 +43,7 @@ bun run db:studio      # Open Drizzle Studio GUI
 
 ```bash
 # API only
-bun run dev:api        # Port 7777
+bun run dev:api        # Port 17777
 
 # Web only
 bun run dev:web        # Port 3000
@@ -317,7 +317,7 @@ OLLAMA_BASE_URL=       # Local LLM (default: http://localhost:11434/api)
 
 | Service | Development | Production |
 |---------|-------------|------------|
-| API | 7777 | 7777 |
+| API | 17777 | 17777 |
 | Web | 3000 | (served by API) |
 | Docs | 3002 | (Cloudflare Workers) |
 | Desktop | 17777 | 17777 |

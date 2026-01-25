@@ -25,7 +25,9 @@ echo ""
 # Parse arguments
 TARGET=""
 DEBUG=false
-NOTARIZE=false
+NOTARIZE=true  # Notarize by default for macOS
+SKIP_NOTARIZE=false
+FULL_CLEAN=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     --target)
@@ -36,8 +38,12 @@ while [[ $# -gt 0 ]]; do
       DEBUG=true
       shift
       ;;
-    --notarize)
-      NOTARIZE=true
+    --skip-notarize)
+      SKIP_NOTARIZE=true
+      shift
+      ;;
+    --clean)
+      FULL_CLEAN=true
       shift
       ;;
     *)
@@ -48,7 +54,8 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --target <platform>   Target platform: macos, macos-intel, windows, linux, linux-arm"
       echo "  --debug               Build in debug mode (faster, larger binary)"
-      echo "  --notarize            Notarize macOS build (requires APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID)"
+      echo "  --skip-notarize       Skip notarization for macOS builds"
+      echo "  --clean               Full clean build (removes Rust target directory)"
       echo ""
       exit 1
       ;;
@@ -92,6 +99,27 @@ esac
 echo -e "Target: ${CYAN}$PLATFORM_NAME${NC}"
 echo ""
 
+# Clean previous build artifacts
+echo -e "${YELLOW}Cleaning previous build artifacts...${NC}"
+# Clean sidecar binaries (keep .gitkeep)
+find "$DESKTOP_DIR/src-tauri/binaries" -type f ! -name '.gitkeep' -delete 2>/dev/null || true
+# Clean drizzle folder contents but keep structure
+rm -rf "$DESKTOP_DIR/src-tauri/binaries/drizzle/sqlite/"* 2>/dev/null || true
+rm -rf "$DESKTOP_DIR/src-tauri/binaries/drizzle/pg/"* 2>/dev/null || true
+# Clean public folder
+rm -rf "$DESKTOP_DIR/src-tauri/binaries/public/"* 2>/dev/null || true
+# Clean Tauri release bundle
+rm -rf "$DESKTOP_DIR/src-tauri/target/$RUST_TARGET/release/bundle" 2>/dev/null || true
+
+# Full clean if requested (removes entire target directory for fresh Rust build)
+if [ "$FULL_CLEAN" = true ]; then
+  echo -e "  Full clean: removing Rust target directory..."
+  rm -rf "$DESKTOP_DIR/src-tauri/target" 2>/dev/null || true
+fi
+
+echo -e "${GREEN}Clean complete${NC}"
+echo ""
+
 # Step 1: Build the moneywright sidecar binary
 echo -e "${YELLOW}Step 1: Building moneywright sidecar binary...${NC}"
 "$ROOT_DIR/scripts/build-binary.sh" --target "$BUN_TARGET" --for-desktop
@@ -119,24 +147,29 @@ fi
 
 # Set up Apple notarization for macOS builds
 if [[ "$RUST_TARGET" == *"apple-darwin"* ]]; then
-  if [ "$NOTARIZE" = true ]; then
-    if [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
-      echo -e "${RED}Error: Notarization requires APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID environment variables${NC}"
-      echo ""
-      echo "Set these environment variables:"
-      echo "  export APPLE_ID=\"your@email.com\""
-      echo "  export APPLE_PASSWORD=\"app-specific-password\"  # Generate at appleid.apple.com"
-      echo "  export APPLE_TEAM_ID=\"YOUR_TEAM_ID\"            # Find in Apple Developer portal"
-      echo ""
-      exit 1
-    fi
-
-    # Set Tauri notarization environment variables
-    export APPLE_SIGNING_IDENTITY="Developer ID Application"
-    echo -e "  Notarization: ${GREEN}Enabled${NC}"
+  if [ "$SKIP_NOTARIZE" = true ]; then
+    NOTARIZE=false
+    echo -e "  Notarization: ${YELLOW}Skipped${NC} (--skip-notarize flag)"
+  elif [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+    echo -e "${RED}Error: Notarization requires APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID environment variables${NC}"
+    echo ""
+    echo "Set these environment variables:"
+    echo "  export APPLE_ID=\"your@email.com\""
+    echo "  export APPLE_PASSWORD=\"app-specific-password\"  # Generate at appleid.apple.com"
+    echo "  export APPLE_TEAM_ID=\"YOUR_TEAM_ID\"            # Find in Apple Developer portal"
+    echo ""
+    echo "Or use --skip-notarize to build without notarization"
+    echo ""
+    exit 1
   else
-    echo -e "  Notarization: ${YELLOW}Disabled${NC} (use --notarize flag to enable)"
+    # Use APPLE_SIGNING_IDENTITY from environment, or default
+    export APPLE_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:-Developer ID Application}"
+    echo -e "  Signing identity: ${CYAN}$APPLE_SIGNING_IDENTITY${NC}"
+    echo -e "  Notarization: ${GREEN}Enabled${NC}"
   fi
+else
+  # Non-macOS targets don't support notarization
+  NOTARIZE=false
 fi
 
 # Build with Tauri

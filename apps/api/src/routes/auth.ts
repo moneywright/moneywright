@@ -25,7 +25,7 @@ import {
   deleteUser,
 } from '../services/auth'
 import { ensureDefaultUser } from '../services/user'
-import { isDevelopment, isAuthEnabled } from '../lib/startup'
+import { isDevelopment, isAuthEnabled, isLocalhost } from '../lib/startup'
 
 const authRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -76,8 +76,8 @@ function setAuthCookies(
 
   const cookieOptions = {
     httpOnly: true,
-    secure: !isDevelopment(),
-    sameSite: 'strict' as const,
+    secure: !isLocalhost(), // Don't require HTTPS for localhost (desktop app, local dev)
+    sameSite: 'lax' as const, // Use 'lax' for better compatibility with localhost
     path: '/',
   }
 
@@ -102,8 +102,8 @@ function setAuthCookies(
   // Session hint cookie (JS-accessible)
   setCookie(c, SESSION_HINT_COOKIE, '1', {
     httpOnly: false,
-    secure: !isDevelopment(),
-    sameSite: 'strict',
+    secure: !isLocalhost(),
+    sameSite: 'lax',
     path: '/',
     maxAge: tokenExpiry.refreshToken,
   })
@@ -115,8 +115,8 @@ function setAuthCookies(
 function clearAuthCookies(c: Context): void {
   const cookieOptions = {
     path: '/',
-    secure: !isDevelopment(),
-    sameSite: 'strict' as const,
+    secure: !isLocalhost(),
+    sameSite: 'lax' as const,
   }
 
   deleteCookie(c, COOKIE_NAMES.ACCESS_TOKEN, cookieOptions)

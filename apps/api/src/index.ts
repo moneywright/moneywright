@@ -7,7 +7,13 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/bun'
 import { join } from 'path'
-import { initializeBinaryEnvironment, isDevelopment, getAppDir, openBrowser } from './lib/startup'
+import {
+  initializeBinaryEnvironment,
+  isDevelopment,
+  isDesktopSidecar,
+  getAppDir,
+  openBrowser,
+} from './lib/startup'
 
 // Initialize binary environment (auto-generates .env and loads it from binary directory)
 initializeBinaryEnvironment()
@@ -68,10 +74,17 @@ if (args.includes('--reset-google-oauth')) {
 
 const app = new Hono()
 
+// Global error handler - log all errors
+app.onError((err, c) => {
+  logger.error(`[Error] ${c.req.method} ${c.req.path}:`, err.message)
+  logger.error(`[Error] Stack:`, err.stack)
+  return c.json({ error: 'internal_server_error', message: err.message }, 500)
+})
+
 // CORS configuration
 // In development: Allow localhost:3000 (Vite) and APP_URL
 // Otherwise: Same-origin SPA, allow APP_URL only
-const appUrl = process.env.APP_URL || 'http://localhost:7777'
+const appUrl = process.env.APP_URL || 'http://localhost:17777'
 const allowedOrigins = isDevelopment() ? ['http://localhost:3000', appUrl] : [appUrl]
 
 app.use(
@@ -128,8 +141,8 @@ app.route('/api/chat', chatRoutes)
 // Static file serving for SPA (non-development mode)
 // In development, Vite dev server handles this
 if (!isDevelopment()) {
-  // Path to public folder - relative to binary/script location
-  const publicDir = join(APP_DIR, 'public')
+  // Path to public folder - use PUBLIC_DIR env var if set (desktop app), otherwise relative to binary
+  const publicDir = process.env.PUBLIC_DIR || join(APP_DIR, 'public')
   const indexPath = join(publicDir, 'index.html')
 
   logger.debug(`[SPA] Serving static files from: ${publicDir}`)
@@ -163,14 +176,16 @@ if (!isDevelopment()) {
   })
 }
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 7777
+const port = process.env.PORT ? parseInt(process.env.PORT) : 17777
 
 // Start the server
 if (!isDevelopment()) {
   // Production mode - use Bun.serve directly
   Bun.serve({
     port,
-    fetch: app.fetch,
+    fetch(req, server) {
+      return app.fetch(req, { ip: server.requestIP(req)?.address })
+    },
     development: false,
     idleTimeout: 120, // 2 minutes for streaming responses
   })
@@ -182,11 +197,13 @@ if (!isDevelopment()) {
     dbType,
   })
 
-  // Auto-open browser if display is available
-  setTimeout(() => {
-    const url = isFirstRun ? `http://localhost:${port}/setup` : `http://localhost:${port}`
-    openBrowser(url)
-  }, 500)
+  // Auto-open browser if display is available (skip for desktop app sidecar)
+  if (!isDesktopSidecar()) {
+    setTimeout(() => {
+      const url = isFirstRun ? `http://localhost:${port}/setup` : `http://localhost:${port}`
+      openBrowser(url)
+    }, 500)
+  }
 }
 
 // Default export for development mode (bun --hot)

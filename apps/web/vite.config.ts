@@ -10,11 +10,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:7777',
+        target: 'http://localhost:17777',
         changeOrigin: true,
       },
       '/health': {
-        target: 'http://localhost:7777',
+        target: 'http://localhost:17777',
         changeOrigin: true,
       },
     },

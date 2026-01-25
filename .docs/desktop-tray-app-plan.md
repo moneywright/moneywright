@@ -38,7 +38,7 @@ The Tauri app:
 4. Opens the default browser to `http://localhost:17777`
 5. Gracefully terminates the binary on quit
 
-**Fixed Port:** Uses port `17777` (instead of 7777) to avoid conflicts with the CLI version or other services.
+**Fixed Port:** Uses port `17777` (instead of 17777) to avoid conflicts with the CLI version or other services.
 
 ---
 
@@ -101,7 +101,7 @@ apps/
 5. **System Tray (`tray.rs`)**
    - Tray icon (different for running/stopped states, optional)
    - Menu items:
-     - **Open Moneywright** — opens `http://localhost:7777` in default browser
+     - **Open Moneywright** — opens `http://localhost:17777` in default browser
      - **Status: Running** — disabled label showing status
      - Separator
      - **Quit** — graceful shutdown
@@ -147,7 +147,7 @@ apps/
     - Tray icons: 16x16, 32x32 PNG (template images for macOS dark/light mode)
 
 11. **First launch experience**
-    - On first launch, automatically open browser to `http://localhost:7777`
+    - On first launch, automatically open browser to `http://localhost:17777`
     - Show native notification: "Moneywright is running in your menu bar"
 
 12. **macOS specific**
@@ -310,7 +310,7 @@ serde_json = "1"
 ## Success Criteria
 
 1. User downloads DMG/installer, drags to Applications / runs installer
-2. App starts, shows tray icon, launches browser to localhost:7777
+2. App starts, shows tray icon, launches browser to localhost:17777
 3. User can quit from tray menu, app shuts down cleanly
 4. On next launch, app starts the server again
 5. Data persists in proper OS-specific location
@@ -334,7 +334,7 @@ serde_json = "1"
 | Linux support? | **Yes** — Include in V1 (AppImage + deb) |
 | Code signing? | **Yes** — Apple Developer account available |
 | Auto-updates? | **Yes** — Use Tauri's built-in updater |
-| Port? | **17777** — Fixed port, avoids conflicts with CLI version (7777) |
+| Port? | **17777** — Fixed port, avoids conflicts with CLI version (17777) |
 
 ---
 

@@ -3,7 +3,7 @@ import { getCookie } from 'hono/cookie'
 import { verifyJWT, type AccessTokenPayload } from '../lib/jwt'
 import { verifyFingerprint, hashForLog } from '../lib/hash'
 import { logger } from '../lib/logger'
-import { isDevelopment, isAuthEnabled } from '../lib/startup'
+import { isAuthEnabled, isLocalhost } from '../lib/startup'
 
 /**
  * Auth context variables set by middleware.
@@ -14,15 +14,22 @@ export interface AuthVariables {
 }
 
 /**
- * Cookie names for auth tokens.
+ * Get cookie names for auth tokens.
  * In production (HTTPS), use __Host- prefix for maximum security.
- * In development (HTTP), use regular names since __Host- requires Secure flag.
+ * On localhost (HTTP), use regular names since __Host- requires Secure flag.
+ * This is a function because isLocalhost() depends on env vars loaded at runtime.
  */
-export const COOKIE_NAMES = {
-  ACCESS_TOKEN: isDevelopment() ? 'sid' : '__Host-sid',
-  REFRESH_TOKEN: isDevelopment() ? 'rid' : '__Host-rid',
-  FINGERPRINT: isDevelopment() ? 'fgp' : '__Host-fgp',
-} as const
+function getCookieNames() {
+  const useSimpleNames = isLocalhost()
+  return {
+    ACCESS_TOKEN: useSimpleNames ? 'sid' : '__Host-sid',
+    REFRESH_TOKEN: useSimpleNames ? 'rid' : '__Host-rid',
+    FINGERPRINT: useSimpleNames ? 'fgp' : '__Host-fgp',
+  } as const
+}
+
+// Export for use in auth routes
+export const COOKIE_NAMES = getCookieNames()
 
 /**
  * Extract bearer token from Authorization header.

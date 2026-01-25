@@ -89,7 +89,7 @@ export function validateEnv(): void {
  * Call validateEnv() first to ensure all required vars are set
  */
 export function getEnv(): EnvConfig {
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 7777
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 17777
 
   return {
     JWT_SECRET: process.env.JWT_SECRET!,

@@ -4,7 +4,7 @@
 # Usage:
 #   docker compose up -d
 #
-# Access the app at http://localhost:7777
+# Access the app at http://localhost:17777
 
 services:
   # Bundled PostgreSQL
@@ -31,11 +31,11 @@ services:
       dockerfile: Dockerfile
     container_name: moneywright-app
     ports:
-      - "${PORT:-7777}:7777"
+      - "${PORT:-17777}:17777"
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - APP_URL=${APP_URL:-http://localhost:7777}
+      - APP_URL=${APP_URL:-http://localhost:17777}
       - DATABASE_URL=postgres://moneywright:${POSTGRES_PASSWORD:-moneywright_secret}@postgres:5432/moneywright
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}

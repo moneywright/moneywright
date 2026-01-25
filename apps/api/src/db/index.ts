@@ -30,15 +30,17 @@ const isCompiledBinary = (() => {
 const APP_DIR = isCompiledBinary ? dirname(process.execPath) : import.meta.dir
 
 // SQLite database path
-// Priority: SQLITE_PATH env var > ./data/app.db relative to binary/api folder
-// For compiled binary: data/ folder sits next to the binary
-// For development: data/ folder in apps/api/data/
+// Priority: SQLITE_PATH env var > DATA_DIR env var > APP_DIR/data/app.db
 const getDefaultSqlitePath = () => {
-  // In compiled mode, use path relative to binary
+  // Desktop sidecar: Tauri sets DATA_DIR to writable location
+  if (process.env.DATA_DIR) {
+    return join(process.env.DATA_DIR, 'data', 'app.db')
+  }
+  // Standalone binary: data/ folder next to binary
   if (isCompiledBinary) {
     return join(APP_DIR, 'data', 'app.db')
   }
-  // In development, use apps/api/data/ (APP_DIR is src/db, go up 2 levels to apps/api)
+  // Development: apps/api/data/
   return join(APP_DIR, '..', '..', 'data', 'app.db')
 }
 

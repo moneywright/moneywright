@@ -54,8 +54,8 @@ coverage/
 
 # Tauri / Desktop
 apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/binaries/moneywright-*
-!apps/desktop/src-tauri/binaries/.gitkeep
+apps/desktop/src-tauri/binaries/
+
 
 # Misc
 *.log

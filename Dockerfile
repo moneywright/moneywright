@@ -1,6 +1,6 @@
 # Moneywright - Docker Image
 # AI-powered personal finance helper
-# API serves both backend and SPA frontend on port 7777
+# API serves both backend and SPA frontend on port 17777
 
 # =============================================================================
 # Base stage
@@ -91,14 +91,14 @@ RUN chmod +x /entrypoint.sh
 RUN mkdir -p /usr/src/app/data && chown bun:bun /usr/src/app/data
 
 # Expose single port
-EXPOSE 7777/tcp
+EXPOSE 17777/tcp
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:7777/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:17777/health || exit 1
 
 # Environment defaults
-ENV PORT=7777
+ENV PORT=17777
 ENV DATA_DIR=/usr/src/app/data
 
 # Labels

@@ -117,10 +117,28 @@ else
 fi
 echo -e "${GREEN}Binary compiled successfully${NC}"
 
-# For desktop builds, we only need the binary - skip copying assets
+# For desktop builds, we need the binary and migrations
 if [ "$FOR_DESKTOP" = true ]; then
   # Clean up api/public
   rm -rf "$ROOT_DIR/apps/api/public"
+
+  # Copy migrations for the sidecar
+  echo -e "${YELLOW}Step 4: Copying migrations for desktop...${NC}"
+  mkdir -p "$DIST_DIR/drizzle/sqlite"
+  cp -r "$ROOT_DIR/apps/api/drizzle/sqlite/"* "$DIST_DIR/drizzle/sqlite/"
+  if [ -d "$ROOT_DIR/apps/api/drizzle/pg" ]; then
+    mkdir -p "$DIST_DIR/drizzle/pg"
+    cp -r "$ROOT_DIR/apps/api/drizzle/pg/"* "$DIST_DIR/drizzle/pg/"
+    echo -e "${GREEN}Migrations copied (SQLite + PostgreSQL)${NC}"
+  else
+    echo -e "${GREEN}Migrations copied (SQLite only)${NC}"
+  fi
+
+  # Copy frontend public folder for the sidecar
+  echo -e "${YELLOW}Step 5: Copying frontend for desktop...${NC}"
+  mkdir -p "$DIST_DIR/public"
+  cp -r "$ROOT_DIR/apps/web/dist/"* "$DIST_DIR/public/"
+  echo -e "${GREEN}Frontend copied${NC}"
 
   echo ""
   echo -e "${GREEN}========================================${NC}"
@@ -172,7 +190,7 @@ echo "  ./moneywright"
 echo ""
 echo -e "${YELLOW}Notes:${NC}"
 echo "  - Binary auto-generates .env with secure secrets on first run"
-echo "  - Default port: 7777 (http://localhost:7777)"
+echo "  - Default port: 17777 (http://localhost:17777)"
 echo "  - Configure Google OAuth via /setup UI or edit .env"
 echo ""
 echo -e "${YELLOW}Cross-compilation targets:${NC}"

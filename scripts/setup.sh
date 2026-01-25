@@ -72,7 +72,7 @@ ENCRYPTION_KEY=$ENCRYPTION_KEY
 # Application URL
 # Set this to your public URL for production deployments
 # The OAuth redirect URI is derived from this: APP_URL + /auth/google/callback
-# Default: http://localhost:7777 (production) or http://localhost:3000 (development)
+# Default: http://localhost:17777 (production) or http://localhost:3000 (development)
 # -----------------------------------------------------------------------------
 # APP_URL=https://your-domain.com
 
@@ -98,14 +98,14 @@ echo ""
 echo "1. Set up Google OAuth credentials (optional for local use):"
 echo "   - Go to https://console.cloud.google.com/apis/credentials"
 echo "   - Create an OAuth 2.0 Client ID"
-echo "   - Add redirect URI: http://localhost:7777/auth/google/callback"
+echo "   - Add redirect URI: http://localhost:17777/auth/google/callback"
 echo "   - Add your credentials to .env"
 echo ""
 echo "2. Start Moneywright:"
 echo "   docker compose up -d"
 echo ""
 echo "3. Open in browser:"
-echo "   http://localhost:7777"
+echo "   http://localhost:17777"
 echo ""
 echo "=========================================="
 echo ""

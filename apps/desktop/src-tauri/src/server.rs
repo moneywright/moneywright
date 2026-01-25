@@ -4,10 +4,32 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::async_runtime::Mutex;
-use tauri::Manager;
+use tokio::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+use serde::Serialize;
+use crate::SharedLogStore;
+
+#[derive(Clone, Serialize)]
+struct LogPayload {
+    message: String,
+    log_type: String,
+}
+
+/// Emit a log message to the frontend and store it
+fn emit_log(app: &AppHandle, message: &str, log_type: &str) {
+    let _ = app.emit("server-log", LogPayload {
+        message: message.to_string(),
+        log_type: log_type.to_string(),
+    });
+}
+
+/// Store a log message
+async fn store_log(log_store: &SharedLogStore, message: &str) {
+    let mut store = log_store.lock().await;
+    store.add(message.to_string());
+}
 
 pub const SERVER_PORT: u16 = 17777;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
@@ -187,6 +209,7 @@ pub fn create_server_manager(app: &tauri::AppHandle) -> SharedServerManager {
 pub async fn start_server(
     app: tauri::AppHandle,
     manager: SharedServerManager,
+    log_store: SharedLogStore,
 ) -> Result<(), String> {
     let mut mgr = manager.lock().await;
 
@@ -207,15 +230,28 @@ pub async fn start_server(
         .env("DATA_DIR", data_dir.to_string_lossy().to_string());
 
     // Set DATABASE_URL if configured
-    if let Some(database_url) = read_database_url(&data_dir) {
+    let is_postgres = if let Some(database_url) = read_database_url(&data_dir) {
         sidecar = sidecar.env("DATABASE_URL", database_url);
-        println!("Using PostgreSQL database");
+        emit_log(&app, "Using PostgreSQL database", "info");
+        store_log(&log_store, "Using PostgreSQL database").await;
+        true
     } else {
-        println!("Using SQLite database (default)");
-    }
+        emit_log(&app, "Using SQLite database", "info");
+        store_log(&log_store, "Using SQLite database").await;
+        false
+    };
 
-    // Set working directory to data_dir so relative paths work
-    sidecar = sidecar.env("MONEYWRIGHT_DATA_DIR", data_dir.to_string_lossy().to_string());
+    // Set paths from app resources
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let migrations_type = if is_postgres { "pg" } else { "sqlite" };
+        let migrations_path = resource_dir.join("drizzle").join(migrations_type);
+        let public_path = resource_dir.join("public");
+        let log_msg = format!("Data directory: {}", data_dir.display());
+        emit_log(&app, &log_msg, "info");
+        store_log(&log_store, &log_msg).await;
+        sidecar = sidecar.env("MIGRATIONS_PATH", migrations_path.to_string_lossy().to_string());
+        sidecar = sidecar.env("PUBLIC_DIR", public_path.to_string_lossy().to_string());
+    }
 
     // Spawn the sidecar process
     let (mut rx, child) = sidecar
@@ -229,31 +265,51 @@ pub async fn start_server(
 
     // Spawn a task to handle stdout/stderr
     let manager_clone = manager.clone();
+    let app_clone = app.clone();
+    let log_store_clone = log_store.clone();
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
                 CommandEvent::Stdout(line) => {
-                    let line_str = String::from_utf8_lossy(&line);
-                    println!("[moneywright] {}", line_str);
+                    let line_str = String::from_utf8_lossy(&line).trim().to_string();
+                    if !line_str.is_empty() {
+                        let log_line = format!("[moneywright] {}", line_str);
+                        println!("{}", log_line);
+                        emit_log(&app_clone, &line_str, "server");
+                        store_log(&log_store_clone, &log_line).await;
 
-                    // Check if server is ready
-                    if line_str.contains("Listening on") || line_str.contains("Server running") {
-                        let mut mgr = manager_clone.lock().await;
-                        mgr.status = ServerStatus::Running;
+                        // Check if server is ready
+                        if line_str.contains("Listening on") || line_str.contains("Server running") || line_str.contains("Server is running") {
+                            let mut mgr = manager_clone.lock().await;
+                            mgr.status = ServerStatus::Running;
+                        }
                     }
                 }
                 CommandEvent::Stderr(line) => {
-                    eprintln!("[moneywright:err] {}", String::from_utf8_lossy(&line));
+                    let line_str = String::from_utf8_lossy(&line).trim().to_string();
+                    if !line_str.is_empty() {
+                        let log_line = format!("[moneywright:err] {}", line_str);
+                        eprintln!("{}", log_line);
+                        emit_log(&app_clone, &line_str, "error");
+                        store_log(&log_store_clone, &log_line).await;
+                    }
                 }
                 CommandEvent::Terminated(payload) => {
                     let mut mgr = manager_clone.lock().await;
                     if let Some(code) = payload.code {
                         if code != 0 {
-                            mgr.status = ServerStatus::Error(format!("Process exited with code {}", code));
+                            let msg = format!("Server exited with code {}", code);
+                            emit_log(&app_clone, &msg, "error");
+                            store_log(&log_store_clone, &msg).await;
+                            mgr.status = ServerStatus::Error(msg);
                         } else {
+                            emit_log(&app_clone, "Server stopped", "info");
+                            store_log(&log_store_clone, "Server stopped").await;
                             mgr.status = ServerStatus::Stopped;
                         }
                     } else {
+                        emit_log(&app_clone, "Server terminated", "info");
+                        store_log(&log_store_clone, "Server terminated").await;
                         mgr.status = ServerStatus::Stopped;
                     }
                     mgr.child = None;

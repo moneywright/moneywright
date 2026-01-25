@@ -1,18 +1,32 @@
 /**
  * Startup utilities
  * Handles environment detection, .env auto-generation, and app directory resolution
+ *
+ * Deployment modes:
+ * 1. Desktop sidecar - Tauri app sets DATA_DIR, binary reads/writes data there
+ * 2. Standalone binary - Data stored next to the binary
+ * 3. Development/Docker/Cloud - Direct bun execution, uses DATABASE_URL or local SQLite
  */
 
 import { existsSync, writeFileSync, readFileSync } from 'fs'
 import { join, dirname } from 'path'
 
 /**
- * Detect if running as a compiled Bun binary (internal use only)
+ * Check if running as a compiled Bun binary
+ * True for standalone binary and desktop sidecar
+ * False for development (bun run) and Docker (bun start)
  */
-function isCompiledBinary(): boolean {
-  // Compiled binary has a custom executable name, not 'bun'
+export function isCompiledBinary(): boolean {
   const execName = process.execPath.split('/').pop() || ''
   return execName !== 'bun' && !execName.startsWith('bun')
+}
+
+/**
+ * Check if running as desktop sidecar
+ * The Tauri app sets DATA_DIR to tell the sidecar where to store data
+ */
+export function isDesktopSidecar(): boolean {
+  return !!process.env.DATA_DIR
 }
 
 /**
@@ -23,8 +37,26 @@ export function isDevelopment(): boolean {
 }
 
 /**
+ * Check if running on localhost (HTTP, not HTTPS)
+ * Used for cookie security - localhost doesn't support Secure cookies over HTTP
+ *
+ * Returns true if:
+ * - Development mode (APP_ENV=development)
+ * - Desktop sidecar (DATA_DIR set)
+ * - APP_URL contains localhost or 127.0.0.1 (or not set, defaults to localhost)
+ */
+export function isLocalhost(): boolean {
+  if (isDevelopment()) return true
+  if (isDesktopSidecar()) return true
+
+  // Check APP_URL - defaults to localhost if not set
+  const appUrl = process.env.APP_URL || 'http://localhost:17777'
+  return appUrl.includes('localhost') || appUrl.includes('127.0.0.1')
+}
+
+/**
  * Check if authentication is enabled
- * Default is false (local mode)
+ * Default is false (local mode with auto-login)
  */
 export function isAuthEnabled(): boolean {
   return process.env.AUTH_ENABLED === 'true'
@@ -69,16 +101,36 @@ export function openBrowser(url: string): void {
 }
 
 /**
- * Get the application directory
- * - For compiled binary: directory where binary is located
- * - For Docker/production: current working directory (/usr/src/app)
- * - For development: the source directory
+ * Get the data directory for storing app data (.env, database, etc.)
+ * - Desktop sidecar: DATA_DIR (set by Tauri)
+ * - Standalone binary: directory where binary is located
+ * - Development/Docker: current working directory
+ */
+export function getDataDir(): string {
+  // Desktop sidecar: Tauri sets DATA_DIR
+  if (process.env.DATA_DIR) {
+    return process.env.DATA_DIR
+  }
+
+  // Standalone binary: use binary directory
+  if (isCompiledBinary()) {
+    return dirname(process.execPath)
+  }
+
+  // Development/Docker: use current working directory
+  return process.cwd()
+}
+
+/**
+ * Get the application directory (where code/assets are located)
+ * - Compiled binary: directory where binary is located
+ * - Docker/production: current working directory
+ * - Development: the source directory
  */
 export function getAppDir(): string {
   if (isCompiledBinary()) {
     return dirname(process.execPath)
   }
-  // In production (Docker or any non-development), use CWD where public/ is located
   if (!isDevelopment()) {
     return process.cwd()
   }
@@ -138,15 +190,15 @@ function parseEnvFile(content: string): Record<string, string> {
 /**
  * Initialize environment for compiled binary
  * - Auto-generates .env with secure secrets if missing
- * - Loads .env from binary directory (not CWD)
+ * - Loads .env from data directory
  */
 export function initializeBinaryEnvironment(): void {
   if (!isCompiledBinary()) {
     return // Only run for compiled binaries
   }
 
-  const appDir = getAppDir()
-  const envPath = join(appDir, '.env')
+  const dataDir = getDataDir()
+  const envPath = join(dataDir, '.env')
 
   // Auto-generate .env if it doesn't exist
   if (!existsSync(envPath)) {
@@ -166,11 +218,11 @@ JWT_SECRET=${jwtSecret}
 # Encryption key for sensitive data (auto-generated, do not share)
 ENCRYPTION_KEY=${encryptionKey}
 
-# Server port (default: 7777)
-PORT=7777
+# Server port (default: 17777)
+PORT=17777
 
 # Google OAuth credentials
-# Configure via http://localhost:7777/setup or uncomment and set here:
+# Configure via http://localhost:17777/setup or uncomment and set here:
 # GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 # GOOGLE_CLIENT_SECRET=your-client-secret
 
@@ -184,8 +236,7 @@ PORT=7777
     console.log('  Secure secrets generated automatically.\n')
   }
 
-  // Load .env from binary directory into process.env
-  // This ensures the binary works regardless of where it's run from
+  // Load .env into process.env
   if (existsSync(envPath)) {
     const content = readFileSync(envPath, 'utf-8')
     const envVars = parseEnvFile(content)

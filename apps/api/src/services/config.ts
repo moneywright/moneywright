@@ -117,7 +117,7 @@ export async function getAppUrl(): Promise<string> {
   }
 
   // Default
-  const port = process.env.PORT || '7777'
+  const port = process.env.PORT || '17777'
   return `http://localhost:${port}`
 }
 
