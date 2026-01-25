@@ -18,11 +18,16 @@ echo ""
 
 # Parse arguments
 TARGET=""
+FOR_DESKTOP=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     --target)
       TARGET="$2"
       shift 2
+      ;;
+    --for-desktop)
+      FOR_DESKTOP=true
+      shift
       ;;
     *)
       echo -e "${RED}Unknown option: $1${NC}"
@@ -35,10 +40,43 @@ done
 VERSION="v$(bun -e "console.log(require('./package.json').version)" 2>/dev/null || echo "dev")"
 echo -e "Version: ${YELLOW}${VERSION}${NC}"
 
-# Clean previous build
-echo -e "${YELLOW}Cleaning previous build...${NC}"
-rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR"
+# Set output directory based on mode
+if [ "$FOR_DESKTOP" = true ]; then
+  # For desktop builds, determine the Tauri sidecar name based on target
+  DESKTOP_BIN_DIR="$ROOT_DIR/apps/desktop/src-tauri/binaries"
+
+  # Map bun targets to Tauri sidecar target triples
+  case "$TARGET" in
+    bun-darwin-arm64|"")
+      SIDECAR_SUFFIX="aarch64-apple-darwin"
+      ;;
+    bun-darwin-x64)
+      SIDECAR_SUFFIX="x86_64-apple-darwin"
+      ;;
+    bun-linux-x64)
+      SIDECAR_SUFFIX="x86_64-unknown-linux-gnu"
+      ;;
+    bun-linux-arm64)
+      SIDECAR_SUFFIX="aarch64-unknown-linux-gnu"
+      ;;
+    bun-windows-x64)
+      SIDECAR_SUFFIX="x86_64-pc-windows-msvc"
+      ;;
+    *)
+      echo -e "${RED}Unknown target for desktop build: $TARGET${NC}"
+      exit 1
+      ;;
+  esac
+
+  echo -e "Building for desktop (sidecar: ${YELLOW}${SIDECAR_SUFFIX}${NC})"
+  DIST_DIR="$DESKTOP_BIN_DIR"
+  mkdir -p "$DIST_DIR"
+else
+  # Clean previous build for standalone distribution
+  echo -e "${YELLOW}Cleaning previous build...${NC}"
+  rm -rf "$DIST_DIR"
+  mkdir -p "$DIST_DIR"
+fi
 
 # Step 1: Build the frontend
 echo -e "${YELLOW}Step 1: Building frontend...${NC}"
@@ -59,8 +97,17 @@ cd "$ROOT_DIR/apps/api"
 # Clear Bun's build cache to ensure fresh compilation
 rm -rf ~/.bun/install/cache/vfs 2>/dev/null || true
 
-# Determine binary name based on target
-BINARY_NAME="moneywright"
+# Determine binary name based on target and mode
+if [ "$FOR_DESKTOP" = true ]; then
+  # For desktop, use Tauri sidecar naming convention
+  BINARY_NAME="moneywright-${SIDECAR_SUFFIX}"
+  if [[ "$SIDECAR_SUFFIX" == *"windows"* ]]; then
+    BINARY_NAME="${BINARY_NAME}.exe"
+  fi
+else
+  BINARY_NAME="moneywright"
+fi
+
 if [[ -n "$TARGET" ]]; then
   echo -e "  Target: ${TARGET}"
   bun build src/index.ts --compile --target="$TARGET" --define "__APP_VERSION__=\"$VERSION\"" --outfile="$DIST_DIR/$BINARY_NAME"
@@ -69,6 +116,22 @@ else
   bun build src/index.ts --compile --define "__APP_VERSION__=\"$VERSION\"" --outfile="$DIST_DIR/$BINARY_NAME"
 fi
 echo -e "${GREEN}Binary compiled successfully${NC}"
+
+# For desktop builds, we only need the binary - skip copying assets
+if [ "$FOR_DESKTOP" = true ]; then
+  # Clean up api/public
+  rm -rf "$ROOT_DIR/apps/api/public"
+
+  echo ""
+  echo -e "${GREEN}========================================${NC}"
+  echo -e "${GREEN}  Desktop Sidecar Build Complete!${NC}"
+  echo -e "${GREEN}========================================${NC}"
+  echo ""
+  echo -e "Sidecar binary created at: ${YELLOW}$DIST_DIR/$BINARY_NAME${NC}"
+  echo ""
+  ls -la "$DIST_DIR"
+  exit 0
+fi
 
 # Step 4: Copy public folder to dist and clean up api/public
 echo -e "${YELLOW}Step 4: Copying assets to distribution...${NC}"

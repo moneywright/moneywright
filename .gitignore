@@ -52,6 +52,11 @@ apps/docs/src/routeTree.gen.ts
 # Test
 coverage/
 
+# Tauri / Desktop
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/binaries/moneywright-*
+!apps/desktop/src-tauri/binaries/.gitkeep
+
 # Misc
 *.log
 *.tsbuildinfo

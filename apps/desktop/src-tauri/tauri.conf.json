@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Moneywright",
+  "version": "0.1.0",
+  "identifier": "com.moneywright.app",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true
+    },
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZCODJCRDgyMTA4NDQwQTUKUldTbFFJUVFncjJDKzdhckltVldnQzF6OFJ3VkYxeW91TDB0UGFFTkx4SFNKSE5MVUk4SEErbTkK",
+      "endpoints": [
+        "https://github.com/moneywright/moneywright/releases/latest/download/latest.json"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "nsis", "appimage", "deb"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/moneywright"],
+    "publisher": "Moneywright",
+    "copyright": "Copyright (c) 2025 Moneywright",
+    "category": "Finance",
+    "shortDescription": "Personal finance manager",
+    "longDescription": "Moneywright is a privacy-focused personal finance manager that runs locally on your machine. Upload bank statements, track expenses, and get AI-powered insights - all without sharing your data.",
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "section": "finance"
+      }
+    }
+  }
+}
