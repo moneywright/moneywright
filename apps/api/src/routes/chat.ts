@@ -310,7 +310,7 @@ chat.post('/conversations/:id/messages', async (c) => {
   }
 
   // Save user message
-  logger.info(`[Chat] Received message from user`, {
+  logger.debug(`[Chat] Received message from user`, {
     conversationId,
     provider,
     model,
@@ -353,7 +353,7 @@ chat.post('/conversations/:id/messages', async (c) => {
   })
 
   return streamSSE(c, async (stream) => {
-    logger.info(`[Chat] Starting LLM stream`, { conversationId, provider, model })
+    logger.debug(`[Chat] Starting LLM stream`, { conversationId, provider, model })
     const startTime = Date.now()
     let assistantContent = ''
     const toolCalls: unknown[] = []
@@ -407,7 +407,7 @@ chat.post('/conversations/:id/messages', async (c) => {
         } else if (eventType === 'tool-call') {
           const toolEvent = event as any
 
-          logger.info(`[Chat] Tool call: ${toolEvent.toolName}`, {
+          logger.debug(`[Chat] Tool call: ${toolEvent.toolName}`, {
             toolCallId: toolEvent.toolCallId,
             args: toolEvent.input,
           })
@@ -427,7 +427,7 @@ chat.post('/conversations/:id/messages', async (c) => {
         } else if (eventType === 'tool-result') {
           const resultEvent = event as any
 
-          logger.info(`[Chat] Tool result: ${resultEvent.toolName}`, {
+          logger.debug(`[Chat] Tool result: ${resultEvent.toolName}`, {
             toolCallId: resultEvent.toolCallId,
           })
 
@@ -468,7 +468,7 @@ chat.post('/conversations/:id/messages', async (c) => {
       })
 
       const duration = Date.now() - startTime
-      logger.info(`[Chat] LLM stream completed`, {
+      logger.debug(`[Chat] LLM stream completed`, {
         conversationId,
         provider,
         model,

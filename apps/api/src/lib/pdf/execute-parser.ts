@@ -130,12 +130,12 @@ export async function runParser(
 ): Promise<ExecutionResult> {
   // Use E2B if configured
   if (isE2BConfigured()) {
-    logger.info(`[ExecuteParser] Using E2B sandbox for code execution (mode: ${mode})`)
+    logger.debug(`[ExecuteParser] Using E2B sandbox for code execution (mode: ${mode})`)
     return runParserInE2B(parserCode, pdfText, mode)
   }
 
   // Fallback to local execution
-  logger.info(`[ExecuteParser] Using local execution (mode: ${mode}, E2B not configured)`)
+  logger.debug(`[ExecuteParser] Using local execution (mode: ${mode}, E2B not configured)`)
   return runParserLocal(parserCode, pdfText, mode)
 }
 
@@ -238,7 +238,7 @@ async function runParserLocal(
         logger.warn(`[ExecuteParser] Skipped ${invalidCount} invalid holdings`)
       }
 
-      logger.info(
+      logger.debug(
         `[ExecuteParser] Extracted ${validHoldings.length} holdings in ${executionTimeMs}ms`
       )
 
@@ -269,7 +269,7 @@ async function runParserLocal(
         logger.warn(`[ExecuteParser] Skipped ${invalidCount} invalid transactions`)
       }
 
-      logger.info(
+      logger.debug(
         `[ExecuteParser] Extracted ${validTransactions.length} transactions in ${executionTimeMs}ms`
       )
 
@@ -398,7 +398,7 @@ export async function runParserWithVersions(
 
   for (const entry of parserCodes) {
     triedVersions.push(entry.version)
-    logger.info(`[ExecuteParser] Trying ${bankKey} v${entry.version}...`)
+    logger.debug(`[ExecuteParser] Trying ${bankKey} v${entry.version}...`)
 
     const result = await runParser(entry.code, pdfText)
 
@@ -411,7 +411,7 @@ export async function runParserWithVersions(
         if (validation.isValid) {
           // Both execution and validation passed
           await recordSuccess(bankKey, entry.version)
-          logger.info(
+          logger.debug(
             `[ExecuteParser] ${bankKey} v${entry.version} succeeded with ${result.transactions.length} transactions (validation passed)`
           )
           return {
@@ -437,7 +437,7 @@ export async function runParserWithVersions(
       } else {
         // No validation data, trust execution result
         await recordSuccess(bankKey, entry.version)
-        logger.info(
+        logger.debug(
           `[ExecuteParser] ${bankKey} v${entry.version} succeeded with ${result.transactions.length} transactions (no validation data)`
         )
         return {

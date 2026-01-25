@@ -1,10 +1,34 @@
 {
   "name": "moneywright",
   "version": "0.1.0",
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.49.0"
+  },
+  "lint-staged": {
+    "apps/api/src/**/*.ts": [
+      "eslint --config apps/api/eslint.config.js --fix",
+      "prettier --write"
+    ],
+    "apps/web/src/**/*.{ts,tsx}": [
+      "eslint --config apps/web/eslint.config.js --fix",
+      "prettier --write"
+    ],
+    "apps/web/src/**/*.css": [
+      "prettier --write"
+    ],
+    "apps/docs/src/**/*.{ts,tsx}": [
+      "bunx biome check --write --config-path apps/docs/biome.json"
+    ],
+    "apps/docs/content/**/*.mdx": [
+      "bunx biome format --write --config-path apps/docs/biome.json"
+    ]
+  },
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
     "dev": "bun run --parallel dev:api dev:web",
     "dev:api": "bun run --cwd apps/api dev",
@@ -28,31 +52,7 @@
     "format": "bun run --cwd apps/api format && bun run --cwd apps/web format && bun run --cwd apps/docs format",
     "format:check": "bun run --cwd apps/api format:check && bun run --cwd apps/web format:check"
   },
-  "lint-staged": {
-    "apps/api/src/**/*.ts": [
-      "eslint --config apps/api/eslint.config.js --fix",
-      "prettier --write"
-    ],
-    "apps/web/src/**/*.{ts,tsx}": [
-      "eslint --config apps/web/eslint.config.js --fix",
-      "prettier --write"
-    ],
-    "apps/web/src/**/*.css": [
-      "prettier --write"
-    ],
-    "apps/docs/src/**/*.{ts,tsx}": [
-      "bunx biome check --write --config-path apps/docs/biome.json"
-    ],
-    "apps/docs/content/**/*.mdx": [
-      "bunx biome format --write --config-path apps/docs/biome.json"
-    ]
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "eslint": "^9.39.2",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
-    "prettier": "^3.7.4",
-    "typescript-eslint": "^8.49.0"
-  }
+  "workspaces": [
+    "apps/*"
+  ]
 }

@@ -142,7 +142,7 @@ export async function saveParserCode(
       },
     })
 
-  logger.info(`[ParserCache] Saved parser code for ${bankKey} v${newVersion}`)
+  logger.debug(`[ParserCache] Saved parser code for ${bankKey} v${newVersion}`)
   return newVersion
 }
 
@@ -224,7 +224,7 @@ export async function clearParserCache(bankKey: string): Promise<number> {
     await db.delete(tables.appConfig).where(eq(tables.appConfig.key, row.key))
   }
 
-  logger.info(`[ParserCache] Cleared ${rows.length} cached parser versions for ${bankKey}`)
+  logger.debug(`[ParserCache] Cleared ${rows.length} cached parser versions for ${bankKey}`)
   return rows.length
 }
 

@@ -1,41 +1,37 @@
+import { isDevelopment } from './startup'
+
 /**
- * Simple logger utility
+ * Simple logger with environment-aware log levels.
+ *
+ * Log levels:
+ * - debug: Only shown in development or when ENABLE_LOGGING=true
+ * - info: Always shown (essential production info)
+ * - warn: Always shown
+ * - error: Always shown
  */
 
-const LOG_LEVELS = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-} as const
-
-type LogLevel = keyof typeof LOG_LEVELS
-
-const currentLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info'
-
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]
+function isLoggingEnabled(): boolean {
+  return isDevelopment() || process.env.ENABLE_LOGGING === 'true'
 }
 
 export const logger = {
+  /** Debug logs - only shown in development or when ENABLE_LOGGING=true */
   debug: (...args: unknown[]) => {
-    if (shouldLog('debug')) {
-      console.log('[DEBUG]', ...args)
-    }
+    if (isLoggingEnabled()) console.log(...args)
   },
+
+  /** Info logs - always shown (essential production info) */
   info: (...args: unknown[]) => {
-    if (shouldLog('info')) {
-      console.log('[INFO]', ...args)
-    }
+    console.log(...args)
   },
+
+  /** Warning logs - always shown */
   warn: (...args: unknown[]) => {
-    if (shouldLog('warn')) {
-      console.warn('[WARN]', ...args)
-    }
+    console.warn(...args)
   },
+
+  /** Error logs - always shown */
   error: (...args: unknown[]) => {
-    if (shouldLog('error')) {
-      console.error('[ERROR]', ...args)
-    }
+    console.error(...args)
   },
 }

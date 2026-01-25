@@ -496,7 +496,7 @@ export async function categorizeTransactionsByIds(
 ): Promise<CategorizedTransaction[]> {
   if (transactionIds.length === 0) return []
 
-  logger.info(
+  logger.debug(
     `[Categorize] Categorizing ${transactionIds.length} transactions in batches of ${BATCH_SIZE}`
   )
 
@@ -511,7 +511,7 @@ export async function categorizeTransactionsByIds(
     batches.push(transactions.slice(i, i + BATCH_SIZE))
   }
 
-  logger.info(`[Categorize] Processing ${batches.length} batches`)
+  logger.debug(`[Categorize] Processing ${batches.length} batches`)
 
   // Process batches sequentially to avoid rate limits
   for (let i = 0; i < batches.length; i++) {
@@ -540,7 +540,7 @@ export async function categorizeTransactionsByIds(
     }
   }
 
-  logger.info(`[Categorize] Completed categorization of ${results.length} transactions`)
+  logger.debug(`[Categorize] Completed categorization of ${results.length} transactions`)
   return results
 }
 
@@ -643,7 +643,7 @@ START OUTPUT NOW:`
   let buffer = ''
 
   try {
-    logger.info(`[Categorize] Starting stream for ${transactions.length} transactions`)
+    logger.debug(`[Categorize] Starting stream for ${transactions.length} transactions`)
 
     const { textStream } = streamText({
       model,
@@ -700,7 +700,7 @@ START OUTPUT NOW:`
 
           // Log progress every 10 transactions
           if (linesProcessed % 10 === 0) {
-            logger.info(`[Categorize] Saved ${linesProcessed} transactions to DB...`)
+            logger.debug(`[Categorize] Saved ${linesProcessed} transactions to DB...`)
           }
         } catch (err) {
           logger.warn(`[Categorize] Failed to save transaction ${id}:`, err)
@@ -734,7 +734,7 @@ START OUTPUT NOW:`
       }
     }
 
-    logger.info(`[Categorize] Stream finished after ${chunkCount} chunks`)
+    logger.debug(`[Categorize] Stream finished after ${chunkCount} chunks`)
 
     // Log if we didn't get all transactions
     const total = success + failed
@@ -773,11 +773,11 @@ async function runCategorizationPass(
   const shouldBatch = transactions.length > BATCH_THRESHOLD
 
   if (shouldBatch) {
-    logger.info(
+    logger.debug(
       `[Categorize] Large dataset (${transactions.length} transactions), batching into groups of ${BATCH_SIZE}`
     )
   } else {
-    logger.info(
+    logger.debug(
       `[Categorize] Processing all ${transactions.length} transactions together for pattern recognition`
     )
   }
@@ -799,7 +799,7 @@ async function runCategorizationPass(
     const batch = batches[batchIdx]!
 
     if (shouldBatch) {
-      logger.info(
+      logger.debug(
         `[Categorize] Processing batch ${batchIdx + 1}/${batches.length} (${batch.length} transactions)`
       )
     }
@@ -829,11 +829,11 @@ async function runCategorizationPass(
     )
 
     if (shouldBatch) {
-      logger.info(
+      logger.debug(
         `[Categorize] Batch ${batchIdx + 1} complete: ${success} success, ${failed} failed`
       )
     } else {
-      logger.info(`[Categorize] Pass complete: ${success} success, ${failed} failed`)
+      logger.debug(`[Categorize] Pass complete: ${success} success, ${failed} failed`)
     }
 
     totalFailed += failed
@@ -872,7 +872,7 @@ export async function categorizeTransactionsStreaming(
   const model = await createLLMClientFromSettings(modelOverride)
   const totalTransactions = transactionIds.length
 
-  logger.info(`[Categorize] Starting categorization for ${totalTransactions} transactions`)
+  logger.debug(`[Categorize] Starting categorization for ${totalTransactions} transactions`)
 
   let totalCategorized = 0
   let retryCount = 0
@@ -881,17 +881,17 @@ export async function categorizeTransactionsStreaming(
   let uncategorized = await fetchUncategorizedTransactions(transactionIds)
 
   if (uncategorized.length === 0) {
-    logger.info(`[Categorize] All transactions already categorized`)
+    logger.debug(`[Categorize] All transactions already categorized`)
     return { categorizedCount: totalTransactions }
   }
 
-  logger.info(`[Categorize] Found ${uncategorized.length} uncategorized transactions`)
+  logger.debug(`[Categorize] Found ${uncategorized.length} uncategorized transactions`)
 
   // Keep retrying until all transactions are categorized or max retries reached
   while (uncategorized.length > 0 && retryCount < MAX_CATEGORIZATION_RETRIES) {
     if (retryCount > 0) {
       const uncatIds = uncategorized.map((t) => t.id).join(', ')
-      logger.info(
+      logger.debug(
         `[Categorize] Retry ${retryCount}/${MAX_CATEGORIZATION_RETRIES}: ${uncategorized.length} transactions still need categorization`
       )
       logger.debug(`[Categorize] Uncategorized IDs: ${uncatIds}`)
@@ -914,7 +914,7 @@ export async function categorizeTransactionsStreaming(
     uncategorized = await fetchUncategorizedTransactions(transactionIds)
 
     if (uncategorized.length === 0) {
-      logger.info(`[Categorize] All ${totalTransactions} transactions successfully categorized`)
+      logger.debug(`[Categorize] All ${totalTransactions} transactions successfully categorized`)
       break
     }
 
@@ -928,7 +928,7 @@ export async function categorizeTransactionsStreaming(
     )
   }
 
-  logger.info(`[Categorize] Streaming complete: ${totalCategorized} transactions categorized`)
+  logger.debug(`[Categorize] Streaming complete: ${totalCategorized} transactions categorized`)
 
   return {
     categorizedCount: totalCategorized,
@@ -957,7 +957,7 @@ export async function categorizeStatements(
     return { categorizedCount: 0, totalCount: 0 }
   }
 
-  logger.info(`[Categorize] Categorizing transactions for ${statementIds.length} statements`)
+  logger.debug(`[Categorize] Categorizing transactions for ${statementIds.length} statements`)
 
   // Fetch all transactions for these statements
   const transactions = await db
@@ -969,11 +969,11 @@ export async function categorizeStatements(
     .where(inArray(tables.transactions.statementId, statementIds))
 
   if (transactions.length === 0) {
-    logger.info(`[Categorize] No transactions found for statements`)
+    logger.debug(`[Categorize] No transactions found for statements`)
     return { categorizedCount: 0, totalCount: 0 }
   }
 
-  logger.info(`[Categorize] Found ${transactions.length} transactions to categorize`)
+  logger.debug(`[Categorize] Found ${transactions.length} transactions to categorize`)
 
   // Get account types for context (helps with credit card vs bank account categorization)
   // Group transactions by account to get the most common account type
@@ -1001,7 +1001,7 @@ export async function categorizeStatements(
 
     profileSummary = profile?.summary ?? null
     if (profileSummary) {
-      logger.info(`[Categorize] Using profile summary for context`)
+      logger.debug(`[Categorize] Using profile summary for context`)
     }
   }
 
@@ -1018,7 +1018,7 @@ export async function categorizeStatements(
     profileSummary
   )
 
-  logger.info(
+  logger.debug(
     `[Categorize] Completed: ${result.categorizedCount}/${transactions.length} transactions categorized`
   )
 

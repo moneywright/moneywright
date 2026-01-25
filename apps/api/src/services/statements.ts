@@ -365,7 +365,7 @@ export function queueStatements(data: {
   categorizationModel?: string
 }): void {
   processingQueue.push(data)
-  logger.info(`[Statement] Queued ${data.statements.length} statements for processing`)
+  logger.debug(`[Statement] Queued ${data.statements.length} statements for processing`)
   processQueue()
 }
 
@@ -405,7 +405,7 @@ async function processStatements(
   const successfulStatementIds: string[] = []
 
   // Step 1: Parse each statement serially (for caching benefits)
-  logger.info(`[Statement] Parsing ${statements.length} statements serially`)
+  logger.debug(`[Statement] Parsing ${statements.length} statements serially`)
   categorizationStatus = {
     active: true,
     type: 'parsing',
@@ -415,7 +415,7 @@ async function processStatements(
   for (let i = 0; i < statements.length; i++) {
     const stmt = statements[i]!
     categorizationStatus.progress = { current: i + 1, total: statements.length }
-    logger.info(`[Statement] Parsing ${i + 1}/${statements.length}: ${stmt.statementId}`)
+    logger.debug(`[Statement] Parsing ${i + 1}/${statements.length}: ${stmt.statementId}`)
 
     try {
       await updateStatementStatus(stmt.statementId, 'parsing')
@@ -445,7 +445,7 @@ async function processStatements(
 
         if (parsedStatement?.accountId) {
           await updateStatementPassword(parsedStatement.accountId, stmt.userId, stmt.password)
-          logger.info(`[Statement] Saved password for account ${parsedStatement.accountId}`)
+          logger.debug(`[Statement] Saved password for account ${parsedStatement.accountId}`)
         }
       }
     } catch (error) {
@@ -460,13 +460,13 @@ async function processStatements(
     }
   }
 
-  logger.info(
+  logger.debug(
     `[Statement] Parsing complete: ${successfulStatementIds.length}/${statements.length} succeeded`
   )
 
   // Step 2: Categorize all successful statements together
   if (successfulStatementIds.length > 0) {
-    logger.info(`[Statement] Categorizing ${successfulStatementIds.length} statements together`)
+    logger.debug(`[Statement] Categorizing ${successfulStatementIds.length} statements together`)
     categorizationStatus = { active: true, type: 'categorizing' }
 
     // Get profileId from first statement (all statements in batch should have same profileId)
@@ -480,7 +480,7 @@ async function processStatements(
         undefined,
         profileId
       )
-      logger.info(
+      logger.debug(
         `[Statement] Categorized ${result.categorizedCount}/${result.totalCount} transactions`
       )
     } catch (error) {
@@ -532,7 +532,7 @@ export function queueRecategorizeJob(data: {
   }
 
   recategorizeJobs.set(jobId, job)
-  logger.info(`[Recategorize] Queued job ${jobId}`)
+  logger.debug(`[Recategorize] Queued job ${jobId}`)
   processNextRecategorizeJob()
 
   return jobId
@@ -569,7 +569,7 @@ async function processNextRecategorizeJob(): Promise<void> {
     job.transactionCount = result.totalCount
     job.processedCount = result.categorizedCount
     job.completedAt = new Date()
-    logger.info(
+    logger.debug(
       `[Recategorize] Job ${job.id} completed: ${result.categorizedCount}/${result.totalCount}`
     )
   } catch (error) {

@@ -61,7 +61,7 @@ export async function generateParserConfig(
   headers: string[],
   modelOverride?: string
 ): Promise<ParserConfig> {
-  logger.info(`[ParserGen] Generating parser config for ${metadata.fileName}`)
+  logger.debug(`[ParserGen] Generating parser config for ${metadata.fileName}`)
 
   const model = await createLLMClientFromSettings(modelOverride)
 
@@ -160,7 +160,7 @@ Common patterns:
       prompt,
     })
 
-    logger.info(
+    logger.debug(
       `[ParserGen] Generated config: dateCol=${object.dateColumn}, amountFormat=${object.amountFormat}`
     )
     logger.debug(`[ParserGen] Full config:`, JSON.stringify(object, null, 2))

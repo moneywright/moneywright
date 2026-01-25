@@ -81,7 +81,7 @@ export async function extractDocumentInfo(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<DocumentInfo> {
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Extracting document info, model: ${modelOverride || 'default'}, text length: ${fullText.length}`
   )
 
@@ -154,7 +154,7 @@ Determine what type of document this is:
       prompt,
     })
 
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Document info extracted: type=${object.document_type}, source=${object.source_type || 'N/A'}`
     )
     logger.debug(`[InvestmentParser] Document info:`, JSON.stringify(object, null, 2))
@@ -208,7 +208,7 @@ export async function extractInvestmentMetadata(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<InvestmentMetadata> {
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Extracting investment metadata for ${sourceType}, model: ${modelOverride || 'default'}`
   )
 
@@ -242,7 +242,7 @@ ${sourceHints}
       prompt,
     })
 
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Metadata extracted: identifier=${object.account_identifier || 'N/A'}, institution=${object.institution || 'N/A'}`
     )
     logger.debug(`[InvestmentParser] Metadata:`, JSON.stringify(object, null, 2))
@@ -360,13 +360,13 @@ export async function parseInvestmentStatement(options: {
   const effectiveSourceType = options.sourceType || documentInfo?.source_type || 'other'
 
   const parseStartTime = Date.now()
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Starting parse for statement ${statementId}, source: ${effectiveSourceType} (user-specified: ${!!options.sourceType})`
   )
 
   // Combine all pages
   const fullText = combinePages(pages)
-  logger.info(`[InvestmentParser] Combined ${pages.length} pages into ${fullText.length} chars`)
+  logger.debug(`[InvestmentParser] Combined ${pages.length} pages into ${fullText.length} chars`)
 
   // Step 1: Extract investment metadata (account identifier, institution, summary)
   // This is critical for creating separate sources for different accounts of the same type
@@ -389,7 +389,7 @@ export async function parseInvestmentStatement(options: {
   let source = await findSourceByTypeAndIdentifier(userId, profileId, sourceType, accountIdentifier)
 
   if (source) {
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Found existing source ${source.id} for ${sourceType} (identifier: ${accountIdentifier || 'N/A'})`
     )
 
@@ -400,7 +400,7 @@ export async function parseInvestmentStatement(options: {
         institution,
         sourceName: updatedSourceName,
       })
-      logger.info(`[InvestmentParser] Updated source with institution: ${institution}`)
+      logger.debug(`[InvestmentParser] Updated source with institution: ${institution}`)
     }
   } else {
     // Create new source with proper naming
@@ -417,7 +417,7 @@ export async function parseInvestmentStatement(options: {
       countryCode,
       currency,
     })
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Created new source ${source.id}: "${sourceName}" (identifier: ${accountIdentifier || 'N/A'})`
     )
   }
@@ -437,7 +437,7 @@ export async function parseInvestmentStatement(options: {
   // Skip caching for "other" source type since it's too generic
   const shouldCache = sourceType !== 'other'
   const sourceKey = generateInvestmentSourceKey(sourceType, fileType)
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Source key: ${sourceKey} (file type: ${fileType}, caching: ${shouldCache})`
   )
 
@@ -458,7 +458,7 @@ export async function parseInvestmentStatement(options: {
   if (shouldCache) {
     const cachedCodes = await getInvestmentParserCodes(sourceKey)
     if (cachedCodes.length > 0) {
-      logger.info(
+      logger.debug(
         `[InvestmentParser] Found ${cachedCodes.length} cached parser versions for ${sourceKey}`
       )
 
@@ -475,7 +475,7 @@ export async function parseInvestmentStatement(options: {
         const validationStatus = result.validationPassed
           ? 'validation passed'
           : 'no validation data'
-        logger.info(
+        logger.debug(
           `[InvestmentParser] Used cached code v${result.usedVersion}: ${rawHoldings.length} holdings (${validationStatus})`
         )
       } else {
@@ -484,15 +484,15 @@ export async function parseInvestmentStatement(options: {
         )
       }
     } else {
-      logger.info(`[InvestmentParser] No cached parser code for ${sourceKey}`)
+      logger.debug(`[InvestmentParser] No cached parser code for ${sourceKey}`)
     }
   } else {
-    logger.info(`[InvestmentParser] Skipping cache lookup for "other" source type`)
+    logger.debug(`[InvestmentParser] Skipping cache lookup for "other" source type`)
   }
 
   // Step 4: Generate new code if no cache or all cached versions failed
   if (!usedCachedCode) {
-    logger.info(`[InvestmentParser] Generating new parser code with agentic retry...`)
+    logger.debug(`[InvestmentParser] Generating new parser code with agentic retry...`)
 
     const agentResult = await generateInvestmentParserCode(
       fullText,
@@ -502,7 +502,7 @@ export async function parseInvestmentStatement(options: {
       fileType
     )
 
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Generated code for format: ${agentResult.detectedFormat} (confidence: ${agentResult.confidence}, attempts: ${agentResult.attempts})`
     )
 
@@ -518,7 +518,7 @@ export async function parseInvestmentStatement(options: {
 
     // Use holdings from the successful test run
     rawHoldings = agentResult.holdings
-    logger.info(`[InvestmentParser] Using ${rawHoldings.length} holdings from agent test run`)
+    logger.debug(`[InvestmentParser] Using ${rawHoldings.length} holdings from agent test run`)
 
     // Save new code as new version (skip for "other" source type)
     if (shouldCache) {
@@ -526,9 +526,9 @@ export async function parseInvestmentStatement(options: {
         detectedFormat: agentResult.detectedFormat,
         confidence: agentResult.confidence,
       })
-      logger.info(`[InvestmentParser] Saved parser code as ${sourceKey} v${newVersion}`)
+      logger.debug(`[InvestmentParser] Saved parser code as ${sourceKey} v${newVersion}`)
     } else {
-      logger.info(`[InvestmentParser] Skipping cache save for "other" source type`)
+      logger.debug(`[InvestmentParser] Skipping cache save for "other" source type`)
     }
   }
 
@@ -546,7 +546,7 @@ export async function parseInvestmentStatement(options: {
   if (detectedCurrencies.size === 1) {
     const detectedCurrency = Array.from(detectedCurrencies)[0]!
     if (detectedCurrency !== sourceCurrency) {
-      logger.info(
+      logger.debug(
         `[InvestmentParser] Detected currency ${detectedCurrency} differs from source currency ${sourceCurrency}, updating source`
       )
       await updateSource(source.id, userId, { currency: detectedCurrency })
@@ -582,7 +582,7 @@ export async function parseInvestmentStatement(options: {
   })
 
   const holdings = await replaceHoldingsForSource(source.id, userId, profileId, holdingsData)
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Replaced holdings for source ${source.id}: ${holdings.length} holdings`
   )
 
@@ -626,7 +626,7 @@ export async function parseInvestmentStatement(options: {
     holdingsDetail,
   })
 
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Created/updated snapshot ${snapshot.id} for date ${statementDate}`
   )
 
@@ -655,7 +655,7 @@ export async function parseInvestmentStatement(options: {
     })
     .where(eq(tables.statements.id, statementId))
 
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Completed parsing statement ${statementId}: ${holdings.length} holdings in ${parseDurationSec}s`
   )
 

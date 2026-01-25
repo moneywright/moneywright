@@ -53,7 +53,7 @@ export async function parseSpreadsheetStatement(options: {
   } = options
 
   const parseStartTime = Date.now()
-  logger.info(`[SpreadsheetParser] Starting parse for statement ${statementId} - ${fileName}`)
+  logger.debug(`[SpreadsheetParser] Starting parse for statement ${statementId} - ${fileName}`)
 
   // Get statement to find account
   const [statement] = await db
@@ -73,14 +73,14 @@ export async function parseSpreadsheetStatement(options: {
   const accountId = statement.accountId
 
   // Phase 1: Extract metadata
-  logger.info(`[SpreadsheetParser] Phase 1: Extracting metadata`)
+  logger.debug(`[SpreadsheetParser] Phase 1: Extracting metadata`)
   const metadata = extractMetadata(buffer, fileName)
   logger.debug(
     `[SpreadsheetParser] Metadata: ${metadata.sheetsNumber} sheets, file type: ${metadata.fileType}`
   )
 
   // Phase 2: Extract sheet data
-  logger.info(`[SpreadsheetParser] Phase 2: Extracting sheet data`)
+  logger.debug(`[SpreadsheetParser] Phase 2: Extracting sheet data`)
   const sheetData = extractSheetData(buffer)
   logger.debug(
     `[SpreadsheetParser] Sheet data: ${sheetData.totalRows} rows, ${sheetData.headers.length} columns`
@@ -91,7 +91,7 @@ export async function parseSpreadsheetStatement(options: {
   }
 
   // Phase 3: Generate parser config via LLM
-  logger.info(`[SpreadsheetParser] Phase 3: Generating parser config via LLM`)
+  logger.debug(`[SpreadsheetParser] Phase 3: Generating parser config via LLM`)
   const parserConfig = await generateParserConfig(
     metadata,
     sheetData.data,
@@ -101,9 +101,9 @@ export async function parseSpreadsheetStatement(options: {
   logger.debug(`[SpreadsheetParser] Parser config generated: ${JSON.stringify(parserConfig)}`)
 
   // Phase 4: Extract transactions deterministically
-  logger.info(`[SpreadsheetParser] Phase 4: Extracting transactions`)
+  logger.debug(`[SpreadsheetParser] Phase 4: Extracting transactions`)
   const rawTransactions = extractTransactions(sheetData, parserConfig)
-  logger.info(`[SpreadsheetParser] Extracted ${rawTransactions.length} raw transactions`)
+  logger.debug(`[SpreadsheetParser] Extracted ${rawTransactions.length} raw transactions`)
 
   if (rawTransactions.length === 0) {
     logger.warn(`[SpreadsheetParser] No transactions extracted from spreadsheet`)
@@ -119,7 +119,7 @@ export async function parseSpreadsheetStatement(options: {
   }
 
   // Phase 5: Categorize transactions in batches via LLM
-  logger.info(`[SpreadsheetParser] Phase 5: Categorizing transactions via LLM`)
+  logger.debug(`[SpreadsheetParser] Phase 5: Categorizing transactions via LLM`)
   const categorizedTransactions = await categorizeTransactions(
     rawTransactions,
     countryCode,
@@ -143,7 +143,7 @@ export async function parseSpreadsheetStatement(options: {
   const currency = user?.country === 'IN' ? 'INR' : 'USD'
 
   // Phase 6: Insert transactions with deduplication
-  logger.info(`[SpreadsheetParser] Phase 6: Inserting transactions`)
+  logger.debug(`[SpreadsheetParser] Phase 6: Inserting transactions`)
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
   let insertedCount = 0
   let skippedCount = 0
@@ -211,7 +211,7 @@ export async function parseSpreadsheetStatement(options: {
     parseCompletedAt: new Date(parseEndTime),
   })
 
-  logger.info(
+  logger.debug(
     `[SpreadsheetParser] Completed parsing statement ${statementId}: ${insertedCount} transactions in ${parseDurationSec}s`
   )
 }

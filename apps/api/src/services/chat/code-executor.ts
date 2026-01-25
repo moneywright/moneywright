@@ -110,7 +110,7 @@ export async function executeCode(options: {
 
   try {
     // Load data for all query IDs
-    logger.info(`[CodeExecutor] Loading data for ${queryIds.length} queries...`)
+    logger.debug(`[CodeExecutor] Loading data for ${queryIds.length} queries...`)
     const dataMap = new Map<string, unknown[]>()
 
     for (const queryId of queryIds) {
@@ -127,7 +127,7 @@ export async function executeCode(options: {
     }
 
     // Create sandbox
-    logger.info('[CodeExecutor] Creating E2B sandbox...')
+    logger.debug('[CodeExecutor] Creating E2B sandbox...')
     sandbox = await Sandbox.create({ timeoutMs: EXECUTION_TIMEOUT_MS })
 
     // Build the full code with data injection and output handling
@@ -153,7 +153,7 @@ output_json = json.dumps(result, default=str)
 print('${OUTPUT_MARKER_START}' + output_json + '${OUTPUT_MARKER_END}')
 `
 
-    logger.info('[CodeExecutor] Executing Python code in sandbox...')
+    logger.debug('[CodeExecutor] Executing Python code in sandbox...')
     logger.debug(`[CodeExecutor] Code length: ${fullCode.length} chars`)
 
     const execution = await sandbox.runCode(fullCode, {
@@ -213,7 +213,7 @@ print('${OUTPUT_MARKER_START}' + output_json + '${OUTPUT_MARKER_END}')
     }
 
     // Validate and return based on output type
-    logger.info(`[CodeExecutor] Execution completed in ${executionTimeMs}ms`)
+    logger.debug(`[CodeExecutor] Execution completed in ${executionTimeMs}ms`)
 
     switch (outputType) {
       case 'chart':

@@ -1,70 +1,130 @@
-/**
- * Banner and startup info
- */
-
-import boxen from 'boxen'
 import chalk from 'chalk'
+import boxen from 'boxen'
 import type { DatabaseType } from '../db'
 
 /**
- * Get app version
+ * Get app version - returns build-time version or 'dev' in development
  */
 export function getVersion(): string {
-  try {
-    return typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0'
-  } catch {
-    return '0.1.0'
-  }
+  return typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 }
 
-/**
- * Print ASCII banner
- */
-export function printBanner(): void {
-  const banner = `
-  __  __                                    _       _     _
- |  \\/  | ___  _ __   ___ _   ___      __ _(_) __ _| |__ | |_
- | |\\/| |/ _ \\| '_ \\ / _ \\ | | \\ \\ /\\ / / '__| / _\` | '_ \\| __|
- | |  | | (_) | | | |  __/ |_| |\\ V  V /| |  | | (_| | | | | |_
- |_|  |_|\\___/|_| |_|\\___|\\__, | \\_/\\_/ |_|  |_|\\__, |_| |_|\\__|
-                          |___/                 |___/
-
-  AI-powered personal finance helper
-`
-
-  console.log(chalk.cyan(banner))
+// Tailwind emerald palette
+const emerald = {
+  50: '#ecfdf5',
+  100: '#d1fae5',
+  200: '#a7f3d0',
+  300: '#6ee7b7',
+  400: '#34d399',
+  500: '#10b981',
+  600: '#059669',
+  700: '#047857',
+  800: '#065f46',
+  900: '#064e3b',
 }
 
-/**
- * Print startup information
- */
-export function printStartupInfo(config: {
+interface StartupOptions {
   port: number
-  isFirstRun: boolean
+  isFirstRun?: boolean
   dbType: DatabaseType
-}): void {
-  const { port, isFirstRun, dbType } = config
-  const version = getVersion()
+}
 
-  const lines = [
-    `${chalk.bold('Version:')} ${version}`,
-    `${chalk.bold('Database:')} ${dbType === 'postgres' ? 'PostgreSQL' : 'SQLite'}`,
-    '',
-    `${chalk.bold('URL:')} ${chalk.green(`http://localhost:${port}`)}`,
+export function printBanner() {
+  console.clear()
+  console.log()
+
+  // ASCII art logo with gradient effect
+  const logo = [
+    '███╗   ███╗ ██████╗ ███╗   ██╗███████╗██╗   ██╗██╗    ██╗██████╗ ██╗ ██████╗ ██╗  ██╗████████╗',
+    '████╗ ████║██╔═══██╗████╗  ██║██╔════╝╚██╗ ██╔╝██║    ██║██╔══██╗██║██╔════╝ ██║  ██║╚══██╔══╝',
+    '██╔████╔██║██║   ██║██╔██╗ ██║█████╗   ╚████╔╝ ██║ █╗ ██║██████╔╝██║██║  ███╗███████║   ██║   ',
+    '██║╚██╔╝██║██║   ██║██║╚██╗██║██╔══╝    ╚██╔╝  ██║███╗██║██╔══██╗██║██║   ██║██╔══██║   ██║   ',
+    '██║ ╚═╝ ██║╚██████╔╝██║ ╚████║███████╗   ██║   ╚███╔███╔╝██║  ██║██║╚██████╔╝██║  ██║   ██║   ',
+    '╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝   ╚═╝    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ',
   ]
 
-  if (isFirstRun) {
-    lines.push('')
-    lines.push(chalk.yellow('First run detected!'))
-    lines.push(chalk.yellow('Visit /setup to configure Google OAuth'))
-  }
+  // Gradient colors from emerald-400 to emerald-600
+  const gradientColors = [
+    emerald[400],
+    emerald[400],
+    emerald[500],
+    emerald[500],
+    emerald[600],
+    emerald[600],
+  ]
 
-  const box = boxen(lines.join('\n'), {
-    padding: 1,
-    margin: 1,
-    borderStyle: 'round',
-    borderColor: 'cyan',
+  logo.forEach((line, i) => {
+    const color = gradientColors[i] || emerald[500]
+    console.log(chalk.hex(color)('  ' + line))
   })
 
-  console.log(box)
+  console.log()
+  console.log(
+    chalk.hex(emerald[300])('  ✦ ') +
+      chalk.hex(emerald[200]).italic('AI-powered personal finance helper') +
+      chalk.hex(emerald[300])(' ✦')
+  )
+  console.log()
+  console.log(chalk.dim(`  ${getVersion()}`))
+  console.log()
+}
+
+export function printStartupInfo(options: StartupOptions) {
+  const { port, isFirstRun, dbType } = options
+
+  // Status box
+  const statusBox = boxen(chalk.green.bold('✓') + chalk.white.bold(' Server is running'), {
+    padding: { top: 0, bottom: 0, left: 1, right: 1 },
+    margin: { top: 0, bottom: 0, left: 1, right: 0 },
+    borderStyle: 'round',
+    borderColor: '#34d399',
+  })
+  console.log(statusBox)
+  console.log()
+
+  // URL section
+  console.log(chalk.hex(emerald[300]).bold('  🌐 Open in browser'))
+  console.log(chalk.hex(emerald[400])(`     http://localhost:${port}`))
+  console.log()
+
+  // First run notice
+  if (isFirstRun) {
+    const firstRunContent = [
+      chalk.white('Configure Google OAuth to get started:'),
+      chalk.hex(emerald[400])(`→ http://localhost:${port}/setup`),
+    ].join('\n')
+
+    const firstRunBox = boxen(firstRunContent, {
+      title: chalk.hex(emerald[300])('⚡ First run detected'),
+      titleAlignment: 'left',
+      padding: { top: 0, bottom: 0, left: 1, right: 1 },
+      margin: { top: 0, bottom: 0, left: 1, right: 0 },
+      borderStyle: 'round',
+      borderColor: '#34d399',
+    })
+    console.log(firstRunBox)
+    console.log()
+  }
+
+  // Info footer
+  console.log(
+    chalk.dim(
+      `  📦 Database: ${chalk.hex(emerald[300])(dbType === 'postgres' ? 'PostgreSQL' : 'SQLite')}`
+    )
+  )
+  console.log()
+  console.log(chalk.dim('  Press ') + chalk.hex(emerald[400])('Ctrl+C') + chalk.dim(' to stop'))
+  console.log()
+}
+
+export function printError(message: string) {
+  console.log(chalk.red.bold('  ✗ Error: ') + chalk.red(message))
+}
+
+export function printWarning(message: string) {
+  console.log(chalk.hex('#fbbf24')('  ⚠ ') + chalk.hex('#fbbf24')(message))
+}
+
+export function printSuccess(message: string) {
+  console.log(chalk.hex(emerald[400])('  ✓ ') + message)
 }

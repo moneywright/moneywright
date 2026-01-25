@@ -152,7 +152,7 @@ async function detectDocumentType(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<DocumentInfo> {
-  logger.info(
+  logger.debug(
     `[Parser] Detecting document type, model: ${modelOverride || 'default'}, text length: ${fullText.length}`
   )
 
@@ -230,13 +230,13 @@ Determine what type of document this is:
       prompt,
     })
 
-    logger.info(`[Parser] Document type detected: ${object.document_type}`)
+    logger.debug(`[Parser] Document type detected: ${object.document_type}`)
     if (object.document_type === 'investment_statement') {
-      logger.info(
+      logger.debug(
         `[Parser] Investment source: ${object.source_type}, identifier: ${object.account_identifier}`
       )
     } else {
-      logger.info(
+      logger.debug(
         `[Parser] Bank: ${object.institution_id} (${object.institution_name}) - ${object.account_type}`
       )
     }
@@ -257,7 +257,7 @@ async function extractAccountInfo(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<AccountInfo> {
-  logger.info(
+  logger.debug(
     `[Parser] Extracting account info and summary, model: ${modelOverride || 'default'}, text length: ${fullText.length}`
   )
 
@@ -349,10 +349,10 @@ If you cannot find certain information, use null for nullable fields or make you
       prompt,
     })
 
-    logger.info(
+    logger.debug(
       `[Parser] Account info extracted: ${object.institution_id} (${object.institution_name}) - ${object.account_type}`
     )
-    logger.info(
+    logger.debug(
       `[Parser] Statement summary: debits=${object.summary.debit_count}/${object.summary.total_debits}, credits=${object.summary.credit_count}/${object.summary.total_credits}`
     )
     logger.debug(`[Parser] Account info LLM response:`, JSON.stringify(object, null, 2))
@@ -410,12 +410,12 @@ export async function parseStatement(options: {
   const effectiveParsingModel = parsingModel
   const effectiveCategorizationModel = categorizationModel
 
-  logger.info(
+  logger.debug(
     `[Parser] Models - parsing: ${effectiveParsingModel || 'default'}, categorization: ${effectiveCategorizationModel || 'default'}`
   )
 
   const parseStartTime = Date.now()
-  logger.info(
+  logger.debug(
     `[Parser] Starting parse for statement ${statementId} with ${pages.length} pages, docType: ${documentType || 'auto-detect'}`
   )
 
@@ -432,7 +432,7 @@ export async function parseStatement(options: {
 
   // Combine all pages first (needed for document type detection)
   const fullText = combinePages(pages)
-  logger.info(`[Parser] Combined ${pages.length} pages into ${fullText.length} chars`)
+  logger.debug(`[Parser] Combined ${pages.length} pages into ${fullText.length} chars`)
 
   // Step 0: Detect document type (skip if user already specified)
   let documentInfo: DocumentInfo | null = null
@@ -442,12 +442,12 @@ export async function parseStatement(options: {
     // Auto-detect document type
     try {
       documentInfo = await detectDocumentType(fullText, countryCode, effectiveParsingModel)
-      logger.info(`[Parser] Auto-detected document type: ${documentInfo.document_type}`)
+      logger.debug(`[Parser] Auto-detected document type: ${documentInfo.document_type}`)
     } catch (error) {
       logger.warn(`[Parser] Could not detect document type, defaulting to bank_statement:`, error)
     }
   } else {
-    logger.info(`[Parser] Using user-specified document type: ${effectiveDocumentType}`)
+    logger.debug(`[Parser] Using user-specified document type: ${effectiveDocumentType}`)
   }
 
   // Determine which flow to use
@@ -457,7 +457,7 @@ export async function parseStatement(options: {
 
   // Branch based on document type
   if (isInvestment) {
-    logger.info(`[Parser] Routing to investment statement parser`)
+    logger.debug(`[Parser] Routing to investment statement parser`)
 
     try {
       const result = await parseInvestmentStatement({
@@ -472,7 +472,7 @@ export async function parseStatement(options: {
         parsingModel: effectiveParsingModel,
       })
 
-      logger.info(
+      logger.debug(
         `[Parser] Investment parsing complete: sourceId=${result.sourceId}, holdings=${result.holdingsCount}, snapshotId=${result.snapshotId}`
       )
       return
@@ -485,7 +485,7 @@ export async function parseStatement(options: {
   }
 
   // Continue with bank/credit card statement parsing
-  logger.info(`[Parser] Processing as bank/credit card statement`)
+  logger.debug(`[Parser] Processing as bank/credit card statement`)
 
   // For bank/credit card statements without accountId, we need to create a placeholder
   // that will be updated with real info during parsing
@@ -513,7 +513,7 @@ export async function parseStatement(options: {
       .set({ accountId: accountIdToUse, updatedAt: now as Date })
       .where(eq(tables.statements.id, statementId))
 
-    logger.info(`[Parser] Created placeholder account ${accountIdToUse} for bank statement`)
+    logger.debug(`[Parser] Created placeholder account ${accountIdToUse} for bank statement`)
   }
 
   // Step 1: Extract account info and statement summary from FULL PDF
@@ -563,7 +563,7 @@ export async function parseStatement(options: {
         if (attempt < MAX_ACCOUNT_INFO_RETRIES) {
           // Wait before retrying (exponential backoff: 1s, 2s, 4s)
           const delayMs = 1000 * Math.pow(2, attempt - 1)
-          logger.info(`[Parser] Retrying account info extraction in ${delayMs}ms...`)
+          logger.debug(`[Parser] Retrying account info extraction in ${delayMs}ms...`)
           await new Promise((resolve) => setTimeout(resolve, delayMs))
         }
       }
@@ -587,7 +587,7 @@ export async function parseStatement(options: {
   // This is where we link the statement to the correct account after extracting account info
   const account = await getAccountByIdRaw(accountIdToUse, userId)
 
-  logger.info(
+  logger.debug(
     `[Parser] Account handling: accountIdToUse=${accountIdToUse}, accountName="${account?.accountName}", isPending=${account?.accountName?.startsWith('Pending -')}, hasAccountInfo=${!!accountInfo}`
   )
 
@@ -595,13 +595,13 @@ export async function parseStatement(options: {
     // Look for existing account with same account number
     const existingAccount = await findAccountByNumber(profileId, accountInfo.account_number)
 
-    logger.info(
+    logger.debug(
       `[Parser] Checking for existing account with number ending in ...${accountInfo.account_number.slice(-4)}: found=${!!existingAccount}, existingId=${existingAccount?.id || 'none'}`
     )
 
     if (existingAccount) {
       // Found existing account - use it and delete the placeholder
-      logger.info(
+      logger.debug(
         `[Parser] Found existing account ${existingAccount.id} for account number ...${accountInfo.account_number.slice(-4)}, using it instead of placeholder ${accountIdToUse}`
       )
 
@@ -613,7 +613,7 @@ export async function parseStatement(options: {
       await db.delete(tables.accounts).where(eq(tables.accounts.id, accountIdToUse))
       accountIdToUse = existingAccount.id
 
-      logger.info(
+      logger.debug(
         `[Parser] Deleted placeholder account ${account.id}, now using existing account ${existingAccount.id}`
       )
     } else {
@@ -656,7 +656,7 @@ export async function parseStatement(options: {
           accountName = `${institutionDisplayName} (${last4Digits})`
         }
 
-        logger.info(
+        logger.debug(
           `[Parser] Updating placeholder account ${accountIdToUse} -> "${accountName}" with number ...${last4Digits}`
         )
 
@@ -672,7 +672,7 @@ export async function parseStatement(options: {
           })
           .where(eq(tables.accounts.id, accountIdToUse))
 
-        logger.info(`[Parser] Updated account ${accountIdToUse} with extracted info`)
+        logger.debug(`[Parser] Updated account ${accountIdToUse} with extracted info`)
       }
     }
   }
@@ -687,7 +687,7 @@ export async function parseStatement(options: {
   }
 
   const bankKey = generateBankKey(accountInfo.institution_id, accountInfo.account_type, fileType)
-  logger.info(`[Parser] Bank key: ${bankKey} (file type: ${fileType})`)
+  logger.debug(`[Parser] Bank key: ${bankKey} (file type: ${fileType})`)
 
   // Build expected summary for validation (from Step 1 account info extraction)
   const expectedSummary = accountInfo?.summary
@@ -707,7 +707,7 @@ export async function parseStatement(options: {
 
   const cachedCodes = await getParserCodes(bankKey)
   if (cachedCodes.length > 0) {
-    logger.info(`[Parser] Found ${cachedCodes.length} cached parser versions for ${bankKey}`)
+    logger.debug(`[Parser] Found ${cachedCodes.length} cached parser versions for ${bankKey}`)
 
     // Step 3: Try cached versions (latest first) with validation
     // runParserWithVersions now handles validation internally - it tries all versions
@@ -718,7 +718,7 @@ export async function parseStatement(options: {
       rawTransactions = result.transactions
       usedCachedCode = true
       const validationStatus = result.validationPassed ? 'validation passed' : 'no validation data'
-      logger.info(
+      logger.debug(
         `[Parser] Used cached code v${result.usedVersion}: ${rawTransactions.length} transactions (${validationStatus})`
       )
     } else {
@@ -727,12 +727,12 @@ export async function parseStatement(options: {
       )
     }
   } else {
-    logger.info(`[Parser] No cached parser code for ${bankKey}`)
+    logger.debug(`[Parser] No cached parser code for ${bankKey}`)
   }
 
   // Step 4: Generate new code if no cache or all cached versions failed validation
   if (!usedCachedCode) {
-    logger.info(`[Parser] Generating new parser code with agentic retry...`)
+    logger.debug(`[Parser] Generating new parser code with agentic retry...`)
 
     const agentResult = await generateParserCode(
       fullText,
@@ -742,7 +742,7 @@ export async function parseStatement(options: {
       fileType
     )
 
-    logger.info(
+    logger.debug(
       `[Parser] Generated code for format: ${agentResult.detectedFormat} (confidence: ${agentResult.confidence}, attempts: ${agentResult.attempts})`
     )
 
@@ -762,7 +762,7 @@ export async function parseStatement(options: {
 
     // Use transactions from the successful test run (no need to re-run parser)
     rawTransactions = agentResult.transactions
-    logger.info(`[Parser] Using ${rawTransactions.length} transactions from agent test run`)
+    logger.debug(`[Parser] Using ${rawTransactions.length} transactions from agent test run`)
 
     // Save new code as new version
     const newVersion = await saveParserCode(bankKey, agentResult.code, {
@@ -770,7 +770,7 @@ export async function parseStatement(options: {
       dateFormat: agentResult.dateFormat,
       confidence: agentResult.confidence,
     })
-    logger.info(`[Parser] Saved parser code as ${bankKey} v${newVersion}`)
+    logger.debug(`[Parser] Saved parser code as ${bankKey} v${newVersion}`)
   }
 
   if (rawTransactions.length === 0) {
@@ -809,7 +809,7 @@ export async function parseStatement(options: {
       // Derive closing balance from the chronologically LAST transaction
       if (closingBalance === null && chronologicallyLast?.balance != null) {
         closingBalance = chronologicallyLast.balance
-        logger.info(
+        logger.debug(
           `[Parser] Derived closing balance from last transaction (${chronologicallyLast.date}): ${closingBalance}`
         )
       }
@@ -822,7 +822,7 @@ export async function parseStatement(options: {
         } else {
           openingBalance = chronologicallyFirst.balance + chronologicallyFirst.amount
         }
-        logger.info(
+        logger.debug(
           `[Parser] Derived opening balance from first transaction (${chronologicallyFirst.date}): ${openingBalance}`
         )
       }
@@ -834,7 +834,7 @@ export async function parseStatement(options: {
   const currency = user?.country === 'IN' ? 'INR' : 'USD'
 
   // Step 5: Insert transactions (category will be null initially, updated by streaming categorization)
-  logger.info(`[Parser] Inserting transactions...`)
+  logger.debug(`[Parser] Inserting transactions...`)
   const insertResult = await insertRawTransactions(rawTransactions, {
     statementId,
     accountId: accountIdToUse,
@@ -843,7 +843,7 @@ export async function parseStatement(options: {
     currency,
   })
 
-  logger.info(
+  logger.debug(
     `[Parser] Inserted ${insertResult.insertedCount} transactions, skipped ${insertResult.skippedDuplicates} duplicates`
   )
 
@@ -884,7 +884,7 @@ export async function parseStatement(options: {
     parseCompletedAt: new Date(parseEndTime),
   })
 
-  logger.info(
+  logger.debug(
     `[Parser] Completed parsing statement ${statementId}: ${insertResult.insertedCount} transactions in ${parseDurationSec}s`
   )
 }
@@ -909,11 +909,11 @@ export interface ParseStatementOptions {
  * Does NOT categorize - call categorizeStatements separately after all parsing is done
  */
 export async function parseStatements(statements: ParseStatementOptions[]): Promise<void> {
-  logger.info(`[Parser] Starting batch parse of ${statements.length} statements`)
+  logger.debug(`[Parser] Starting batch parse of ${statements.length} statements`)
 
   for (let i = 0; i < statements.length; i++) {
     const stmt = statements[i]!
-    logger.info(`[Parser] Processing statement ${i + 1}/${statements.length}: ${stmt.statementId}`)
+    logger.debug(`[Parser] Processing statement ${i + 1}/${statements.length}: ${stmt.statementId}`)
 
     try {
       await parseStatement(stmt)
@@ -924,5 +924,5 @@ export async function parseStatements(statements: ParseStatementOptions[]): Prom
     }
   }
 
-  logger.info(`[Parser] Batch parse complete for ${statements.length} statements`)
+  logger.debug(`[Parser] Batch parse complete for ${statements.length} statements`)
 }

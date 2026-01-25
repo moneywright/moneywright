@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { auth, COOKIE_NAMES, type AuthVariables } from '../middleware/auth'
+import { logger } from '../lib/logger'
 import { authSecurityHeaders } from '../middleware/security-headers'
 import {
   verifyJWT,
@@ -149,7 +150,7 @@ authRoutes.post('/local', async (c) => {
       ipAddress: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP'),
     })
 
-    // Set auth cookies with local mode expiry (7-day access, 10-year refresh)
+    // Set auth cookies with local mode expiry (7-day access, 1-year refresh)
     setAuthCookies(
       c,
       {
@@ -169,7 +170,7 @@ authRoutes.post('/local', async (c) => {
       redirectUrl: '/',
     })
   } catch (error) {
-    console.error('[Auth] Local login error:', error)
+    logger.error('[Auth] Local login error:', error)
     return c.json({ error: 'auth_failed', message: 'Local authentication failed' }, 500)
   }
 })
@@ -204,7 +205,7 @@ authRoutes.post('/google/exchange', async (c) => {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`[Auth] OAuth error: ${error}`)
+    logger.error(`[Auth] OAuth error: ${error}`)
     return c.json({ error: 'oauth_error', message: error }, 400)
   }
 
@@ -257,7 +258,7 @@ authRoutes.post('/google/exchange', async (c) => {
       redirectUrl: state.redirectUrl || '/',
     })
   } catch (err) {
-    console.error('[Auth] Callback error:', err)
+    logger.error('[Auth] Callback error:', err)
     return c.json({ error: 'auth_failed', message: 'Authentication failed' }, 500)
   }
 })

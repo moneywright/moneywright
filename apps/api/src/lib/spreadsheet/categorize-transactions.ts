@@ -150,7 +150,7 @@ export async function categorizeTransactions(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<CategorizedTransaction[]> {
-  logger.info(
+  logger.debug(
     `[Categorize] Categorizing ${transactions.length} transactions in batches of ${BATCH_SIZE}`
   )
 
@@ -162,7 +162,7 @@ export async function categorizeTransactions(
     batches.push(transactions.slice(i, i + BATCH_SIZE))
   }
 
-  logger.info(`[Categorize] Processing ${batches.length} batches`)
+  logger.debug(`[Categorize] Processing ${batches.length} batches`)
 
   // Process batches sequentially to avoid rate limits
   for (let i = 0; i < batches.length; i++) {
@@ -190,6 +190,6 @@ export async function categorizeTransactions(
     }
   }
 
-  logger.info(`[Categorize] Completed categorization of ${results.length} transactions`)
+  logger.debug(`[Categorize] Completed categorization of ${results.length} transactions`)
   return results
 }

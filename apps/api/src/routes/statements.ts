@@ -274,7 +274,7 @@ statementRoutes.post('/upload', async (c) => {
       categorizationModel: categorizationModel || undefined,
     })
 
-    logger.info(`[Statement] Uploaded ${statements.length} files, queued for processing`)
+    logger.debug(`[Statement] Uploaded ${statements.length} files, queued for processing`)
 
     return c.json(
       {

@@ -1,3 +1,8 @@
+// Canvas polyfills must be loaded FIRST before any pdfjs-dist code
+import './lib/canvas-polyfill'
+// PDF.js worker setup must come after canvas polyfills but before any PDF parsing
+import './lib/pdfjs-worker-setup'
+
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/bun'

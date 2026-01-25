@@ -48,7 +48,7 @@ export async function insertRawTransactions(
   const { statementId, accountId, profileId, userId, currency } = context
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
-  logger.info(`[InsertTransactions] Inserting ${transactions.length} transactions`)
+  logger.debug(`[InsertTransactions] Inserting ${transactions.length} transactions`)
 
   const insertedIds: string[] = []
   let skippedCount = 0
@@ -118,7 +118,7 @@ export async function insertRawTransactions(
     }
   }
 
-  logger.info(
+  logger.debug(
     `[InsertTransactions] Inserted ${insertedIds.length} transactions, skipped ${skippedCount} duplicates`
   )
 
@@ -142,7 +142,7 @@ export async function updateTransactionCategories(
 ): Promise<void> {
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
-  logger.info(`[InsertTransactions] Updating ${categorizations.length} transaction categories`)
+  logger.debug(`[InsertTransactions] Updating ${categorizations.length} transaction categories`)
 
   for (const cat of categorizations) {
     try {
@@ -160,5 +160,5 @@ export async function updateTransactionCategories(
     }
   }
 
-  logger.info(`[InsertTransactions] Category updates complete`)
+  logger.debug(`[InsertTransactions] Category updates complete`)
 }

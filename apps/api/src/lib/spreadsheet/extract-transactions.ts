@@ -142,7 +142,7 @@ export function extractTransactions(sheetData: SheetData, config: ParserConfig):
   const transactions: RawTransaction[] = []
   const { headers, data } = sheetData
 
-  logger.info(`[TxnExtract] Extracting from ${data.length} rows`)
+  logger.debug(`[TxnExtract] Extracting from ${data.length} rows`)
   logger.debug(`[TxnExtract] Config: ${JSON.stringify(config)}`)
 
   // Skip rows before data start
@@ -252,7 +252,7 @@ export function extractTransactions(sheetData: SheetData, config: ParserConfig):
     }
   }
 
-  logger.info(
+  logger.debug(
     `[TxnExtract] Extracted ${transactions.length} transactions from ${dataRows.length} rows`
   )
   return transactions

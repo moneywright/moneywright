@@ -567,7 +567,7 @@ function truncatePdfText(pdfText: string): string {
   const maxTextLength = 80000
   if (pdfText.length <= maxTextLength) return pdfText
 
-  logger.warn(`[PDFParser] Text truncated from ${pdfText.length} to ${maxTextLength} chars`)
+  logger.debug(`[PDFParser] Text truncated from ${pdfText.length} to ${maxTextLength} chars`)
   return pdfText.slice(0, maxTextLength) + '\n\n[...TEXT TRUNCATED...]'
 }
 
@@ -611,11 +611,11 @@ export async function generateParserCode(
   const isSpreadsheet = fileType === 'csv' || fileType === 'xlsx'
   const formatLabel = isSpreadsheet ? 'CSV/Spreadsheet' : 'PDF'
 
-  logger.info(
+  logger.debug(
     `[Parser] Generating parser code with agent, format: ${formatLabel}, text length: ${statementText.length} chars, institution: ${institutionId || 'unknown'}`
   )
   if (expectedSummary && hasValidationData(expectedSummary)) {
-    logger.info(
+    logger.debug(
       `[Parser] Validation enabled: expecting ${expectedSummary.debitCount} debits, ${expectedSummary.creditCount} credits`
     )
   }
@@ -660,7 +660,7 @@ export async function generateParserCode(
           dateFormat = df
           confidence = conf
 
-          logger.info(`[PDFParser] Testing code attempt ${attempts}, format: ${fmt}`)
+          logger.debug(`[PDFParser] Testing code attempt ${attempts}, format: ${fmt}`)
           logger.debug(`[PDFParser] Code:\n${parserCode}`)
 
           // Test the code using the same executor we'll use in production
@@ -668,7 +668,7 @@ export async function generateParserCode(
 
           if (result.success && result.transactions && result.transactions.length > 0) {
             lastSuccessfulTransactions = result.transactions
-            logger.info(`[PDFParser] Code works! Found ${result.transactions.length} transactions`)
+            logger.debug(`[PDFParser] Code works! Found ${result.transactions.length} transactions`)
 
             // Calculate extracted totals
             const extractedTotals = calculateTotals(result.transactions)
@@ -705,7 +705,7 @@ ${sampleStr}
                 response += `
 VALIDATION: ✅ PASSED - All totals match the statement summary!
 You can now call the 'done' tool.`
-                logger.info(`[PDFParser] Validation passed!`)
+                logger.debug(`[PDFParser] Validation passed!`)
               } else {
                 validationPassed = false
                 lastError = validation.message
@@ -821,7 +821,7 @@ Use the submitCode tool to test your code. If it fails or validation fails, fix 
       prompt: userPrompt,
     })
 
-    logger.info(
+    logger.debug(
       `[PDFParser] Agent completed in ${attempts} attempt(s), validation: ${validationPassed ? 'passed' : 'failed/skipped'}`
     )
     logger.debug(`[PDFParser] Final result steps: ${result.steps.length}`)

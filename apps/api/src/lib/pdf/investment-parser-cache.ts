@@ -136,7 +136,7 @@ export async function saveInvestmentParserCode(
       },
     })
 
-  logger.info(`[InvestmentParserCache] Saved parser code for ${sourceKey} v${newVersion}`)
+  logger.debug(`[InvestmentParserCache] Saved parser code for ${sourceKey} v${newVersion}`)
   return newVersion
 }
 
@@ -217,7 +217,7 @@ export async function clearInvestmentParserCache(sourceKey: string): Promise<num
     await db.delete(tables.appConfig).where(eq(tables.appConfig.key, row.key))
   }
 
-  logger.info(
+  logger.debug(
     `[InvestmentParserCache] Cleared ${rows.length} cached parser versions for ${sourceKey}`
   )
   return rows.length
@@ -295,7 +295,7 @@ export async function runInvestmentParserWithVersions(
 
   for (const entry of cachedCodes) {
     triedVersions.push(entry.version)
-    logger.info(`[InvestmentParserCache] Trying cached parser v${entry.version} for ${sourceKey}`)
+    logger.debug(`[InvestmentParserCache] Trying cached parser v${entry.version} for ${sourceKey}`)
 
     try {
       // Use 'holding' mode for investment parsing
@@ -335,7 +335,7 @@ export async function runInvestmentParserWithVersions(
         }
 
         await recordInvestmentSuccess(sourceKey, entry.version)
-        logger.info(
+        logger.debug(
           `[InvestmentParserCache] v${entry.version} succeeded: ${holdings.length} holdings`
         )
 

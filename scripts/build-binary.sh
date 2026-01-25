@@ -12,7 +12,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  Binary Build${NC}"
+echo -e "${GREEN}  Moneywright Binary Build${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 
@@ -56,8 +56,11 @@ echo -e "${GREEN}Static assets prepared${NC}"
 echo -e "${YELLOW}Step 3: Compiling binary...${NC}"
 cd "$ROOT_DIR/apps/api"
 
+# Clear Bun's build cache to ensure fresh compilation
+rm -rf ~/.bun/install/cache/vfs 2>/dev/null || true
+
 # Determine binary name based on target
-BINARY_NAME="app"
+BINARY_NAME="moneywright"
 if [[ -n "$TARGET" ]]; then
   echo -e "  Target: ${TARGET}"
   bun build src/index.ts --compile --target="$TARGET" --define "__APP_VERSION__=\"$VERSION\"" --outfile="$DIST_DIR/$BINARY_NAME"
@@ -67,9 +70,11 @@ else
 fi
 echo -e "${GREEN}Binary compiled successfully${NC}"
 
-# Step 4: Copy public folder to dist
+# Step 4: Copy public folder to dist and clean up api/public
 echo -e "${YELLOW}Step 4: Copying assets to distribution...${NC}"
 cp -r "$ROOT_DIR/apps/api/public" "$DIST_DIR/public"
+rm -rf "$ROOT_DIR/apps/api/public"
+echo -e "${GREEN}Static assets copied and cleaned up${NC}"
 
 # Step 5: Copy migrations folder (both SQLite and Postgres)
 echo -e "${YELLOW}Step 5: Copying migrations...${NC}"
@@ -100,7 +105,7 @@ ls -la "$DIST_DIR"
 echo ""
 echo -e "${YELLOW}To run:${NC}"
 echo "  cd $DIST_DIR"
-echo "  ./app"
+echo "  ./moneywright"
 echo ""
 echo -e "${YELLOW}Notes:${NC}"
 echo "  - Binary auto-generates .env with secure secrets on first run"

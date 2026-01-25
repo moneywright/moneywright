@@ -47,7 +47,7 @@ export async function ensureDefaultUser(): Promise<User> {
     throw new Error('Failed to create default user')
   }
 
-  logger.info('[User] Created default user for local mode')
+  logger.debug('[User] Created default user for local mode')
   return user
 }
 

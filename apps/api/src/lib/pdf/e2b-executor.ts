@@ -149,7 +149,7 @@ export async function runParserInE2B(
   let sandbox: Sandbox | null = null
 
   try {
-    logger.info('[E2BExecutor] Creating sandbox...')
+    logger.debug('[E2BExecutor] Creating sandbox...')
     sandbox = await Sandbox.create({ timeoutMs: EXECUTION_TIMEOUT_MS })
 
     // Wrap the parser code in a function and execute it
@@ -172,7 +172,7 @@ const jsonOutput = JSON.stringify(result, null, 0);
 console.log('${OUTPUT_MARKER_START}' + jsonOutput + '${OUTPUT_MARKER_END}');
 `
 
-    logger.info('[E2BExecutor] Executing parser code in sandbox...')
+    logger.debug('[E2BExecutor] Executing parser code in sandbox...')
     logger.debug(`[E2BExecutor] Code length: ${wrappedCode.length} chars`)
 
     const execution = await sandbox.runCode(wrappedCode, {
@@ -194,7 +194,7 @@ console.log('${OUTPUT_MARKER_START}' + jsonOutput + '${OUTPUT_MARKER_END}');
 
     // Log stderr for debugging
     if (execution.logs.stderr.length > 0) {
-      logger.warn('[E2BExecutor] stderr:', execution.logs.stderr.join('\n'))
+      logger.debug('[E2BExecutor] stderr:', execution.logs.stderr.join('\n'))
     }
 
     // Extract JSON from stdout using markers (handles large outputs without truncation)
@@ -268,7 +268,7 @@ console.log('${OUTPUT_MARKER_START}' + jsonOutput + '${OUTPUT_MARKER_END}');
         logger.warn(`[E2BExecutor] Skipped ${invalidCount} invalid holdings`)
       }
 
-      logger.info(
+      logger.debug(
         `[E2BExecutor] Extracted ${validHoldings.length} holdings in ${executionTimeMs}ms`
       )
 
@@ -299,7 +299,7 @@ console.log('${OUTPUT_MARKER_START}' + jsonOutput + '${OUTPUT_MARKER_END}');
         logger.warn(`[E2BExecutor] Skipped ${invalidCount} invalid transactions`)
       }
 
-      logger.info(
+      logger.debug(
         `[E2BExecutor] Extracted ${validTransactions.length} transactions in ${executionTimeMs}ms`
       )
 

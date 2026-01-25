@@ -487,7 +487,7 @@ function truncatePdfText(pdfText: string): string {
   const maxTextLength = 80000
   if (pdfText.length <= maxTextLength) return pdfText
 
-  logger.warn(`[InvestmentParser] Text truncated from ${pdfText.length} to ${maxTextLength} chars`)
+  logger.debug(`[InvestmentParser] Text truncated from ${pdfText.length} to ${maxTextLength} chars`)
   return pdfText.slice(0, maxTextLength) + '\n\n[...TEXT TRUNCATED...]'
 }
 
@@ -517,11 +517,11 @@ export async function generateInvestmentParserCode(
   const isSpreadsheet = fileType === 'csv' || fileType === 'xlsx'
   const formatLabel = isSpreadsheet ? 'CSV/Spreadsheet' : 'PDF'
 
-  logger.info(
+  logger.debug(
     `[InvestmentParser] Generating parser code with agent, format: ${formatLabel}, text length: ${statementText.length} chars, source: ${sourceType || 'unknown'}`
   )
   if (expectedSummary && hasValidationData(expectedSummary)) {
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Validation enabled: expecting ${expectedSummary.holdingsCount} holdings, ${expectedSummary.totalCurrent} total value`
     )
   }
@@ -563,7 +563,7 @@ export async function generateInvestmentParserCode(
           detectedFormat = fmt
           confidence = conf
 
-          logger.info(`[InvestmentParser] Testing code attempt ${attempts}, format: ${fmt}`)
+          logger.debug(`[InvestmentParser] Testing code attempt ${attempts}, format: ${fmt}`)
           logger.debug(`[InvestmentParser] Code:\n${parserCode}`)
 
           // Test the code (use 'holding' mode for investment parsing)
@@ -574,7 +574,7 @@ export async function generateInvestmentParserCode(
 
             if (holdings.length > 0) {
               lastSuccessfulHoldings = holdings
-              logger.info(`[InvestmentParser] Code works! Found ${holdings.length} holdings`)
+              logger.debug(`[InvestmentParser] Code works! Found ${holdings.length} holdings`)
 
               // Calculate extracted totals
               const extractedTotals = calculateTotals(holdings)
@@ -610,7 +610,7 @@ ${sampleStr}
                   response += `
 VALIDATION: ✅ PASSED - All totals match the statement summary!
 You can now call the 'done' tool.`
-                  logger.info(`[InvestmentParser] Validation passed!`)
+                  logger.debug(`[InvestmentParser] Validation passed!`)
                 } else {
                   validationPassed = false
                   lastError = validation.message
@@ -687,7 +687,7 @@ Use the submitCode tool to test your code. If it fails or validation fails, fix 
       prompt: userPrompt,
     })
 
-    logger.info(
+    logger.debug(
       `[InvestmentParser] Agent completed in ${attempts} attempt(s), validation: ${validationPassed ? 'passed' : 'failed/skipped'}`
     )
     logger.debug(`[InvestmentParser] Final result steps: ${result.steps.length}`)

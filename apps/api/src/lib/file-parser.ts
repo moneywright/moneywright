@@ -5,6 +5,7 @@
 import { PDFParse, PasswordException } from 'pdf-parse'
 import * as XLSX from 'xlsx'
 import XlsxPopulate from 'xlsx-populate'
+import { logger } from './logger'
 
 /**
  * Extract text from a PDF file, page by page
@@ -18,6 +19,13 @@ export async function extractPdfText(
   const parser = new PDFParse({
     data: buffer,
     password: password,
+    // Disable worker for Bun binary compatibility
+    // Workers require external files that can't be bundled into the binary
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    disableFontFace: true,
+    isOffscreenCanvasSupported: false,
+    isImageDecoderSupported: false,
   })
 
   try {
@@ -35,7 +43,7 @@ export async function extractPdfText(
           pages.push(result.text.trim())
         }
       } catch (pageError) {
-        console.warn(`[PDF] Could not extract page ${pageNum}:`, pageError)
+        logger.debug(`[PDF] Could not extract page ${pageNum}:`, pageError)
       }
     }
 

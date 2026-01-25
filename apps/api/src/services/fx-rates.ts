@@ -58,7 +58,7 @@ export async function fetchFxRates(baseCurrency: string = 'usd'): Promise<FxRate
 
   for (const url of urls) {
     try {
-      logger.info(`[FxRates] Fetching rates from ${url}`)
+      logger.debug(`[FxRates] Fetching rates from ${url}`)
 
       const response = await fetch(url, {
         headers: {
@@ -87,7 +87,7 @@ export async function fetchFxRates(baseCurrency: string = 'usd'): Promise<FxRate
       }
       cacheTimestamp = now
 
-      logger.info(
+      logger.debug(
         `[FxRates] Fetched ${Object.keys(rates).length} rates for ${base.toUpperCase()} (date: ${data.date})`
       )
 

@@ -55,7 +55,7 @@ export async function recategorizeTransactions(
     throw new Error('Either accountId or statementId must be provided')
   }
 
-  logger.info(
+  logger.debug(
     `[Recategorize] Starting recategorization for ${accountId ? `account ${accountId}` : `statement ${statementId}`}`
   )
 
@@ -80,11 +80,11 @@ export async function recategorizeTransactions(
   }
 
   if (statementIds.length === 0) {
-    logger.info(`[Recategorize] No statements found to recategorize`)
+    logger.debug(`[Recategorize] No statements found to recategorize`)
     return { totalCount: 0, categorizedCount: 0 }
   }
 
-  logger.info(`[Recategorize] Found ${statementIds.length} statements to recategorize`)
+  logger.debug(`[Recategorize] Found ${statementIds.length} statements to recategorize`)
 
   // Get all transaction IDs for these statements to reset their categories
   const transactions = await db
@@ -93,7 +93,7 @@ export async function recategorizeTransactions(
     .where(inArray(tables.transactions.statementId, statementIds))
 
   if (transactions.length === 0) {
-    logger.info(`[Recategorize] No transactions found to recategorize`)
+    logger.debug(`[Recategorize] No transactions found to recategorize`)
     return { totalCount: 0, categorizedCount: 0 }
   }
 
@@ -112,7 +112,7 @@ export async function recategorizeTransactions(
     })
     .where(inArray(tables.transactions.id, transactionIds))
 
-  logger.info(`[Recategorize] Reset ${transactionIds.length} transactions for recategorization`)
+  logger.debug(`[Recategorize] Reset ${transactionIds.length} transactions for recategorization`)
 
   // Use categorizeStatements for consistent categorization logic
   const result = await categorizeStatements(
@@ -123,7 +123,7 @@ export async function recategorizeTransactions(
     profileId
   )
 
-  logger.info(
+  logger.debug(
     `[Recategorize] Completed: ${result.categorizedCount}/${result.totalCount} transactions categorized`
   )
 
