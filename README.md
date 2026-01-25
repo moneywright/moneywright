@@ -1,32 +1,35 @@
 # Moneywright
 
-An open-source, self-hostable, AI-powered personal finance helper. Upload your bank statements, credit card statements, and investment data to get intelligent expense analysis, investment insights, and personalized financial advice.
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+A privacy-focused, self-hostable, AI-powered personal finance manager. Upload your bank statements, credit card statements, and investment data to get intelligent expense analysis, investment insights, and personalized financial advice - all without sharing your data with third parties.
 
 ## Features
 
+- **Privacy First**: Your financial data stays on your machine (SQLite by default) or your own database
 - **AI-Powered Analysis**: Get intelligent insights into your spending patterns and investment performance
-- **Statement Upload**: Import bank statements, credit card statements, and investment data
-- **Expense Tracking**: Automatic categorization and analysis of your expenses
-- **Investment Analysis**: Track and analyze your investment portfolio
-- **Financial Advice**: Personalized recommendations based on your financial data
+- **Statement Parsing**: Automatic extraction from bank statements, credit card statements, and investment PDFs
+- **Smart Categorization**: AI-powered transaction categorization
+- **Investment Tracking**: Track and analyze your investment portfolio
+- **AI Chat**: Ask questions about your finances in natural language
+- **Multi-Profile**: Support for family finance management
 - **Self-Hostable**: Full control over your financial data
-- **Authentication**: Google OAuth with secure JWT session management
-- **Database**: PostgreSQL or SQLite with Drizzle ORM
-- **Frontend**: React 19 with TailwindCSS and shadcn/ui
-- **API**: Hono with TypeScript
-- **Documentation**: Fumadocs with MDX
-- **Deployment**: Docker, binary, or cloud platforms
+- **Cross-Platform**: CLI binary, Docker, or native desktop app (macOS, Windows, Linux)
 
 ## Quick Start
 
 ### Prerequisites
 
 - [Bun](https://bun.sh) v1.1+
-- Google OAuth credentials (or configure via `/setup` UI)
 
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/moneywright/moneywright.git
+cd moneywright
+
 # Install dependencies
 bun install
 
@@ -39,51 +42,90 @@ Open [http://localhost:7777](http://localhost:7777) in your browser.
 ### First-Time Setup
 
 1. Visit the app URL
-2. You'll be redirected to `/setup` if not configured
-3. Enter your Google OAuth credentials
-4. Click "Save Configuration"
+2. Configure your LLM provider (OpenAI, Anthropic, Google AI, or local Ollama)
+3. Complete the onboarding flow
+4. Upload your first statement
+
+## Installation Options
+
+### Development
+
+```bash
+bun install
+bun run dev
+```
+
+### Docker
+
+```bash
+docker-compose up -d
+```
+
+### Standalone Binary
+
+Download from [Releases](https://github.com/moneywright/moneywright/releases) or build yourself:
+
+```bash
+bun run build:binary
+./dist/moneywright
+```
+
+### Desktop App
+
+Native system tray app with auto-updates:
+
+```bash
+bun run build:desktop:macos    # macOS
+bun run build:desktop:windows  # Windows
+bun run build:desktop:linux    # Linux
+```
 
 ## Environment Variables
 
-Create a `.env` file in the root directory:
+The app auto-generates required secrets on first run. Optional configuration:
 
 ```bash
-# Required for Docker/Cloud (auto-generated for binary)
-JWT_SECRET=your-secret-key-min-32-chars
-ENCRYPTION_KEY=64-hex-character-encryption-key
+# Database (default: SQLite)
+DATABASE_URL=postgres://user:password@localhost:5432/dbname
 
-# Optional - Google OAuth (can configure via /setup UI instead)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+# LLM Providers (at least one required for AI features)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_GENERATIVE_AI_API_KEY=...
 
-# Optional
-APP_URL=http://localhost:7777   # Public URL
-DATABASE_URL=postgres://...     # Use PostgreSQL (default: SQLite)
-PORT=7777
+# Local LLM (Ollama)
+OLLAMA_BASE_URL=http://localhost:11434/api
+
+# Optional Services
+TAVILY_API_KEY=...     # Web search in chat
+E2B_API_KEY=...        # Sandboxed code execution
+
+# OAuth (for multi-user mode)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
 ## Commands
 
 ```bash
 # Development
-bun install              # Install dependencies
-bun run dev              # Start API + Vite dev server
+bun run dev              # Start API + Web dev servers
 bun run dev:api          # API only (localhost:7777)
-bun run dev:web          # Vite dev server (localhost:3000)
+bun run dev:web          # Web only (localhost:3000)
 
 # Database
 bun run db:generate      # Generate migrations
 bun run db:migrate       # Run migrations
-bun run db:push          # Push schema changes
-bun run db:studio        # Drizzle Studio
+bun run db:studio        # Open Drizzle Studio
 
 # Build
-bun run build            # Production build (API + Web)
-bun run build:binary     # Build single binary for current platform
+bun run build            # Production build
+bun run build:binary     # Build CLI binary
+bun run build:desktop    # Build desktop app
 
 # Quality
-bun run lint             # Run ESLint
-bun run format           # Run Prettier
+bun run lint             # Run linters
+bun run format           # Format code
 ```
 
 ## Project Structure
@@ -91,124 +133,37 @@ bun run format           # Run Prettier
 ```
 moneywright/
 ├── apps/
-│   ├── api/              # Hono backend
-│   │   ├── src/
-│   │   │   ├── db/       # Database schemas & connection
-│   │   │   ├── lib/      # Utilities (JWT, encryption, etc.)
-│   │   │   ├── middleware/
-│   │   │   ├── routes/   # API routes
-│   │   │   └── services/ # Business logic
-│   │   └── drizzle/      # Migrations
-│   │
-│   ├── web/              # React frontend
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── ui/   # shadcn components
-│   │   │   │   └── domain/
-│   │   │   ├── hooks/
-│   │   │   ├── lib/
-│   │   │   └── routes/   # TanStack Router
-│   │   └── package.json
-│   │
-│   └── docs/             # Documentation (Fumadocs)
-│       ├── content/docs/ # MDX files
-│       └── package.json
-│
-├── scripts/
-│   └── build-binary.sh   # Binary build script
-├── Dockerfile
-├── docker-compose.yml
-└── package.json
+│   ├── api/              # Hono backend (Bun runtime)
+│   ├── web/              # React frontend (Vite + TanStack)
+│   ├── docs/             # Documentation (Fumadocs)
+│   └── desktop/          # Desktop app (Tauri + Rust)
+├── scripts/              # Build scripts
+└── .docs/                # Internal documentation
 ```
 
-## Database
+## Tech Stack
 
-### SQLite (Default)
+| Component | Technology |
+|-----------|------------|
+| Backend | Hono, Bun, Drizzle ORM |
+| Frontend | React 19, TanStack Router, TanStack Query, Tailwind CSS |
+| AI | Vercel AI SDK (OpenAI, Anthropic, Google AI, Ollama) |
+| Database | SQLite (default) or PostgreSQL |
+| Desktop | Tauri 2, Rust |
+| Docs | Fumadocs, Cloudflare Workers |
 
-No configuration needed. Data is stored in `data/app.db`.
+## Contributing
 
-### PostgreSQL
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-Set the `DATABASE_URL` environment variable:
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
-```bash
-DATABASE_URL=postgres://user:password@localhost:5432/dbname
-```
+## Security
 
-## Deployment
-
-### Docker
-
-```bash
-# Build and run
-docker-compose up -d
-
-# Or build manually
-docker build -t moneywright .
-docker run -p 7777:7777 moneywright
-```
-
-### Binary
-
-```bash
-# Build for current platform
-bun run build:binary
-
-# Run the binary
-./dist/moneywright
-```
-
-The binary auto-generates a `.env` file with secure secrets on first run.
-
-### Cloud Platforms
-
-Deploy to Railway, Render, Fly.io, or any platform that supports Docker.
-
-## API Routes
-
-```
-Setup:     GET|POST /api/setup/config|status
-Auth:      GET|POST /api/auth/google|refresh|logout|me|sessions
-Health:    GET /health
-```
-
-## Authentication Flow
-
-1. User clicks "Sign in with Google"
-2. Redirected to Google OAuth consent
-3. Callback receives auth code
-4. Server exchanges code for tokens
-5. Server creates/updates user record
-6. JWT access token (15min) + refresh token (7 days) set as HttpOnly cookies
-7. Client uses access token for API requests
-8. Automatic token refresh on 401 responses
-
-## Customization
-
-### Adding New Routes
-
-1. Create route file in `apps/api/src/routes/`
-2. Export Hono app instance
-3. Mount in `apps/api/src/index.ts`
-
-### Adding Database Tables
-
-1. Update schemas in `apps/api/src/db/schema.pg.ts` and `schema.sqlite.ts`
-2. Run `bun run db:generate` to create migrations
-3. Run `bun run db:migrate` to apply
-
-### Adding Frontend Pages
-
-1. Create route file in `apps/web/src/routes/`
-2. TanStack Router auto-generates types
-
-### Adding UI Components
-
-```bash
-cd apps/web
-bunx shadcn@latest add [component-name]
-```
+For security issues, please see our [Security Policy](SECURITY.md).
 
 ## License
 
-MIT
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+Copyright (c) 2025 Priyansh Rastogi

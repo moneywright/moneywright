@@ -1,6 +1,26 @@
 {
   "name": "moneywright",
   "version": "0.1.0",
+  "description": "A privacy-focused personal finance manager that runs locally",
+  "license": "AGPL-3.0-only",
+  "author": "Priyansh Rastogi",
+  "homepage": "https://github.com/moneywright/moneywright",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moneywright/moneywright.git"
+  },
+  "bugs": {
+    "url": "https://github.com/moneywright/moneywright/issues"
+  },
+  "keywords": [
+    "finance",
+    "personal-finance",
+    "budget",
+    "expense-tracker",
+    "privacy",
+    "local-first",
+    "ai"
+  ],
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "eslint": "^9.39.2",
