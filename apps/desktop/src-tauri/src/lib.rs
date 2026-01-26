@@ -390,10 +390,20 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // For main window, hide instead of close
                 if window.label() == "main" {
-                    let _ = window.hide();
-                    api.prevent_close();
+                    #[cfg(target_os = "macos")]
+                    {
+                        // macOS: Hide window, app stays in dock, server keeps running
+                        // User can reopen from dock, quit via Cmd+Q or menu
+                        let _ = window.hide();
+                        api.prevent_close();
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        // Windows/Linux: Quit app and kill server
+                        let _ = kill_process_on_port(SERVER_PORT);
+                        window.app_handle().exit(0);
+                    }
                 }
             }
         })
