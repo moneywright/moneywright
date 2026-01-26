@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1768914270606,
-      "tag": "0000_left_crystal",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1769016202133,
-      "tag": "0001_lazy_nighthawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1769024948029,
-      "tag": "0002_zippy_corsair",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1769100695320,
-      "tag": "0003_outstanding_kylun",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1769143561299,
-      "tag": "0004_magical_gressill",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1769175351140,
-      "tag": "0005_brief_wonder_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1769189263509,
-      "tag": "0006_soft_lady_vermin",
+      "when": 1769420568174,
+      "tag": "0000_certain_gambit",
       "breakpoints": true
     }
   ]

@@ -26,6 +26,51 @@ CREATE TABLE `app_config` (
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `chat_conversations` (
+	`id` text PRIMARY KEY NOT NULL,
+	`profile_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`title` text,
+	`summary` text,
+	`summary_up_to_message_id` text,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `chat_conversations_profile_id_idx` ON `chat_conversations` (`profile_id`);--> statement-breakpoint
+CREATE INDEX `chat_conversations_user_id_idx` ON `chat_conversations` (`user_id`);--> statement-breakpoint
+CREATE TABLE `chat_messages` (
+	`id` text PRIMARY KEY NOT NULL,
+	`conversation_id` text NOT NULL,
+	`role` text NOT NULL,
+	`content` text,
+	`provider` text,
+	`model` text,
+	`tool_calls` text,
+	`tool_results` text,
+	`reasoning` text,
+	`approval_state` text,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`conversation_id`) REFERENCES `chat_conversations`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `chat_messages_conversation_id_idx` ON `chat_messages` (`conversation_id`);--> statement-breakpoint
+CREATE INDEX `chat_messages_created_at_idx` ON `chat_messages` (`created_at`);--> statement-breakpoint
+CREATE TABLE `chat_query_cache` (
+	`query_id` text PRIMARY KEY NOT NULL,
+	`profile_id` text NOT NULL,
+	`data_type` text NOT NULL,
+	`filters` text NOT NULL,
+	`count` integer NOT NULL,
+	`data` text NOT NULL,
+	`schema` text NOT NULL,
+	`data_size_bytes` integer,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `chat_query_cache_profile_id_idx` ON `chat_query_cache` (`profile_id`);--> statement-breakpoint
 CREATE TABLE `investment_holdings` (
 	`id` text PRIMARY KEY NOT NULL,
 	`source_id` text,
@@ -140,6 +185,7 @@ CREATE TABLE `profiles` (
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
 	`relationship` text,
+	`summary` text,
 	`is_default` integer DEFAULT false NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
@@ -216,6 +262,7 @@ CREATE TABLE `transactions` (
 	`summary` text,
 	`category` text NOT NULL,
 	`category_confidence` real,
+	`is_subscription` integer,
 	`hash` text NOT NULL,
 	`linked_transaction_id` text,
 	`link_type` text,
@@ -234,6 +281,21 @@ CREATE INDEX `transactions_user_id_idx` ON `transactions` (`user_id`);--> statem
 CREATE INDEX `transactions_date_idx` ON `transactions` (`date`);--> statement-breakpoint
 CREATE INDEX `transactions_category_idx` ON `transactions` (`category`);--> statement-breakpoint
 CREATE UNIQUE INDEX `transactions_account_hash_unique` ON `transactions` (`account_id`,`hash`);--> statement-breakpoint
+CREATE TABLE `user_preferences` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`profile_id` text,
+	`key` text NOT NULL,
+	`value` text NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `user_preferences_user_id_idx` ON `user_preferences` (`user_id`);--> statement-breakpoint
+CREATE INDEX `user_preferences_profile_id_idx` ON `user_preferences` (`profile_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `user_preferences_user_profile_key_unique` ON `user_preferences` (`user_id`,`profile_id`,`key`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text,
