@@ -39,7 +39,6 @@
     "targets": [
       "dmg",
       "nsis",
-      "appimage",
       "deb"
     ],
     "icon": [
@@ -74,9 +73,6 @@
       }
     },
     "linux": {
-      "appimage": {
-        "bundleMediaFramework": false
-      },
       "deb": {
         "section": "finance"
       }

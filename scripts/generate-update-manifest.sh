@@ -71,7 +71,7 @@ cat > "$OUTPUT_FILE" << EOF
     },
     "linux-x86_64": {
       "signature": "",
-      "url": "$BASE_URL/Moneywright_${VERSION}_amd64.AppImage"
+      "url": "$BASE_URL/moneywright_${VERSION}_amd64.deb"
     },
     "windows-x86_64": {
       "signature": "",

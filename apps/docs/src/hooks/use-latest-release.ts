@@ -19,7 +19,6 @@ export interface PlatformDownloads {
   macosIntel: string | null;
   windows: string | null;
   linux: string | null;
-  linuxDeb: string | null;
   releasesUrl: string;
   version: string | null;
 }
@@ -32,7 +31,6 @@ function parseAssets(assets: ReleaseAsset[]): Omit<PlatformDownloads, 'releasesU
   let macosIntel: string | null = null;
   let windows: string | null = null;
   let linux: string | null = null;
-  let linuxDeb: string | null = null;
 
   for (const asset of assets) {
     const name = asset.name.toLowerCase();
@@ -49,17 +47,13 @@ function parseAssets(assets: ReleaseAsset[]): Omit<PlatformDownloads, 'releasesU
     else if (name.endsWith('.exe') && !name.endsWith('.exe.sig')) {
       windows = asset.browser_download_url;
     }
-    // Linux AppImage
-    else if (name.endsWith('.appimage')) {
-      linux = asset.browser_download_url;
-    }
     // Linux DEB
     else if (name.endsWith('.deb')) {
-      linuxDeb = asset.browser_download_url;
+      linux = asset.browser_download_url;
     }
   }
 
-  return { macos, macosIntel, windows, linux, linuxDeb };
+  return { macos, macosIntel, windows, linux };
 }
 
 async function fetchLatestRelease(): Promise<PlatformDownloads> {
@@ -95,7 +89,6 @@ export function useLatestRelease() {
       macosIntel: null,
       windows: null,
       linux: null,
-      linuxDeb: null,
       releasesUrl: RELEASES_URL,
       version: null,
     },
@@ -112,7 +105,7 @@ export function getDownloadUrl(
     case 'windows':
       return downloads.windows || downloads.releasesUrl;
     case 'linux':
-      return downloads.linux || downloads.linuxDeb || downloads.releasesUrl;
+      return downloads.linux || downloads.releasesUrl;
     default:
       return downloads.releasesUrl;
   }

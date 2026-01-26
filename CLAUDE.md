@@ -72,7 +72,7 @@ bun run build:binary:windows            # Windows x64
 bun run build:desktop                   # Current platform
 bun run build:desktop:macos             # macOS DMG
 bun run build:desktop:windows           # Windows NSIS
-bun run build:desktop:linux             # Linux AppImage + DEB
+bun run build:desktop:linux             # Linux DEB
 ```
 
 ---

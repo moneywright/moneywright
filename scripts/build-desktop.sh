@@ -227,7 +227,7 @@ echo ""
 # List the created bundles
 if [ -d "$BUNDLE_DIR" ]; then
   echo "Created bundles:"
-  find "$BUNDLE_DIR" -maxdepth 2 -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" -o -name "*.sig" \) 2>/dev/null | while read -r file; do
+  find "$BUNDLE_DIR" -maxdepth 2 -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.tar.gz" -o -name "*.sig" \) 2>/dev/null | while read -r file; do
     SIZE=$(du -h "$file" | cut -f1)
     echo -e "  ${CYAN}$(basename "$file")${NC} ($SIZE)"
   done

@@ -60,7 +60,7 @@ Download the native app for your platform:
 | macOS (Apple Silicon) | [Download .dmg](https://github.com/moneywright/moneywright/releases/latest) |
 | macOS (Intel) | [Download .dmg](https://github.com/moneywright/moneywright/releases/latest) |
 | Windows | [Download .exe](https://github.com/moneywright/moneywright/releases/latest) |
-| Linux | [Download .AppImage](https://github.com/moneywright/moneywright/releases/latest) |
+| Linux | [Download .deb](https://github.com/moneywright/moneywright/releases/latest) |
 
 Runs in your system tray. Includes auto-updates.
 
