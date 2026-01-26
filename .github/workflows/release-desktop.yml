@@ -59,6 +59,7 @@ jobs:
           workspaces: apps/desktop/src-tauri
 
       # Linux dependencies (use only ayatana, not legacy appindicator)
+      # libfuse2 is required for AppImage bundling with linuxdeploy
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-22.04'
         run: |
@@ -68,7 +69,8 @@ jobs:
             librsvg2-dev \
             patchelf \
             libgtk-3-dev \
-            libayatana-appindicator3-dev
+            libayatana-appindicator3-dev \
+            libfuse2
 
       # Install project dependencies
       - name: Install dependencies
@@ -90,6 +92,8 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Linux AppImage bundling fix (prevents linuxdeploy strip failures)
+          NO_STRIP: true
 
       # List bundle contents for debugging
       - name: List bundle contents
@@ -203,7 +207,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           generate_release_notes: true
           files: artifacts/*
         env:
