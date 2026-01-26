@@ -416,6 +416,7 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app, event| {
             match event {
+                #[cfg(target_os = "macos")]
                 tauri::RunEvent::Reopen { .. } => {
                     // Show main window when dock icon is clicked (macOS)
                     if let Some(window) = app.get_webview_window("main") {
