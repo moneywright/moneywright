@@ -3,6 +3,7 @@ import { db, tables, dbType } from '../db'
 import type { Profile } from '../db'
 import { isValidRelationshipType, type RelationshipType } from '../lib/constants'
 import { logger } from '../lib/logger'
+import { setPreference, PREFERENCE_KEYS } from './preferences'
 
 /**
  * Profile service
@@ -43,7 +44,6 @@ export async function createProfile(data: {
   name: string
   relationship?: string | null
   summary?: string | null
-  isDefault?: boolean
 }): Promise<Profile> {
   // Validate name length
   if (!data.name || data.name.trim().length === 0) {
@@ -72,14 +72,6 @@ export async function createProfile(data: {
 
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
-  // If this profile should be default, unset any existing default
-  if (data.isDefault) {
-    await db
-      .update(tables.profiles)
-      .set({ isDefault: false, updatedAt: now as Date })
-      .where(and(eq(tables.profiles.userId, data.userId), eq(tables.profiles.isDefault, true)))
-  }
-
   const [profile] = await db
     .insert(tables.profiles)
     .values({
@@ -87,7 +79,6 @@ export async function createProfile(data: {
       name: data.name.trim(),
       relationship: (data.relationship as RelationshipType) || null,
       summary: data.summary?.trim() || null,
-      isDefault: data.isDefault || false,
       createdAt: now as Date,
       updatedAt: now as Date,
     })
@@ -96,6 +87,14 @@ export async function createProfile(data: {
   if (!profile) {
     throw new Error('Failed to create profile')
   }
+
+  // Set default preference to exclude investment category from income/expense chart
+  await setPreference(
+    data.userId,
+    PREFERENCE_KEYS.INCOME_EXPENSES_EXCLUDED_CATEGORIES,
+    JSON.stringify(['investment']),
+    profile.id
+  )
 
   logger.debug(`[Profile] Created profile ${profile.id} for user ${data.userId}`)
   return profile
@@ -111,7 +110,6 @@ export async function updateProfile(
     name?: string
     relationship?: string | null
     summary?: string | null
-    isDefault?: boolean
   }
 ): Promise<Profile> {
   // Verify ownership
@@ -157,14 +155,6 @@ export async function updateProfile(
 
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
-  // If this profile should be default, unset any existing default
-  if (data.isDefault) {
-    await db
-      .update(tables.profiles)
-      .set({ isDefault: false, updatedAt: now as Date })
-      .where(and(eq(tables.profiles.userId, userId), eq(tables.profiles.isDefault, true)))
-  }
-
   // Build update object
   const updateData: Partial<Profile> = {
     updatedAt: now as Date,
@@ -176,10 +166,6 @@ export async function updateProfile(
 
   if (data.relationship !== undefined) {
     updateData.relationship = (data.relationship as RelationshipType) || null
-  }
-
-  if (data.isDefault !== undefined) {
-    updateData.isDefault = data.isDefault
   }
 
   if (data.summary !== undefined) {
@@ -216,21 +202,9 @@ export async function deleteProfile(profileId: string, userId: string): Promise<
 }
 
 /**
- * Get the default profile for a user (or first profile if no default)
+ * Get the first profile for a user (by creation date)
  */
-export async function getDefaultProfile(userId: string): Promise<Profile | null> {
-  // Try to get the default profile
-  const [defaultProfile] = await db
-    .select()
-    .from(tables.profiles)
-    .where(and(eq(tables.profiles.userId, userId), eq(tables.profiles.isDefault, true)))
-    .limit(1)
-
-  if (defaultProfile) {
-    return defaultProfile
-  }
-
-  // If no default, return the first profile
+export async function getFirstProfile(userId: string): Promise<Profile | null> {
   const [firstProfile] = await db
     .select()
     .from(tables.profiles)

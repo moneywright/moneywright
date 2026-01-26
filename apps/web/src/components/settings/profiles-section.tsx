@@ -52,7 +52,12 @@ export function ProfilesSection({ profiles }: ProfilesSectionProps) {
         <CardContent className="pt-0">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {profiles.map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} onEdit={handleEdit} />
+              <ProfileCard
+                key={profile.id}
+                profile={profile}
+                onEdit={handleEdit}
+                canDelete={profiles.length > 1}
+              />
             ))}
           </div>
         </CardContent>

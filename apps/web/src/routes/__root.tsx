@@ -228,7 +228,8 @@ function RootComponent() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const defaultProfile = profiles?.find((p) => p.isDefault) ?? profiles?.[0] ?? null
+  // Use the first profile (by creation order) as the initial profile
+  const defaultProfile = profiles?.[0] ?? null
 
   // Derive setup state
   const llmConfigured = setupStatus?.llm?.isConfigured ?? false

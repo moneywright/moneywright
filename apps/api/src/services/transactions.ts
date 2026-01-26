@@ -29,6 +29,8 @@ export interface TransactionResponse {
   isSubscription: boolean
   linkedTransactionId: string | null
   linkType: string | null
+  isManuallyCategorized: boolean
+  isHidden: boolean
   createdAt: string | Date
   updatedAt: string | Date
 }
@@ -48,6 +50,8 @@ export interface TransactionFilters {
   minAmount?: number
   maxAmount?: number
   isSubscription?: boolean
+  includeHidden?: boolean // If true, include hidden transactions (default: false)
+  onlyHidden?: boolean // If true, show only hidden transactions
 }
 
 /**
@@ -85,6 +89,8 @@ function toTransactionResponse(txn: Transaction): TransactionResponse {
     isSubscription: txn.isSubscription ?? false,
     linkedTransactionId: txn.linkedTransactionId,
     linkType: txn.linkType,
+    isManuallyCategorized: txn.isManuallyCategorized ?? false,
+    isHidden: txn.isHidden ?? false,
     createdAt: txn.createdAt,
     updatedAt: txn.updatedAt,
   }
@@ -106,6 +112,16 @@ export async function getTransactions(
 
   // Build conditions
   const conditions = [eq(tables.transactions.userId, userId)]
+
+  // Handle hidden transactions filter
+  if (filters?.onlyHidden) {
+    // Show only hidden transactions
+    conditions.push(eq(tables.transactions.isHidden, true))
+  } else if (!filters?.includeHidden) {
+    // Exclude hidden transactions by default
+    conditions.push(eq(tables.transactions.isHidden, false))
+  }
+  // If includeHidden is true but onlyHidden is false, no filter is applied (show all)
 
   if (filters?.profileId) {
     conditions.push(eq(tables.transactions.profileId, filters.profileId))
@@ -218,7 +234,7 @@ export async function getTransactionById(
 }
 
 /**
- * Update a transaction (category only for now)
+ * Update a transaction (category, summary, isHidden)
  */
 export async function updateTransaction(
   transactionId: string,
@@ -226,9 +242,10 @@ export async function updateTransaction(
   data: {
     category?: string
     summary?: string
+    isHidden?: boolean
   }
 ): Promise<TransactionResponse> {
-  // Verify ownership
+  // Verify ownership and get existing values for comparison
   const existing = await getTransactionById(transactionId, userId)
   if (!existing) {
     throw new Error('Transaction not found')
@@ -240,14 +257,28 @@ export async function updateTransaction(
     updatedAt: now as Date,
   }
 
-  if (data.category !== undefined) {
+  // Track if category or summary actually changed
+  let categoryOrSummaryChanged = false
+
+  if (data.category !== undefined && data.category !== existing.category) {
     updateData.category = data.category
     // Reset confidence since user manually changed it
     updateData.categoryConfidence = '1.00' as unknown as typeof updateData.categoryConfidence
+    categoryOrSummaryChanged = true
   }
 
-  if (data.summary !== undefined) {
+  if (data.summary !== undefined && data.summary !== (existing.summary || '')) {
     updateData.summary = data.summary
+    categoryOrSummaryChanged = true
+  }
+
+  // Only set isManuallyCategorized if category or summary actually changed
+  if (categoryOrSummaryChanged) {
+    updateData.isManuallyCategorized = true
+  }
+
+  if (data.isHidden !== undefined) {
+    updateData.isHidden = data.isHidden
   }
 
   const [updated] = await db
@@ -389,6 +420,7 @@ export async function findLinkCandidates(
         eq(tables.transactions.userId, userId),
         eq(tables.transactions.type, oppositeType),
         eq(tables.transactions.amount, txn.amount.toString()),
+        eq(tables.transactions.isHidden, false), // Exclude hidden transactions
         gte(tables.transactions.date, startDateStr),
         lte(tables.transactions.date, endDateStr),
         sql`${tables.transactions.accountId} != ${txn.accountId}`,
@@ -415,6 +447,7 @@ export async function getTransactionStats(
     type?: 'credit' | 'debit'
     search?: string
     isSubscription?: boolean
+    includeHidden?: boolean
   }
 ): Promise<{
   totalCredits: number
@@ -426,6 +459,11 @@ export async function getTransactionStats(
   categoryBreakdown: { category: string; total: number; count: number }[]
 }> {
   const conditions = [eq(tables.transactions.userId, userId)]
+
+  // Exclude hidden transactions by default
+  if (!filters?.includeHidden) {
+    conditions.push(eq(tables.transactions.isHidden, false))
+  }
 
   if (filters?.profileId) {
     conditions.push(eq(tables.transactions.profileId, filters.profileId))
@@ -596,6 +634,7 @@ export async function getCategoryBreakdown(
   const conditions = [
     eq(tables.transactions.userId, userId),
     eq(tables.transactions.profileId, filters.profileId),
+    eq(tables.transactions.isHidden, false), // Exclude hidden transactions
   ]
 
   if (filters.startDate) {
@@ -739,7 +778,7 @@ export async function getMonthTransactions(
     year: '2-digit',
   })
 
-  // Fetch all transactions for this month
+  // Fetch all transactions for this month (excluding hidden)
   const transactions = await db
     .select()
     .from(tables.transactions)
@@ -747,6 +786,7 @@ export async function getMonthTransactions(
       and(
         eq(tables.transactions.userId, userId),
         eq(tables.transactions.profileId, profileId),
+        eq(tables.transactions.isHidden, false),
         gte(tables.transactions.date, startDateStr),
         lte(tables.transactions.date, endDateStr)
       )
@@ -905,6 +945,7 @@ export async function getMonthlyTrends(
   const conditions = [
     eq(tables.transactions.userId, userId),
     eq(tables.transactions.profileId, profileId),
+    eq(tables.transactions.isHidden, false), // Exclude hidden transactions
     gte(tables.transactions.date, startDateStr),
   ]
 
@@ -1061,6 +1102,7 @@ export async function getDetectedSubscriptions(
         eq(tables.transactions.profileId, profileId),
         eq(tables.transactions.isSubscription, true),
         eq(tables.transactions.type, 'debit'),
+        eq(tables.transactions.isHidden, false), // Exclude hidden transactions
         gte(tables.transactions.date, startDateStr)
       )
     )

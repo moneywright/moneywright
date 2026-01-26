@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { Loader2, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -29,10 +30,15 @@ export function TransactionEditForm({
 }: TransactionEditFormProps) {
   const [category, setCategory] = useState(transaction.category)
   const [summary, setSummary] = useState(transaction.summary || '')
+  const [isHidden, setIsHidden] = useState(transaction.isHidden)
 
   const updateMutation = useMutation({
     mutationFn: () =>
-      updateTransaction(transaction.id, { category, summary: summary || undefined }),
+      updateTransaction(transaction.id, {
+        category,
+        summary: summary || undefined,
+        isHidden,
+      }),
     onSuccess: () => {
       toast.success('Transaction updated')
       onSuccess()
@@ -68,6 +74,21 @@ export function TransactionEditForm({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border p-4 mt-4">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <EyeOff className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="hide-transaction" className="font-medium">
+              Hide Transaction
+            </Label>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Hidden transactions are excluded from all reports, charts, and calculations.
+          </p>
+        </div>
+        <Switch id="hide-transaction" checked={isHidden} onCheckedChange={setIsHidden} />
       </div>
 
       <div className="flex justify-end gap-2 pt-4">

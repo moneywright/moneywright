@@ -16,7 +16,7 @@ interface ChatProvider {
   id: string
   name: string
   models: ChatModel[]
-  hasApiKey?: boolean
+  isConfigured?: boolean
 }
 
 interface ChatModel {

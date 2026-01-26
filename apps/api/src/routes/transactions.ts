@@ -31,6 +31,7 @@ transactionRoutes.use('*', auth())
 const updateTransactionSchema = z.object({
   category: z.string().min(1).optional(),
   summary: z.string().optional(),
+  isHidden: z.boolean().optional(),
 })
 
 /**
@@ -51,6 +52,8 @@ const recategorizeSchema = z
     accountId: z.string().optional(),
     statementId: z.string().optional(),
     categorizationModel: z.string().min(1, 'Categorization model is required'),
+    categorizationHints: z.string().max(1000).optional(),
+    includeManual: z.boolean().optional(), // If true, include manually categorized transactions
   })
   .refine((data) => data.accountId || data.statementId, {
     message: 'Either accountId or statementId is required',
@@ -87,6 +90,8 @@ transactionRoutes.get('/', async (c) => {
   const minAmount = c.req.query('minAmount')
   const maxAmount = c.req.query('maxAmount')
   const isSubscription = c.req.query('isSubscription')
+  const includeHidden = c.req.query('includeHidden')
+  const onlyHidden = c.req.query('onlyHidden')
   const page = parseInt(c.req.query('page') || '1', 10)
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100)
   const sortBy = c.req.query('sortBy') as 'date' | 'amount' | 'createdAt' | undefined
@@ -112,6 +117,8 @@ transactionRoutes.get('/', async (c) => {
       maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
       isSubscription:
         isSubscription === 'true' ? true : isSubscription === 'false' ? false : undefined,
+      includeHidden: includeHidden === 'true',
+      onlyHidden: onlyHidden === 'true',
     },
     {
       page,
@@ -140,6 +147,7 @@ transactionRoutes.get('/stats', async (c) => {
   const type = c.req.query('type')
   const search = c.req.query('search')
   const isSubscription = c.req.query('isSubscription')
+  const includeHidden = c.req.query('includeHidden')
 
   // Parse multi-value filters
   const accountIds = parseMultiValue(accountId)
@@ -157,6 +165,7 @@ transactionRoutes.get('/stats', async (c) => {
     search: search || undefined,
     isSubscription:
       isSubscription === 'true' ? true : isSubscription === 'false' ? false : undefined,
+    includeHidden: includeHidden === 'true',
   })
 
   return c.json(stats)
@@ -332,7 +341,14 @@ transactionRoutes.post('/recategorize', async (c) => {
     )
   }
 
-  const { profileId, accountId, statementId, categorizationModel } = result.data
+  const {
+    profileId,
+    accountId,
+    statementId,
+    categorizationModel,
+    categorizationHints,
+    includeManual,
+  } = result.data
 
   // Verify profile belongs to user
   const profile = await getProfileById(profileId, userId)
@@ -362,6 +378,8 @@ transactionRoutes.post('/recategorize', async (c) => {
     accountId,
     statementId,
     categorizationModel,
+    categorizationHints,
+    includeManual,
   })
 
   return c.json({

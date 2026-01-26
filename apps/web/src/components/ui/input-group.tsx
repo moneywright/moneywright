@@ -14,7 +14,8 @@ function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
       className={cn(
         // Base styles - matching Input component design language
         'group/input-group relative flex w-full items-center',
-        'bg-surface-elevated border-0 rounded-xl',
+        'bg-surface-elevated rounded-xl',
+        'border border-border dark:border-0',
         'transition-all duration-200 outline-none',
         'h-11 min-w-0 has-[>textarea]:h-auto',
 

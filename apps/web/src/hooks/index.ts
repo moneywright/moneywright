@@ -88,7 +88,6 @@ export { constantsKeys, useConstants } from './useConstants'
 
 // Chat hooks
 export {
-  useChatConfig,
   useConversations,
   useCreateConversation,
   useConversationById,
@@ -98,6 +97,9 @@ export {
   useChatStream,
   type ChatStreamState,
 } from './useChat'
+
+// Setup hooks
+export { setupKeys, useSetup, getDefaultChatConfig } from './useSetup'
 
 // Other hooks
 export { useTheme } from './useTheme'

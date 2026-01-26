@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -19,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, RefreshCw, Check, AlertCircle } from 'lucide-react'
+import { Loader2, RefreshCw, Check, AlertCircle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   getLLMProviders,
@@ -57,6 +59,8 @@ export function RecategorizeModal({
   const queryClient = useQueryClient()
   // Combined provider:model value (e.g., "openai:gpt-4o")
   const [modelValue, setModelValue] = useState<string>('')
+  const [categorizationHints, setCategorizationHints] = useState<string>('')
+  const [includeManual, setIncludeManual] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<
@@ -155,6 +159,8 @@ export function RecategorizeModal({
     setJobProgress(null)
     setError(null)
     setIsSubmitting(false)
+    setCategorizationHints('')
+    setIncludeManual(false)
   }, [])
 
   // Poll job status
@@ -205,6 +211,8 @@ export function RecategorizeModal({
         statementId,
         categorizationProvider: provider,
         categorizationModel: model,
+        categorizationHints: categorizationHints.trim() || undefined,
+        includeManual,
       })
 
       setJobId(result.jobId)
@@ -364,6 +372,45 @@ export function RecategorizeModal({
                   </p>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Categorization hints - only show when not processing */}
+          {!isProcessing && !isCompleted && (
+            <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border/50">
+              <Label className="text-sm font-medium">Categorization Hints (Optional)</Label>
+              <Textarea
+                placeholder="E.g., FX transactions are investments, not transfers"
+                value={categorizationHints}
+                onChange={(e) => setCategorizationHints(e.target.value.slice(0, 1000))}
+                className="min-h-[80px] resize-none"
+                maxLength={1000}
+              />
+              <p className="text-xs text-muted-foreground">
+                Help the AI categorize your transactions better with custom rules.
+              </p>
+            </div>
+          )}
+
+          {/* Include manually categorized - only show when not processing */}
+          {!isProcessing && !isCompleted && (
+            <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="include-manual" className="text-sm font-medium">
+                    Include Manually Edited
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Also recategorize transactions you've manually edited.
+                </p>
+              </div>
+              <Switch
+                id="include-manual"
+                checked={includeManual}
+                onCheckedChange={setIncludeManual}
+              />
             </div>
           )}
         </div>

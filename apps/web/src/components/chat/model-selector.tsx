@@ -37,7 +37,7 @@ interface ChatProvider {
   id: string
   name: string
   models: ChatModel[]
-  hasApiKey?: boolean
+  isConfigured?: boolean
 }
 
 interface ChatModel {
@@ -74,23 +74,23 @@ export function ModelSelector({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         {providers.map((provider) => {
-          const isConfigured = provider.hasApiKey !== false
+          const providerConfigured = provider.isConfigured !== false
           return (
             <DropdownMenuSub key={provider.id}>
               <DropdownMenuSubTrigger
-                className={cn('gap-2', !isConfigured && 'opacity-50 cursor-not-allowed')}
-                disabled={!isConfigured}
+                className={cn('gap-2', !providerConfigured && 'opacity-50 cursor-not-allowed')}
+                disabled={!providerConfigured}
               >
                 <ProviderLogo
                   provider={provider.id}
-                  className={cn('size-4', !isConfigured && 'opacity-50')}
+                  className={cn('size-4', !providerConfigured && 'opacity-50')}
                 />
                 <span className="flex-1">{provider.name}</span>
-                {!isConfigured && (
+                {!providerConfigured && (
                   <span className="text-[10px] text-muted-foreground">Not configured</span>
                 )}
               </DropdownMenuSubTrigger>
-              {isConfigured && (
+              {providerConfigured && (
                 <DropdownMenuSubContent>
                   {provider.models.map((model) => (
                     <DropdownMenuItem

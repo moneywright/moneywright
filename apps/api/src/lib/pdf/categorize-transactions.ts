@@ -585,7 +585,8 @@ async function categorizeBatchStreaming(
   model: Awaited<ReturnType<typeof createLLMClientFromSettings>>,
   onCategorized: (cat: CategorizedTransaction) => Promise<void>,
   accountType?: string,
-  profileSummary?: string | null
+  profileSummary?: string | null,
+  userCategorizationHints?: string
 ): Promise<{ success: number; failed: number }> {
   const txnList = transactions
     .map((t) => `${t.id},${t.date},${t.type},${t.amount},"${t.description.replace(/"/g, '""')}"`)
@@ -601,10 +602,18 @@ async function categorizeBatchStreaming(
   // Get profile context from user-provided summary
   const profileContextHint = buildProfileContextHint(profileSummary)
 
+  // Build user-provided categorization hints section
+  const userHintsSection = userCategorizationHints?.trim()
+    ? `USER-PROVIDED CATEGORIZATION HINTS (IMPORTANT - apply these rules):
+${userCategorizationHints.trim()}
+
+`
+    : ''
+
   const systemPrompt = `You are a transaction categorization engine. You ONLY output CSV data. You NEVER ask questions, provide explanations, or include any text other than CSV lines. Start outputting CSV immediately.`
 
   const prompt = `Categorize ALL ${transactions.length} transactions below. Output CSV ONLY - no explanations, no questions.
-${profileContextHint ? `\n${profileContextHint}` : ''}${accountTypeHint ? `\n${accountTypeHint}\n` : ''}
+${userHintsSection}${profileContextHint ? `\n${profileContextHint}` : ''}${accountTypeHint ? `\n${accountTypeHint}\n` : ''}
 
 TRANSACTIONS (id,date,type,amount,description):
 ${txnList}
@@ -651,17 +660,8 @@ START OUTPUT NOW:`
       prompt,
     })
 
-    let linesProcessed = 0
-    let chunkCount = 0
-
     for await (const chunk of textStream) {
-      chunkCount++
       buffer += chunk
-
-      // Log first few chunks to see streaming behavior
-      if (chunkCount <= 3) {
-        logger.debug(`[Categorize] Chunk ${chunkCount}: ${chunk.length} chars`)
-      }
 
       // Process complete lines immediately as they arrive
       const lines = buffer.split('\n')
@@ -696,12 +696,6 @@ START OUTPUT NOW:`
             isSubscription,
           })
           success++
-          linesProcessed++
-
-          // Log progress every 10 transactions
-          if (linesProcessed % 10 === 0) {
-            logger.debug(`[Categorize] Saved ${linesProcessed} transactions to DB...`)
-          }
         } catch (err) {
           logger.warn(`[Categorize] Failed to save transaction ${id}:`, err)
           failed++
@@ -734,8 +728,6 @@ START OUTPUT NOW:`
       }
     }
 
-    logger.debug(`[Categorize] Stream finished after ${chunkCount} chunks`)
-
     // Log if we didn't get all transactions
     const total = success + failed
     if (total < transactions.length) {
@@ -763,7 +755,8 @@ async function runCategorizationPass(
   progressOffset: number = 0,
   totalForProgress: number = 0,
   accountType?: string,
-  profileSummary?: string | null
+  profileSummary?: string | null,
+  userCategorizationHints?: string
 ): Promise<{ success: number; failed: number }> {
   const categories = getCategoriesForCountry(countryCode)
   const categoryList = categories.map((c) => `${c.code}: ${c.label}`).join('\n')
@@ -825,7 +818,8 @@ async function runCategorizationPass(
         }
       },
       accountType,
-      profileSummary
+      profileSummary,
+      userCategorizationHints
     )
 
     if (shouldBatch) {
@@ -865,7 +859,8 @@ export async function categorizeTransactionsStreaming(
   _startFromIndex: number = 0,
   onProgress?: (categorized: number, total: number) => void,
   accountType?: string,
-  profileSummary?: string | null
+  profileSummary?: string | null,
+  userCategorizationHints?: string
 ): Promise<{ categorizedCount: number; failedAtIndex?: number }> {
   if (transactionIds.length === 0) return { categorizedCount: 0 }
 
@@ -890,11 +885,9 @@ export async function categorizeTransactionsStreaming(
   // Keep retrying until all transactions are categorized or max retries reached
   while (uncategorized.length > 0 && retryCount < MAX_CATEGORIZATION_RETRIES) {
     if (retryCount > 0) {
-      const uncatIds = uncategorized.map((t) => t.id).join(', ')
       logger.debug(
         `[Categorize] Retry ${retryCount}/${MAX_CATEGORIZATION_RETRIES}: ${uncategorized.length} transactions still need categorization`
       )
-      logger.debug(`[Categorize] Uncategorized IDs: ${uncatIds}`)
     }
 
     const { success } = await runCategorizationPass(
@@ -905,7 +898,8 @@ export async function categorizeTransactionsStreaming(
       totalCategorized,
       totalTransactions,
       accountType,
-      profileSummary
+      profileSummary,
+      userCategorizationHints
     )
 
     totalCategorized += success
@@ -945,13 +939,15 @@ export async function categorizeTransactionsStreaming(
  * @param categorizationModel - Model to use for categorization
  * @param onProgress - Optional progress callback
  * @param profileId - Optional profile ID to fetch profile summary for context
+ * @param userCategorizationHints - Optional user-provided hints for categorization
  */
 export async function categorizeStatements(
   statementIds: string[],
   countryCode: CountryCode,
   categorizationModel?: string,
   onProgress?: (categorized: number, total: number) => void,
-  profileId?: string
+  profileId?: string,
+  userCategorizationHints?: string
 ): Promise<{ categorizedCount: number; totalCount: number }> {
   if (statementIds.length === 0) {
     return { categorizedCount: 0, totalCount: 0 }
@@ -1015,7 +1011,8 @@ export async function categorizeStatements(
     0,
     onProgress,
     accountType,
-    profileSummary
+    profileSummary,
+    userCategorizationHints
   )
 
   logger.debug(

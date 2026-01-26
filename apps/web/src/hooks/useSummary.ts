@@ -50,7 +50,6 @@ export function useMonthlyTrends(profileId?: string, options: MonthlyTrendsOptio
     queryKey: summaryKeys.monthlyTrends(profileId!, options),
     queryFn: () => getMonthlyTrends(profileId!, options),
     enabled: !!profileId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
@@ -63,7 +62,6 @@ export function usePreferences(profileId?: string | null, enabled: boolean = tru
   return useQuery({
     queryKey: preferencesKeys.byProfile(profileId ?? undefined),
     queryFn: () => getPreferences(profileId ?? undefined),
-    staleTime: 10 * 60 * 1000, // 10 minutes
     enabled: enabled,
   })
 }

@@ -363,6 +363,7 @@ export function queueStatements(data: {
   statements: StatementInput[]
   countryCode: CountryCode
   categorizationModel?: string
+  categorizationHints?: string
 }): void {
   processingQueue.push(data)
   logger.debug(`[Statement] Queued ${data.statements.length} statements for processing`)
@@ -381,7 +382,12 @@ async function processQueue(): Promise<void> {
   isProcessing = true
 
   try {
-    await processStatements(job.statements, job.countryCode, job.categorizationModel)
+    await processStatements(
+      job.statements,
+      job.countryCode,
+      job.categorizationModel,
+      job.categorizationHints
+    )
   } catch (error) {
     logger.error('[Statement] Processing failed:', error)
   } finally {
@@ -396,7 +402,8 @@ async function processQueue(): Promise<void> {
 async function processStatements(
   statements: StatementInput[],
   countryCode: CountryCode,
-  categorizationModel?: string
+  categorizationModel?: string,
+  categorizationHints?: string
 ): Promise<void> {
   const { parseStatement } = await import('../llm/parser')
   const { categorizeStatements } = await import('../lib/pdf')
@@ -478,7 +485,8 @@ async function processStatements(
         countryCode,
         categorizationModel,
         undefined,
-        profileId
+        profileId,
+        categorizationHints
       )
       logger.debug(
         `[Statement] Categorized ${result.categorizedCount}/${result.totalCount} transactions`
@@ -503,6 +511,8 @@ export interface RecategorizeJob {
   accountId?: string
   statementId?: string
   categorizationModel: string
+  categorizationHints?: string
+  includeManual?: boolean // If true, include manually categorized transactions
   status: 'pending' | 'processing' | 'completed' | 'failed'
   transactionCount?: number
   processedCount?: number
@@ -521,6 +531,8 @@ export function queueRecategorizeJob(data: {
   accountId?: string
   statementId?: string
   categorizationModel: string
+  categorizationHints?: string
+  includeManual?: boolean
 }): string {
   const jobId = nanoid()
 
@@ -558,6 +570,8 @@ async function processNextRecategorizeJob(): Promise<void> {
       accountId: job.accountId,
       statementId: job.statementId,
       categorizationModel: job.categorizationModel,
+      categorizationHints: job.categorizationHints,
+      includeManual: job.includeManual,
       onProgress: (processed, total) => {
         job.processedCount = processed
         job.transactionCount = total

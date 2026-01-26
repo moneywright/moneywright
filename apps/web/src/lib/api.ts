@@ -21,7 +21,6 @@ export interface Profile {
   name: string
   relationship: string | null
   summary: string | null
-  isDefault: boolean
   createdAt: string
   updatedAt: string
 }
@@ -263,7 +262,6 @@ export async function createProfile(data: {
   name: string
   relationship?: string | null
   summary?: string | null
-  isDefault?: boolean
 }): Promise<Profile> {
   const response = await api.post('/profiles', data)
   return response.data.profile
@@ -278,7 +276,6 @@ export async function updateProfile(
     name?: string
     relationship?: string | null
     summary?: string | null
-    isDefault?: boolean
   }
 ): Promise<Profile> {
   const response = await api.patch(`/profiles/${profileId}`, data)
@@ -591,6 +588,8 @@ export async function uploadStatements(
     categorizationProvider?: string
     /** Model for transaction categorization */
     categorizationModel?: string
+    /** Custom hints for categorization (e.g., "FX transactions are investments") */
+    categorizationHints?: string
   }
 ): Promise<StatementsUploadResponse> {
   const formData = new FormData()
@@ -613,6 +612,9 @@ export async function uploadStatements(
       'categorizationModel',
       `${options.categorizationProvider}:${options.categorizationModel}`
     )
+  }
+  if (options?.categorizationHints) {
+    formData.append('categorizationHints', options.categorizationHints)
   }
 
   const response = await api.post('/statements/upload', formData, {
@@ -652,6 +654,8 @@ export interface Transaction {
   isSubscription: boolean
   linkedTransactionId: string | null
   linkType: string | null
+  isManuallyCategorized: boolean
+  isHidden: boolean
   createdAt: string
   updatedAt: string
 }
@@ -671,6 +675,8 @@ export interface TransactionFilters {
   minAmount?: number
   maxAmount?: number
   isSubscription?: boolean
+  includeHidden?: boolean
+  onlyHidden?: boolean
 }
 
 /**
@@ -735,6 +741,8 @@ export async function getTransactions(
   if (filters?.maxAmount !== undefined) params.set('maxAmount', String(filters.maxAmount))
   if (filters?.isSubscription !== undefined)
     params.set('isSubscription', String(filters.isSubscription))
+  if (filters?.includeHidden) params.set('includeHidden', 'true')
+  if (filters?.onlyHidden) params.set('onlyHidden', 'true')
   if (pagination?.page) params.set('page', String(pagination.page))
   if (pagination?.limit) params.set('limit', String(pagination.limit))
   if (pagination?.sortBy) params.set('sortBy', pagination.sortBy)
@@ -758,7 +766,7 @@ export async function getTransaction(transactionId: string): Promise<Transaction
  */
 export async function updateTransaction(
   transactionId: string,
-  data: { category?: string; summary?: string }
+  data: { category?: string; summary?: string; isHidden?: boolean }
 ): Promise<Transaction> {
   const response = await api.patch(`/transactions/${transactionId}`, data)
   return response.data.transaction
@@ -855,6 +863,8 @@ export async function recategorizeTransactions(data: {
   statementId?: string
   categorizationProvider: string
   categorizationModel: string
+  categorizationHints?: string
+  includeManual?: boolean
 }): Promise<{ success: boolean; jobId: string; message: string }> {
   // Combine provider and model in format "provider:model" for backend
   const categorizationModel = `${data.categorizationProvider}:${data.categorizationModel}`
@@ -863,6 +873,8 @@ export async function recategorizeTransactions(data: {
     accountId: data.accountId,
     statementId: data.statementId,
     categorizationModel,
+    categorizationHints: data.categorizationHints,
+    includeManual: data.includeManual,
   })
   return response.data
 }
@@ -1697,41 +1709,11 @@ export interface AIModel {
   supportsParsing?: boolean
   recommendedForParsing?: boolean
   recommendedForCategorization?: boolean
+  recommendedForChat?: boolean
   supportsThinking?: boolean
   reasoningBuiltIn?: boolean
 }
 
-/**
- * AI provider type
- */
-export interface AIProvider {
-  id: string
-  name: string
-  hasApiKey: boolean
-  models: AIModel[]
-}
-
-/**
- * Chat config response
- */
-export interface ChatConfig {
-  providers: AIProvider[]
-  defaultProvider: string
-  defaultModel: string
-  isConfigured: boolean
-}
-
-/**
- * Get chat configuration
- */
-export async function getChatConfig(): Promise<ChatConfig> {
-  const response = await api.get('/chat/config')
-  return response.data
-}
-
-/**
- * Get or create conversation for a profile
- */
 /**
  * List all conversations for a profile
  */

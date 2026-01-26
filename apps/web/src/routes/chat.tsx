@@ -6,7 +6,8 @@ import {
   useAuth,
   usePreferences,
   useSetPreference,
-  useChatConfig,
+  useSetup,
+  getDefaultChatConfig,
   useConversations,
   useCreateConversation,
   useConversationById,
@@ -82,22 +83,23 @@ function ChatPage() {
 
   const activeProfileId = selectedProfileId || defaultProfile?.id
 
-  // Chat config
-  const { data: chatConfig, isLoading: configLoading } = useChatConfig()
+  // Setup status (providers, LLM configuration)
+  const { data: setupStatus, isLoading: setupLoading } = useSetup()
+  const defaultChatConfig = getDefaultChatConfig(setupStatus)
 
   // Selected provider and model from preferences or defaults
   const selectedProvider =
     (preferences?.[PREFERENCE_KEYS.CHAT_PROVIDER] as string | undefined) ||
-    chatConfig?.defaultProvider ||
+    defaultChatConfig.provider ||
     'openai'
   const selectedModel =
     (preferences?.[PREFERENCE_KEYS.CHAT_MODEL] as string | undefined) ||
-    chatConfig?.defaultModel ||
+    defaultChatConfig.model ||
     'gpt-4o'
   const thinkingLevel =
     (preferences?.[PREFERENCE_KEYS.CHAT_THINKING_LEVEL] as ThinkingLevel | undefined) || 'off'
 
-  const currentProvider = chatConfig?.providers.find((p) => p.id === selectedProvider)
+  const currentProvider = setupStatus?.providers.find((p) => p.id === selectedProvider)
   const currentModel = currentProvider?.models.find((m) => m.id === selectedModel)
 
   // Conversations
@@ -304,7 +306,7 @@ function ChatPage() {
   }, [])
 
   // Loading state
-  if (configLoading) {
+  if (setupLoading) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -316,7 +318,7 @@ function ChatPage() {
   }
 
   // Not configured state
-  if (!chatConfig?.isConfigured) {
+  if (!setupStatus?.llm?.isConfigured) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -428,7 +430,7 @@ function ChatPage() {
           onSubmit={handleSendMessage}
           isLoading={chatStream.isLoading}
           onCancel={chatStream.cancel}
-          providers={chatConfig?.providers || []}
+          providers={setupStatus?.providers || []}
           currentProvider={currentProvider}
           currentModel={currentModel}
           selectedProvider={selectedProvider}

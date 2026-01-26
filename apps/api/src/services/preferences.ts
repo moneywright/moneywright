@@ -7,6 +7,8 @@ import { db, tables, dbType } from '../db'
 export const PREFERENCE_KEYS = {
   DASHBOARD_EXCLUDED_CATEGORIES: 'dashboard.excluded_categories',
   DASHBOARD_CHART_TIMEFRAME: 'dashboard.chart_timeframe',
+  INCOME_EXPENSES_EXCLUDED_CATEGORIES: 'dashboard.income_expenses.excluded_categories',
+  SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES: 'dashboard.spending_by_category.excluded_categories',
 } as const
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS]

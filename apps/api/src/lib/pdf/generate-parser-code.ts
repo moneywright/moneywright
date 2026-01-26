@@ -561,17 +561,6 @@ function validateTotals(
 }
 
 /**
- * Truncate PDF text for LLM context
- */
-function truncatePdfText(pdfText: string): string {
-  const maxTextLength = 80000
-  if (pdfText.length <= maxTextLength) return pdfText
-
-  logger.debug(`[PDFParser] Text truncated from ${pdfText.length} to ${maxTextLength} chars`)
-  return pdfText.slice(0, maxTextLength) + '\n\n[...TEXT TRUNCATED...]'
-}
-
-/**
  * Result from agentic code generation
  */
 export interface AgenticParserResult {
@@ -596,6 +585,7 @@ export interface AgenticParserResult {
  * Includes validation against expected statement summary to catch parsing errors
  *
  * @param statementText - The full statement text to parse (PDF text, CSV, or converted XLSX)
+ * @param llmSampleText - Truncated text for LLM prompt (first + last pages for long documents)
  * @param modelOverride - Optional model override
  * @param institutionId - Optional institution ID for institution-specific hints (e.g., "AMEX", "HDFC")
  * @param expectedSummary - Optional expected summary from statement for validation
@@ -603,6 +593,7 @@ export interface AgenticParserResult {
  */
 export async function generateParserCode(
   statementText: string,
+  llmSampleText: string,
   modelOverride?: string,
   institutionId?: string,
   expectedSummary?: ExpectedSummary,
@@ -612,7 +603,7 @@ export async function generateParserCode(
   const formatLabel = isSpreadsheet ? 'CSV/Spreadsheet' : 'PDF'
 
   logger.debug(
-    `[Parser] Generating parser code with agent, format: ${formatLabel}, text length: ${statementText.length} chars, institution: ${institutionId || 'unknown'}`
+    `[Parser] Generating parser code with agent, format: ${formatLabel}, text length: ${statementText.length} chars (LLM sample: ${llmSampleText.length} chars), institution: ${institutionId || 'unknown'}`
   )
   if (expectedSummary && hasValidationData(expectedSummary)) {
     logger.debug(
@@ -621,7 +612,6 @@ export async function generateParserCode(
   }
 
   const model = await createLLMClientFromSettings(modelOverride)
-  const truncatedText = truncatePdfText(statementText)
   const systemPrompt = getSystemPrompt(institutionId, expectedSummary, fileType)
 
   // Track state across tool calls
@@ -690,6 +680,8 @@ EXTRACTED TOTALS:
 - Credit count: ${extractedTotals.creditCount}
 - Total debits: ${extractedTotals.totalDebits}
 - Total credits: ${extractedTotals.totalCredits}
+- Opening balance: ${extractedTotals.openingBalance ?? 'N/A (no balance data)'}
+- Closing balance: ${extractedTotals.closingBalance ?? 'N/A (no balance data)'}
 
 Sample transactions:
 ${sampleStr}
@@ -719,7 +711,33 @@ You can now call the 'done' tool.`
                   extractedTotals.debitCount - (expectedSummary.debitCount || 0)
 
                 let guidance = ''
-                if (countMatch && debitCountDiff !== 0) {
+
+                // Check for balance mismatch
+                const hasBalanceMismatch =
+                  (expectedSummary.closingBalance !== null &&
+                    extractedTotals.closingBalance !== null &&
+                    Math.abs(extractedTotals.closingBalance - expectedSummary.closingBalance) >
+                      10) ||
+                  (expectedSummary.openingBalance !== null &&
+                    extractedTotals.openingBalance !== null &&
+                    Math.abs(extractedTotals.openingBalance - expectedSummary.openingBalance) > 10)
+
+                if (hasBalanceMismatch && countMatch) {
+                  // Counts match but balance doesn't - likely amount extraction issue
+                  guidance = `
+DIAGNOSIS: Transaction counts are correct but balance doesn't match.
+This usually means amounts are being extracted incorrectly.
+
+LIKELY CAUSES:
+1. Amount regex is capturing wrong numbers (e.g., reference numbers instead of amounts)
+2. Balance column is being confused with amount column
+3. Decimal places are being parsed incorrectly
+
+FIX:
+- Check your amount extraction regex - make sure it captures the correct column
+- Verify the balance field is extracting from the Balance column, not Amount
+- Check if amounts need decimal adjustment (e.g., "1,234.56" vs "123456")`
+                } else if (countMatch && debitCountDiff !== 0) {
                   // Total count matches but debit/credit split is wrong
                   guidance = `
 DIAGNOSIS: Total transaction count is correct (${totalTxnCount}), but credit/debit classification is wrong.
@@ -752,12 +770,16 @@ EXPECTED (from statement summary):
 - Credit count: ${expectedSummary.creditCount}
 - Total debits: ${expectedSummary.totalDebits}
 - Total credits: ${expectedSummary.totalCredits}
+- Opening balance: ${expectedSummary.openingBalance}
+- Closing balance: ${expectedSummary.closingBalance}
 
 YOUR EXTRACTED:
 - Debit count: ${extractedTotals.debitCount}
 - Credit count: ${extractedTotals.creditCount}
 - Total debits: ${extractedTotals.totalDebits}
 - Total credits: ${extractedTotals.totalCredits}
+- Opening balance: ${extractedTotals.openingBalance ?? 'N/A (no balance data)'}
+- Closing balance: ${extractedTotals.closingBalance ?? 'N/A (no balance data)'}
 ${guidance}
 
 Please fix the code and call submitCode again.`
@@ -808,7 +830,7 @@ ${dataTypeDescription}
 
 STATEMENT DATA:
 ---
-${truncatedText}
+${llmSampleText}
 ---
 
 Generate a function body that extracts all transactions from this specific format.

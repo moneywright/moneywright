@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Sparkles,
+  EyeOff,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TransactionFilters, Category, Account, Statement } from '@/lib/api'
@@ -59,13 +60,17 @@ export function TransactionFiltersBar({
     filters.accountId?.length ||
     filters.statementId?.length ||
     filters.startDate ||
-    filters.endDate
+    filters.endDate ||
+    filters.onlyHidden
   )
 
   const hasActiveFilters =
-    Object.keys(filters).filter((k) => k !== 'profileId' && k !== 'isSubscription').length > 0 ||
+    Object.keys(filters).filter(
+      (k) => k !== 'profileId' && k !== 'isSubscription' && k !== 'onlyHidden'
+    ).length > 0 ||
     search ||
-    filters.isSubscription
+    filters.isSubscription ||
+    filters.onlyHidden
 
   // Track manual toggle, but auto-show if advanced filters exist
   const [manualShowAdvanced, setManualShowAdvanced] = useState(false)
@@ -82,6 +87,7 @@ export function TransactionFiltersBar({
     filters.accountId?.length ? 1 : 0,
     filters.statementId?.length ? 1 : 0,
     filters.startDate || filters.endDate ? 1 : 0,
+    filters.onlyHidden ? 1 : 0,
   ].reduce((a, b) => a + b, 0)
 
   return (
@@ -276,8 +282,14 @@ export function TransactionFiltersBar({
               <CategoryFilterDropdown
                 categories={categories}
                 selectedCategories={filters.category}
+                onlyHidden={filters.onlyHidden}
                 getCategoryLabel={getCategoryLabel}
-                onClear={() => removeFilter('category')}
+                onClear={() => {
+                  const newFilters = { ...filters }
+                  delete newFilters.category
+                  delete newFilters.onlyHidden
+                  onFiltersChange(newFilters)
+                }}
                 onToggle={(code) => {
                   const current = filters.category || []
                   const isSelected = current.includes(code)
@@ -287,6 +299,14 @@ export function TransactionFiltersBar({
                   onFiltersChange({
                     ...filters,
                     category: updated.length > 0 ? updated : undefined,
+                  })
+                }}
+                onToggleHidden={() => {
+                  onFiltersChange({
+                    ...filters,
+                    onlyHidden: !filters.onlyHidden,
+                    // Clear category filter when showing hidden
+                    category: !filters.onlyHidden ? undefined : filters.category,
                   })
                 }}
               />
@@ -485,6 +505,13 @@ export function TransactionFiltersBar({
               onRemove={() => removeFilter('isSubscription')}
             />
           )}
+          {filters.onlyHidden && (
+            <FilterPill
+              label="Hidden"
+              icon={<EyeOff className="h-3 w-3" />}
+              onRemove={() => removeFilter('onlyHidden')}
+            />
+          )}
           {filters.category?.map((cat) => (
             <FilterPill
               key={cat}
@@ -549,21 +576,33 @@ export function TransactionFiltersBar({
 function CategoryFilterDropdown({
   categories,
   selectedCategories,
+  onlyHidden,
   getCategoryLabel,
   onClear,
   onToggle,
+  onToggleHidden,
 }: {
   categories: Category[]
   selectedCategories?: string[]
+  onlyHidden?: boolean
   getCategoryLabel: (code: string) => string
   onClear: () => void
   onToggle: (code: string) => void
+  onToggleHidden: () => void
 }) {
   const [categorySearch, setCategorySearch] = useState('')
 
   const filteredCategories = categories.filter((cat) =>
     cat.label.toLowerCase().includes(categorySearch.toLowerCase())
   )
+
+  // Determine what to show in the button
+  const getButtonLabel = () => {
+    if (onlyHidden) return 'Hidden'
+    if (selectedCategories?.length === 1) return getCategoryLabel(selectedCategories[0]!)
+    if (selectedCategories?.length) return `${selectedCategories.length} selected`
+    return 'All categories'
+  }
 
   return (
     <div className="space-y-2">
@@ -579,15 +618,12 @@ function CategoryFilterDropdown({
               'w-full justify-between h-10 rounded-lg font-normal',
               'bg-surface-elevated border-border-subtle',
               'hover:bg-surface-hover hover:border-border-hover',
-              selectedCategories?.length && 'border-primary/30 bg-primary/5'
+              (selectedCategories?.length || onlyHidden) && 'border-primary/30 bg-primary/5'
             )}
           >
-            <span className="truncate">
-              {selectedCategories?.length
-                ? selectedCategories.length === 1
-                  ? getCategoryLabel(selectedCategories[0]!)
-                  : `${selectedCategories.length} selected`
-                : 'All categories'}
+            <span className="truncate flex items-center gap-2">
+              {onlyHidden && <EyeOff className="h-4 w-4 text-muted-foreground" />}
+              {getButtonLabel()}
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -605,15 +641,31 @@ function CategoryFilterDropdown({
           </div>
           <div className="max-h-60 overflow-y-auto space-y-1">
             {!categorySearch && (
-              <Button
-                variant={!selectedCategories?.length ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start"
-                onClick={onClear}
-              >
-                <Sparkles className="mr-2 h-4 w-4 text-muted-foreground" />
-                All categories
-              </Button>
+              <>
+                <Button
+                  variant={!selectedCategories?.length && !onlyHidden ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={onClear}
+                >
+                  <Sparkles className="mr-2 h-4 w-4 text-muted-foreground" />
+                  All categories
+                </Button>
+                {/* Hidden option */}
+                <Button
+                  variant={onlyHidden ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={onToggleHidden}
+                >
+                  {onlyHidden && <Check className="mr-2 h-4 w-4 text-primary shrink-0" />}
+                  <EyeOff
+                    className={cn('h-4 w-4 text-muted-foreground', !onlyHidden && 'ml-6 mr-2')}
+                  />
+                  Hidden
+                </Button>
+                <div className="border-t border-border-subtle my-2" />
+              </>
             )}
             {filteredCategories.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No categories found</p>
@@ -627,6 +679,7 @@ function CategoryFilterDropdown({
                     size="sm"
                     className="w-full justify-start"
                     onClick={() => onToggle(cat.code)}
+                    disabled={onlyHidden} // Disable category selection when showing hidden
                   >
                     {isSelected && <Check className="mr-2 h-4 w-4 text-primary shrink-0" />}
                     <span className={cn('truncate', !isSelected && 'ml-6')}>{cat.label}</span>

@@ -25,7 +25,6 @@ const createProfileSchema = z.object({
     .max(50, 'Profile name must be 50 characters or less'),
   relationship: z.enum(RELATIONSHIP_TYPES).optional().nullable(),
   summary: z.string().max(1000, 'Summary must be 1000 characters or less').optional().nullable(),
-  isDefault: z.boolean().optional(),
 })
 
 /**
@@ -39,7 +38,6 @@ const updateProfileSchema = z.object({
     .optional(),
   relationship: z.enum(RELATIONSHIP_TYPES).optional().nullable(),
   summary: z.string().max(1000, 'Summary must be 1000 characters or less').optional().nullable(),
-  isDefault: z.boolean().optional(),
 })
 
 /**
@@ -56,7 +54,6 @@ profileRoutes.get('/', async (c) => {
       name: profile.name,
       relationship: profile.relationship,
       summary: profile.summary,
-      isDefault: profile.isDefault,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     })),
@@ -89,7 +86,6 @@ profileRoutes.post('/', async (c) => {
       name: result.data.name,
       relationship: result.data.relationship,
       summary: result.data.summary,
-      isDefault: result.data.isDefault,
     })
 
     return c.json(
@@ -99,7 +95,6 @@ profileRoutes.post('/', async (c) => {
           name: profile.name,
           relationship: profile.relationship,
           summary: profile.summary,
-          isDefault: profile.isDefault,
           createdAt: profile.createdAt,
           updatedAt: profile.updatedAt,
         },
@@ -132,7 +127,6 @@ profileRoutes.get('/:id', async (c) => {
       name: profile.name,
       relationship: profile.relationship,
       summary: profile.summary,
-      isDefault: profile.isDefault,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     },
@@ -165,7 +159,6 @@ profileRoutes.patch('/:id', async (c) => {
       name: result.data.name,
       relationship: result.data.relationship,
       summary: result.data.summary,
-      isDefault: result.data.isDefault,
     })
 
     return c.json({
@@ -174,7 +167,6 @@ profileRoutes.patch('/:id', async (c) => {
         name: profile.name,
         relationship: profile.relationship,
         summary: profile.summary,
-        isDefault: profile.isDefault,
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
       },

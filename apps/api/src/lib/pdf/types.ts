@@ -22,6 +22,8 @@ export interface ExtractedTotals {
   creditCount: number
   totalDebits: number
   totalCredits: number
+  openingBalance: number | null
+  closingBalance: number | null
 }
 
 /**

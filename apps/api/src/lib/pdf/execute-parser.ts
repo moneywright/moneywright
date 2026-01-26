@@ -305,7 +305,9 @@ function hasValidationData(summary: ExpectedSummary): boolean {
     summary.debitCount !== null ||
     summary.creditCount !== null ||
     summary.totalDebits !== null ||
-    summary.totalCredits !== null
+    summary.totalCredits !== null ||
+    summary.openingBalance !== null ||
+    summary.closingBalance !== null
   )
 }
 
@@ -328,11 +330,45 @@ function calculateTotals(transactions: RawPdfTransaction[]): ExtractedTotals {
     }
   }
 
+  // Calculate opening and closing balance from transactions
+  let openingBalance: number | null = null
+  let closingBalance: number | null = null
+
+  // Filter transactions that have a balance
+  const txnsWithBalance = transactions.filter((t) => t.balance != null)
+
+  if (txnsWithBalance.length > 0) {
+    // Sort by date to find chronologically first and last transactions
+    const sortedByDate = [...txnsWithBalance].sort((a, b) => {
+      return new Date(a.date).getTime() - new Date(b.date).getTime()
+    })
+
+    const chronologicallyFirst = sortedByDate[0]!
+    const chronologicallyLast = sortedByDate[sortedByDate.length - 1]!
+
+    // Closing balance is the balance after the most recent transaction
+    closingBalance = chronologicallyLast.balance!
+
+    // Opening balance is derived from the oldest transaction
+    // Opening balance = first transaction balance - credit + debit
+    if (chronologicallyFirst.type === 'credit') {
+      openingBalance = chronologicallyFirst.balance! - chronologicallyFirst.amount
+    } else {
+      openingBalance = chronologicallyFirst.balance! + chronologicallyFirst.amount
+    }
+
+    // Round to 2 decimal places
+    openingBalance = Math.round(openingBalance * 100) / 100
+    closingBalance = Math.round(closingBalance * 100) / 100
+  }
+
   return {
     debitCount,
     creditCount,
     totalDebits: Math.round(totalDebits * 100) / 100,
     totalCredits: Math.round(totalCredits * 100) / 100,
+    openingBalance,
+    closingBalance,
   }
 }
 
@@ -342,7 +378,7 @@ function calculateTotals(transactions: RawPdfTransaction[]): ExtractedTotals {
 function validateTotals(
   extracted: ExtractedTotals,
   expected: ExpectedSummary
-): { isValid: boolean; details: string[] } {
+): { isValid: boolean; details: string[]; message?: string } {
   const issues: string[] = []
 
   // Check debit count (exact match required)
@@ -371,9 +407,30 @@ function validateTotals(
     }
   }
 
+  // Check opening balance (tolerance allowed)
+  if (expected.openingBalance !== null && extracted.openingBalance !== null) {
+    const diff = Math.abs(extracted.openingBalance - expected.openingBalance)
+    if (diff > AMOUNT_TOLERANCE) {
+      issues.push(
+        `Opening balance: ${extracted.openingBalance} vs expected ${expected.openingBalance}`
+      )
+    }
+  }
+
+  // Check closing balance (tolerance allowed)
+  if (expected.closingBalance !== null && extracted.closingBalance !== null) {
+    const diff = Math.abs(extracted.closingBalance - expected.closingBalance)
+    if (diff > AMOUNT_TOLERANCE) {
+      issues.push(
+        `Closing balance: ${extracted.closingBalance} vs expected ${expected.closingBalance}`
+      )
+    }
+  }
+
   return {
     isValid: issues.length === 0,
     details: issues,
+    message: issues.length > 0 ? issues.join('; ') : undefined,
   }
 }
 
@@ -427,10 +484,10 @@ export async function runParserWithVersions(
             `[ExecuteParser] ${bankKey} v${entry.version} failed validation: ${validation.details.join(', ')}`
           )
           logger.warn(
-            `[ExecuteParser] Extracted: debits=${extractedTotals.debitCount}/${extractedTotals.totalDebits}, credits=${extractedTotals.creditCount}/${extractedTotals.totalCredits}`
+            `[ExecuteParser] Extracted: debits=${extractedTotals.debitCount}/${extractedTotals.totalDebits}, credits=${extractedTotals.creditCount}/${extractedTotals.totalCredits}, openBal=${extractedTotals.openingBalance}, closeBal=${extractedTotals.closingBalance}`
           )
           logger.warn(
-            `[ExecuteParser] Expected: debits=${expectedSummary.debitCount}/${expectedSummary.totalDebits}, credits=${expectedSummary.creditCount}/${expectedSummary.totalCredits}`
+            `[ExecuteParser] Expected: debits=${expectedSummary.debitCount}/${expectedSummary.totalDebits}, credits=${expectedSummary.creditCount}/${expectedSummary.totalCredits}, openBal=${expectedSummary.openingBalance}, closeBal=${expectedSummary.closingBalance}`
           )
           // Continue to try next version
         }

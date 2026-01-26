@@ -22,6 +22,7 @@ import { AuthLayout, type AuthStep } from '@/components/auth/auth-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -85,6 +86,7 @@ function StatementsUploadPage() {
   // AI model state
   const [parsingModelValue, setParsingModelValue] = useState<string>('')
   const [categorizationModelValue, setCategorizationModelValue] = useState<string>('')
+  const [categorizationHints, setCategorizationHints] = useState<string>('')
 
   // Password state
   const [password, setPassword] = useState('')
@@ -97,7 +99,7 @@ function StatementsUploadPage() {
     queryFn: getProfiles,
   })
 
-  const defaultProfile = profiles?.find((p) => p.isDefault) || profiles?.[0]
+  const defaultProfile = profiles?.[0]
 
   // Get investment types for source selection
   const { data: investmentTypes } = useQuery({
@@ -338,6 +340,7 @@ function StatementsUploadPage() {
         parsingModel: parsing.model || undefined,
         categorizationProvider: categorization.provider || undefined,
         categorizationModel: categorization.model || undefined,
+        categorizationHints: categorizationHints.trim() || undefined,
       })
 
       const successCount = result.processedCount
@@ -363,6 +366,7 @@ function StatementsUploadPage() {
           setShowPasswordField(false)
           setDocumentType(null)
           setSourceType('')
+          setCategorizationHints('')
           setCurrentStep('type')
         }, 1500)
 
@@ -939,6 +943,25 @@ function StatementsUploadPage() {
                 </div>
               )}
             </div>
+
+            {/* Categorization hints - only for bank statements */}
+            {documentType === 'bank_statement' && (
+              <div className="space-y-2 p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
+                <Label className="text-sm font-medium text-zinc-300">
+                  Categorization Hints (Optional)
+                </Label>
+                <Textarea
+                  placeholder="E.g., FX transactions are investments, not transfers"
+                  value={categorizationHints}
+                  onChange={(e) => setCategorizationHints(e.target.value.slice(0, 1000))}
+                  className="min-h-[80px] resize-none bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-600"
+                  maxLength={1000}
+                />
+                <p className="text-xs text-zinc-600">
+                  Help the AI categorize your transactions better with custom rules.
+                </p>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -954,10 +977,10 @@ function StatementsUploadPage() {
               onClick={handleUpload}
               disabled={isUploading || uploadSuccess}
               className={cn(
-                'w-full h-12 rounded-xl text-[15px] font-medium text-white shadow-lg transition-all duration-300',
+                'w-full h-12 rounded-xl text-[15px] font-medium text-white shadow-lg shadow-emerald-500/25 transition-none',
                 uploadSuccess
-                  ? 'bg-emerald-500 shadow-emerald-500/25'
-                  : 'bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/25'
+                  ? 'bg-emerald-500'
+                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110'
               )}
             >
               {isUploading ? (
@@ -987,7 +1010,7 @@ function StatementsUploadPage() {
             hasUploadedAtLeastOne && (
               <Button
                 onClick={handleSkip}
-                className="w-full h-12 rounded-xl text-[15px] font-medium bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300"
+                className="w-full h-12 rounded-xl text-[15px] font-medium bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 transition-none hover:brightness-110"
               >
                 Continue to Dashboard
                 <ArrowRight className="w-4 h-4 ml-2" />

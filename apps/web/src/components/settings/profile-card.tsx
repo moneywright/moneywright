@@ -32,9 +32,10 @@ import type { Profile } from './types'
 interface ProfileCardProps {
   profile: Profile
   onEdit: (profile: Profile) => void
+  canDelete?: boolean
 }
 
-export function ProfileCard({ profile, onEdit }: ProfileCardProps) {
+export function ProfileCard({ profile, onEdit, canDelete = false }: ProfileCardProps) {
   const queryClient = useQueryClient()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
@@ -58,7 +59,7 @@ export function ProfileCard({ profile, onEdit }: ProfileCardProps) {
         className={cn(
           'group relative rounded-xl border bg-card transition-all duration-200',
           'hover:border-border-hover hover:shadow-sm',
-          profile.isDefault ? 'border-primary/20' : 'border-border-subtle'
+          'border-border-subtle'
         )}
       >
         {/* Header */}
@@ -72,14 +73,7 @@ export function ProfileCard({ profile, onEdit }: ProfileCardProps) {
             {relationshipOption?.icon || '👤'}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-foreground truncate">{profile.name}</p>
-              {profile.isDefault && (
-                <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
-                  Default
-                </span>
-              )}
-            </div>
+            <p className="text-sm font-semibold text-foreground truncate">{profile.name}</p>
             <p className="text-xs text-muted-foreground">
               {relationshipOption?.label || profile.relationship}
             </p>
@@ -99,7 +93,7 @@ export function ProfileCard({ profile, onEdit }: ProfileCardProps) {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
-              {!profile.isDefault && (
+              {canDelete && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

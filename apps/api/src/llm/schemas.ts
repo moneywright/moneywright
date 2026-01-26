@@ -151,15 +151,19 @@ export const statementSummarySchema = z.object({
     .nullable()
     .describe('Total credit/deposit amount printed on statement summary, or null if not shown'),
 
-  // Balances
+  // Balances - CRITICAL: Always try to extract these
   opening_balance: z
     .number()
     .nullable()
-    .describe('Opening balance printed on statement, or null if not shown'),
+    .describe(
+      'Opening balance - from summary section OR derived from oldest transaction (balance +/- amount based on type). Only null if no transactions have balance data.'
+    ),
   closing_balance: z
     .number()
     .nullable()
-    .describe('Closing balance printed on statement, or null if not shown'),
+    .describe(
+      'Closing balance - from summary section OR from the most recent transaction balance column. Only null if no transactions have balance data.'
+    ),
 })
 
 /**

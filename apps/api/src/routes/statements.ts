@@ -95,6 +95,7 @@ statementRoutes.post('/upload', async (c) => {
     const savePassword = formData.get('savePassword') === 'true'
     const parsingModel = formData.get('parsingModel') as string | null
     const categorizationModel = formData.get('categorizationModel') as string | null
+    const categorizationHints = formData.get('categorizationHints') as string | null
 
     // Validate
     if (!files || files.length === 0) {
@@ -272,6 +273,7 @@ statementRoutes.post('/upload', async (c) => {
       statements,
       countryCode: user.country as CountryCode,
       categorizationModel: categorizationModel || undefined,
+      categorizationHints: categorizationHints || undefined,
     })
 
     logger.debug(`[Statement] Uploaded ${statements.length} files, queued for processing`)

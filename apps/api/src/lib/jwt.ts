@@ -10,8 +10,8 @@ const JWT_ISSUER = 'moneywright'
 const JWT_AUDIENCE = 'moneywright-web'
 
 // Default expiry times (can be overridden via env)
-const DEFAULT_ACCESS_EXPIRY = '1h'
-const DEFAULT_REFRESH_EXPIRY = '7d'
+const DEFAULT_ACCESS_EXPIRY = '24h'
+const DEFAULT_REFRESH_EXPIRY = '365d'
 
 interface JWTHeader {
   alg: string

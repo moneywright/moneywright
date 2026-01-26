@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -60,6 +61,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
   // Combined provider:model values (e.g., "openai:gpt-4o")
   const [parsingModelValue, setParsingModelValue] = useState<string>('')
   const [categorizationModelValue, setCategorizationModelValue] = useState<string>('')
+  const [categorizationHints, setCategorizationHints] = useState<string>('')
   const [password, setPassword] = useState('')
   const [savePassword, setSavePassword] = useState(true)
   const [showPasswordField, setShowPasswordField] = useState(false)
@@ -241,6 +243,7 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
         parsingModel: parsing.model || undefined,
         categorizationProvider: categorization.provider || undefined,
         categorizationModel: categorization.model || undefined,
+        categorizationHints: categorizationHints.trim() || undefined,
       })
 
       const successCount = result.processedCount
@@ -840,6 +843,23 @@ export function UploadForm({ profileId, onClose, onSuccess }: UploadFormProps) {
                 </div>
               )}
             </div>
+
+            {/* Categorization hints - only for bank statements */}
+            {documentType === 'bank_statement' && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Categorization Hints (Optional)</Label>
+                <Textarea
+                  placeholder="E.g., FX transactions are investments, not transfers"
+                  value={categorizationHints}
+                  onChange={(e) => setCategorizationHints(e.target.value.slice(0, 1000))}
+                  className="min-h-[80px] resize-none"
+                  maxLength={1000}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Help the AI categorize your transactions better with custom rules.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

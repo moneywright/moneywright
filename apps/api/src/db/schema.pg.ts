@@ -53,7 +53,6 @@ export const profiles = pgTable(
     name: varchar('name', { length: 50 }).notNull(), // e.g., "Personal", "Spouse"
     relationship: varchar('relationship', { length: 20 }), // e.g., "self", "spouse", "parent"
     summary: text('summary'), // Free-form text about the profile owner (employer, income sources, etc.) - used to help LLM categorize transactions
-    isDefault: boolean('is_default').notNull().default(false), // Primary profile for quick access
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -265,6 +264,10 @@ export const transactions = pgTable(
     // Cross-account linking
     linkedTransactionId: varchar('linked_transaction_id', { length: 21 }),
     linkType: varchar('link_type', { length: 20 }), // payment, transfer, refund
+
+    // Manual editing and visibility
+    isManuallyCategorized: boolean('is_manually_categorized').default(false), // true if user manually edited summary or category
+    isHidden: boolean('is_hidden').default(false), // true if user hides this transaction from queries
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

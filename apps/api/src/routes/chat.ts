@@ -42,47 +42,6 @@ const chat = new Hono<{ Variables: AuthVariables }>()
 chat.use('*', auth())
 
 // ============================================================================
-// AI Configuration Endpoints
-// ============================================================================
-
-/**
- * GET /api/chat/config
- * Get AI configuration (available providers, models, and current settings)
- */
-chat.get('/config', async (c) => {
-  const settings = await getLLMSettings()
-
-  // Build provider list with available models
-  const providers = AI_PROVIDERS.map((provider) => {
-    const hasKey =
-      (provider.id === 'openai' && !!settings.openaiApiKey) ||
-      (provider.id === 'anthropic' && !!settings.anthropicApiKey) ||
-      (provider.id === 'google' && !!settings.googleAiApiKey) ||
-      (provider.id === 'vercel' && !!settings.vercelApiKey) ||
-      provider.id === 'ollama'
-
-    return {
-      id: provider.id,
-      name: provider.name,
-      hasApiKey: hasKey,
-      models: provider.models,
-    }
-  })
-
-  // Determine default provider (first configured one)
-  const configuredProvider = providers.find((p) => p.hasApiKey)
-  const defaultProvider = configuredProvider?.id || null
-  const defaultModel = configuredProvider?.models[0]?.id || null
-
-  return c.json({
-    providers,
-    defaultProvider,
-    defaultModel,
-    isConfigured: settings.isConfigured,
-  })
-})
-
-// ============================================================================
 // Conversation Endpoints
 // ============================================================================
 

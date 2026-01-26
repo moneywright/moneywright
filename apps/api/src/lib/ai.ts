@@ -20,6 +20,8 @@ export interface AIModel {
   recommendedForParsing?: boolean
   /** Recommended model for categorization */
   recommendedForCategorization?: boolean
+  /** Recommended model for chat */
+  recommendedForChat?: boolean
   supportsThinking?: boolean
   reasoningBuiltIn?: boolean
 }
@@ -51,7 +53,6 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         id: 'gpt-5.2',
         name: 'GPT-5.2',
         supportsParsing: true,
-        recommendedForParsing: true,
         supportsThinking: true,
       },
       {
@@ -59,6 +60,8 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         name: 'GPT-5 Mini',
         supportsParsing: true,
         recommendedForCategorization: true,
+        recommendedForParsing: true,
+        recommendedForChat: true,
         supportsThinking: true,
       },
       { id: 'gpt-5-nano', name: 'GPT-5 Nano', supportsThinking: true },
@@ -73,7 +76,6 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         id: 'claude-opus-4-5',
         name: 'Claude Opus 4.5',
         supportsParsing: true,
-        recommendedForParsing: true,
         supportsThinking: true,
       },
       {
@@ -81,11 +83,14 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         name: 'Claude Sonnet 4.5',
         supportsParsing: true,
         supportsThinking: true,
+        recommendedForChat: true,
       },
       {
         id: 'claude-haiku-4-5',
         name: 'Claude Haiku 4.5',
+        recommendedForParsing: true,
         recommendedForCategorization: true,
+        supportsParsing: true,
         supportsThinking: true,
       },
     ],
@@ -98,14 +103,15 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         id: 'gemini-3-pro-preview',
         name: 'Gemini 3 Pro',
         supportsParsing: true,
-        recommendedForParsing: true,
         supportsThinking: true,
       },
       {
         id: 'gemini-3-flash-preview',
         name: 'Gemini 3 Flash',
         supportsParsing: true,
+        recommendedForParsing: true,
         recommendedForCategorization: true,
+        recommendedForChat: true,
         supportsThinking: true,
       },
       {
@@ -117,7 +123,6 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
       {
         id: 'gemini-2.5-flash',
         name: 'Gemini 2.5 Flash',
-        recommendedForCategorization: true,
         supportsThinking: true,
       },
     ],
@@ -126,7 +131,14 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     id: 'ollama',
     name: 'Ollama (Local)',
     models: [
-      { id: 'llama3.2', name: 'Llama 3.2', supportsParsing: true, recommendedForParsing: true },
+      {
+        id: 'llama3.2',
+        name: 'Llama 3.2',
+        supportsParsing: true,
+        recommendedForParsing: true,
+        recommendedForCategorization: true,
+        recommendedForChat: true,
+      },
       { id: 'llama3.1', name: 'Llama 3.1', supportsParsing: true },
       { id: 'mixtral', name: 'Mixtral', supportsParsing: true },
       { id: 'qwen2.5', name: 'Qwen 2.5', supportsParsing: true },
@@ -143,7 +155,6 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         id: 'anthropic/claude-opus-4-5',
         name: 'Claude Opus 4.5',
         supportsParsing: true,
-        recommendedForParsing: true,
         supportsThinking: true,
       },
       {
@@ -151,8 +162,14 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         name: 'Claude Sonnet 4.5',
         supportsParsing: true,
         supportsThinking: true,
+        recommendedForChat: true,
       },
-      { id: 'anthropic/claude-haiku-4-5', name: 'Claude Haiku 4.5', supportsThinking: true },
+      {
+        id: 'anthropic/claude-haiku-4-5',
+        name: 'Claude Haiku 4.5',
+        supportsParsing: true,
+        supportsThinking: true,
+      },
       // OpenAI models via Gateway
       { id: 'openai/gpt-5.2', name: 'GPT-5.2', supportsParsing: true, supportsThinking: true },
       {
@@ -175,6 +192,8 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         name: 'Gemini 3 Flash',
         supportsParsing: true,
         supportsThinking: true,
+        recommendedForCategorization: true,
+        recommendedForParsing: true,
       },
       {
         id: 'google/gemini-2.5-pro',
@@ -194,7 +213,6 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
       {
         id: 'xai/grok-4.1-fast-non-reasoning',
         name: 'Grok 4.1 Fast',
-        recommendedForCategorization: true,
       },
       // Minimax models via Gateway (reasoning is built-in)
       {
@@ -259,6 +277,15 @@ export function getRecommendedCategorizationModel(providerId: LLMProvider): AIMo
   const provider = getProviderConfig(providerId)
   if (!provider) return undefined
   return provider.models.find((m) => m.recommendedForCategorization) ?? provider.models[0]
+}
+
+/**
+ * Get the recommended model for chat
+ */
+export function getRecommendedChatModel(providerId: LLMProvider): AIModel | undefined {
+  const provider = getProviderConfig(providerId)
+  if (!provider) return undefined
+  return provider.models.find((m) => m.recommendedForChat) ?? provider.models[0]
 }
 
 /**

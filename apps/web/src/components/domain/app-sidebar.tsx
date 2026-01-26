@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   LayoutDashboard,
   FileText,
@@ -147,7 +149,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarSeparator className="mx-4 bg-(--border-subtle)" />
+      <SidebarSeparator className="mx-0 w-full bg-(--border-subtle)" />
 
       <SidebarContent className="px-2 py-2">
         {/* Main Navigation */}
@@ -165,68 +167,83 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarSeparator className="mx-4 bg-(--border-subtle)" />
+      <SidebarSeparator className="mx-0 w-full bg-(--border-subtle)" />
 
-      {/* User Footer */}
+      {/* Footer */}
       <SidebarFooter className="px-2 py-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="h-auto py-2.5 px-2 hover:bg-surface-hover transition-colors">
-                  <Avatar className="h-9 w-9 border border-(--border-subtle)">
-                    <AvatarImage src={user?.picture || undefined} alt={user?.name || 'User'} />
-                    <AvatarFallback className="text-xs bg-surface-elevated">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start text-left flex-1 min-w-0">
-                    <span className="text-sm font-medium truncate w-full">
-                      {user?.name || 'Local User'}
-                    </span>
-                    <span className="text-xs text-muted-foreground truncate w-full">
-                      {user?.email || 'No authentication'}
-                    </span>
-                  </div>
-                  <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                className="w-[--radix-popper-anchor-width] mb-1"
-                align="start"
-              >
-                <DropdownMenuItem
-                  onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                  className="cursor-pointer"
+        {authEnabled ? (
+          /* User dropdown when auth is enabled */
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton className="h-auto py-2.5 px-2 hover:bg-surface-hover transition-colors">
+                    <Avatar className="h-9 w-9 border border-(--border-subtle)">
+                      <AvatarImage src={user?.picture || undefined} alt={user?.name || 'User'} />
+                      <AvatarFallback className="text-xs bg-surface-elevated">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start text-left flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate w-full">
+                        {user?.name || 'User'}
+                      </span>
+                      <span className="text-xs text-muted-foreground truncate w-full">
+                        {user?.email}
+                      </span>
+                    </div>
+                    <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="top"
+                  className="w-[--radix-popper-anchor-width] mb-1"
+                  align="start"
                 >
-                  {isDark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-                  {isDark ? 'Light Mode' : 'Dark Mode'}
-                  {isDark && <Check className="ml-auto h-4 w-4 text-primary" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate({ to: '/settings' })}
-                  className="cursor-pointer"
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-                {authEnabled && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => logout()}
-                      className="text-destructive focus:text-destructive cursor-pointer"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Log out
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+                  <DropdownMenuItem
+                    onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                    className="cursor-pointer"
+                  >
+                    {isDark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                    {isDark ? 'Light Mode' : 'Dark Mode'}
+                    {isDark && <Check className="ml-auto h-4 w-4 text-primary" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate({ to: '/settings' })}
+                    className="cursor-pointer"
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => logout()}
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : (
+          /* Simple theme switch when auth is disabled */
+          <div className="flex items-center justify-between px-3 py-2">
+            <Label
+              htmlFor="theme-switch"
+              className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer"
+            >
+              {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              Dark Mode
+            </Label>
+            <Switch
+              id="theme-switch"
+              checked={isDark}
+              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            />
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   )

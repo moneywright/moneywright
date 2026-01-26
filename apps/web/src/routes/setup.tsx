@@ -40,7 +40,7 @@ function SetupPage() {
   // Currently expanded provider (for entering API key)
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null)
   const [apiKey, setApiKey] = useState<string>('')
-  const [ollamaBaseUrl, setOllamaBaseUrl] = useState<string>('')
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState<string>('http://localhost:11434/api')
 
   // UI state
   const [error, setError] = useState<string | null>(null)
@@ -324,9 +324,9 @@ function SetupPage() {
                   height: { duration: 0.3 },
                   opacity: { duration: 0.2 },
                 }}
-                className="overflow-hidden"
+                className="overflow-hidden -mx-1"
               >
-                <div className="space-y-4 pt-2">
+                <div className="space-y-4 pt-2 px-1">
                   {/* Error message */}
                   {error && (
                     <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -417,7 +417,8 @@ function SetupPage() {
                         testMutation.isPending ||
                         (!apiKey &&
                           expandedProviderDetails?.requiresApiKey &&
-                          !isProviderConfigured(expandedProvider))
+                          !isProviderConfigured(expandedProvider)) ||
+                        (expandedProvider === 'ollama' && !ollamaBaseUrl.trim())
                       }
                     >
                       {testMutation.isPending ? (
@@ -439,9 +440,10 @@ function SetupPage() {
                         saveMutation.isPending ||
                         (!apiKey &&
                           expandedProviderDetails?.requiresApiKey &&
-                          !isProviderConfigured(expandedProvider))
+                          !isProviderConfigured(expandedProvider)) ||
+                        (expandedProvider === 'ollama' && !ollamaBaseUrl.trim())
                       }
-                      className="flex-1 h-11 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white"
+                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 transition-none hover:brightness-110"
                     >
                       {saveMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -470,7 +472,7 @@ function SetupPage() {
                 <Button
                   type="button"
                   onClick={handleContinue}
-                  className="w-full h-12 rounded-xl text-[15px] font-medium bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300"
+                  className="w-full h-12 rounded-xl text-[15px] font-medium bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 transition-none hover:brightness-110"
                 >
                   Continue
                   <ArrowRight className="ml-2 h-4 w-4" />

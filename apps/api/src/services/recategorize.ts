@@ -32,6 +32,10 @@ export interface RecategorizeOptions {
   categorizationModel: string
   /** Progress callback */
   onProgress?: (processed: number, total: number) => void
+  /** User-provided hints for categorization (e.g., "FX transactions are investments") */
+  categorizationHints?: string
+  /** If true, include manually categorized transactions (default: false) */
+  includeManual?: boolean
 }
 
 /**
@@ -49,6 +53,8 @@ export async function recategorizeTransactions(
     statementId,
     categorizationModel,
     onProgress,
+    categorizationHints,
+    includeManual,
   } = options
 
   if (!accountId && !statementId) {
@@ -56,7 +62,7 @@ export async function recategorizeTransactions(
   }
 
   logger.debug(
-    `[Recategorize] Starting recategorization for ${accountId ? `account ${accountId}` : `statement ${statementId}`}`
+    `[Recategorize] Starting recategorization for ${accountId ? `account ${accountId}` : `statement ${statementId}`}${includeManual ? ' (including manual)' : ''}`
   )
 
   // Get statement IDs to recategorize
@@ -86,18 +92,27 @@ export async function recategorizeTransactions(
 
   logger.debug(`[Recategorize] Found ${statementIds.length} statements to recategorize`)
 
-  // Get all transaction IDs for these statements to reset their categories
+  // Build conditions for selecting transactions to recategorize
+  const selectConditions = [inArray(tables.transactions.statementId, statementIds)]
+
+  // By default, skip manually categorized transactions unless includeManual is true
+  if (!includeManual) {
+    selectConditions.push(eq(tables.transactions.isManuallyCategorized, false))
+  }
+
+  // Get transaction IDs for these statements to reset their categories
   const transactions = await db
     .select({ id: tables.transactions.id })
     .from(tables.transactions)
-    .where(inArray(tables.transactions.statementId, statementIds))
+    .where(and(...selectConditions))
 
   if (transactions.length === 0) {
     logger.debug(`[Recategorize] No transactions found to recategorize`)
     return { totalCount: 0, categorizedCount: 0 }
   }
 
-  // Reset all summaries to null so categorizeStatements will process them
+  // Reset summaries to null so categorizeStatements will process them
+  // Also reset isManuallyCategorized since they'll be AI-categorized again
   const transactionIds = transactions.map((t) => t.id)
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
@@ -108,6 +123,7 @@ export async function recategorizeTransactions(
       category: 'other',
       categoryConfidence: null,
       isSubscription: false,
+      isManuallyCategorized: false,
       updatedAt: now as Date,
     })
     .where(inArray(tables.transactions.id, transactionIds))
@@ -120,7 +136,8 @@ export async function recategorizeTransactions(
     countryCode,
     categorizationModel,
     onProgress,
-    profileId
+    profileId,
+    categorizationHints
   )
 
   logger.debug(

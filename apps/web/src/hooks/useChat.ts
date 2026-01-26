@@ -7,7 +7,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback, useRef } from 'react'
 import {
-  getChatConfig,
   listConversations,
   createConversation,
   getConversationById,
@@ -17,17 +16,6 @@ import {
   sendChatMessage,
   type ChatStep,
 } from '@/lib/api'
-
-/**
- * Hook to get chat configuration
- */
-export function useChatConfig() {
-  return useQuery({
-    queryKey: ['chat-config'],
-    queryFn: getChatConfig,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  })
-}
 
 /**
  * Hook to list all conversations for a profile

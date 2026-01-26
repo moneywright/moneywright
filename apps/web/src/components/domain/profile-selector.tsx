@@ -210,11 +210,6 @@ export function ProfileSelector({
               >
                 <User className="h-4 w-4" />
                 <span className="truncate">{profile.name}</span>
-                {profile.isDefault && (
-                  <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-surface-hover ml-1">
-                    default
-                  </span>
-                )}
                 {isSelected && <Check className="h-4 w-4 ml-auto shrink-0" />}
               </DropdownMenuItem>
             )

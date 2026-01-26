@@ -44,7 +44,6 @@ import {
   useDeleteHolding,
   useDeleteSnapshot,
   useFxRates,
-  useCurrencyConverter,
   useConstants,
 } from '@/hooks'
 import {
@@ -94,9 +93,6 @@ function InvestmentsPage() {
     enabled: showInINR && hasMultipleCurrencies,
   })
 
-  // Currency converter
-  const { formatCurrency, formatPercentage } = useCurrencyConverter(showInINR)
-
   // Build FX rates map
   const fxRates: Record<string, number> = {}
   if (fxRatesData?.success && fxRatesData.data?.rates) {
@@ -112,6 +108,25 @@ function InvestmentsPage() {
     const rate = fxRates[currency]
     if (rate) return amount * rate
     return amount
+  }
+
+  // Local format functions
+  const formatCurrency = (amount: number | null | undefined, currency: string): string => {
+    if (amount === null || amount === undefined) return '-'
+    const displayAmount = localConvertToINR(amount, currency)
+    const displayCurrency = showInINR ? 'INR' : currency
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: displayCurrency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(displayAmount)
+  }
+
+  const formatPercentage = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return '-'
+    const sign = value >= 0 ? '+' : ''
+    return `${sign}${value.toFixed(2)}%`
   }
 
   // Use rawInvestmentSourceTypes from constants (includes logo paths)

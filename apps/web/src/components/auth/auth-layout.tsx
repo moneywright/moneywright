@@ -327,7 +327,7 @@ function StepProgress({ steps, currentStep }: StepProgressProps) {
             {index < steps.length - 1 && (
               <div className="relative w-12 h-0.5 overflow-hidden rounded-full bg-zinc-800/50">
                 <motion.div
-                  className="absolute inset-y-0 left-0 bg-linear-to-r from-emerald-500 to-teal-500"
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500"
                   initial={{ width: 0 }}
                   animate={{
                     width: isCompleted ? '100%' : '0%',

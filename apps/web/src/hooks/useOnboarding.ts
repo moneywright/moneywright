@@ -49,6 +49,7 @@ export const RELATIONSHIP_OPTIONS = [
 const COUNTRY_FLAGS: Record<string, string> = {
   IN: '🇮🇳',
   US: '🇺🇸',
+  EU: '🇪🇺',
   GB: '🇬🇧',
   CA: '🇨🇦',
   AU: '🇦🇺',
@@ -66,7 +67,7 @@ export function getCountryFlag(countryCode: string): string {
 export function useCountrySelection(redirectTo?: string) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [selectedCountry, setSelectedCountry] = useState<string | null>('IN') // Pre-select India
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -131,7 +132,6 @@ export function useProfileCreation(redirectTo?: string) {
         name: name.trim(),
         relationship,
         summary: summary.trim() || null,
-        isDefault: true,
       }),
     onSuccess: () => {
       // Invalidate user data so __root.tsx knows onboarding is complete

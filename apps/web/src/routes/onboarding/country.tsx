@@ -103,15 +103,45 @@ function CountrySelectionPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: 0.2 }}
           >
-            {countries?.map((country, index) => (
-              <CountryOption
-                key={country.code}
-                country={country}
-                isSelected={selectedCountry === country.code}
-                onSelect={() => handleSelect(country.code)}
-                index={index}
-              />
-            ))}
+            {/* India - enabled */}
+            {countries
+              ?.filter((c) => c.code === 'IN')
+              .map((country, index) => (
+                <CountryOption
+                  key={country.code}
+                  country={country}
+                  isSelected={selectedCountry === country.code}
+                  onSelect={() => handleSelect(country.code)}
+                  index={index}
+                />
+              ))}
+            {/* USA - coming soon */}
+            {countries
+              ?.filter((c) => c.code === 'US')
+              .map((country, index) => (
+                <CountryOption
+                  key={country.code}
+                  country={country}
+                  isSelected={false}
+                  onSelect={() => {}}
+                  index={index + 1}
+                  disabled
+                />
+              ))}
+            {/* Europe - coming soon */}
+            <CountryOption
+              country={{
+                code: 'EU',
+                name: 'Europe',
+                currency: 'EUR',
+                currencySymbol: '€',
+              }}
+              isSelected={false}
+              onSelect={() => {}}
+              index={2}
+              disabled
+            />
+            <p className="text-center text-sm text-zinc-500 pt-2">More countries coming soon</p>
           </motion.div>
         )}
 
@@ -126,9 +156,9 @@ function CountrySelectionPage() {
             onClick={handleContinue}
             disabled={!selectedCountry || isSaving}
             className={cn(
-              'w-full h-12 rounded-xl text-[15px] font-medium transition-all duration-300',
+              'w-full h-12 rounded-xl text-[15px] font-medium transition-none',
               selectedCountry
-                ? 'bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-500/25'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 hover:brightness-110'
                 : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
             )}
           >
@@ -157,30 +187,38 @@ interface CountryOptionProps {
   isSelected: boolean
   onSelect: () => void
   index: number
+  disabled?: boolean
 }
 
-function CountryOption({ country, isSelected, onSelect, index }: CountryOptionProps) {
+function CountryOption({ country, isSelected, onSelect, index, disabled }: CountryOptionProps) {
   return (
     <motion.button
       type="button"
-      onClick={onSelect}
+      onClick={disabled ? undefined : onSelect}
+      disabled={disabled}
       className={cn(
         'relative w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 text-left group',
-        isSelected
-          ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/20'
-          : 'bg-zinc-900/50 border-zinc-800/80 hover:bg-zinc-800/50 hover:border-zinc-700'
+        disabled
+          ? 'bg-zinc-900/30 border-zinc-800/50 cursor-not-allowed opacity-60'
+          : isSelected
+            ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/20'
+            : 'bg-zinc-900/50 border-zinc-800/80 hover:bg-zinc-800/50 hover:border-zinc-700'
       )}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.05 * index }}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.99 }}
+      whileHover={disabled ? undefined : { scale: 1.01 }}
+      whileTap={disabled ? undefined : { scale: 0.99 }}
     >
       {/* Flag */}
       <div
         className={cn(
           'flex items-center justify-center w-12 h-12 rounded-xl text-2xl transition-colors',
-          isSelected ? 'bg-emerald-500/20' : 'bg-zinc-800/80 group-hover:bg-zinc-800'
+          disabled
+            ? 'bg-zinc-800/50'
+            : isSelected
+              ? 'bg-emerald-500/20'
+              : 'bg-zinc-800/80 group-hover:bg-zinc-800'
         )}
       >
         {getCountryFlag(country.code)}
@@ -191,7 +229,11 @@ function CountryOption({ country, isSelected, onSelect, index }: CountryOptionPr
         <div
           className={cn(
             'font-medium transition-colors',
-            isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'
+            disabled
+              ? 'text-zinc-500'
+              : isSelected
+                ? 'text-white'
+                : 'text-zinc-300 group-hover:text-white'
           )}
         >
           {country.name}
@@ -199,32 +241,38 @@ function CountryOption({ country, isSelected, onSelect, index }: CountryOptionPr
         <div
           className={cn(
             'text-sm mt-0.5 transition-colors',
-            isSelected ? 'text-emerald-400/80' : 'text-zinc-500'
+            disabled ? 'text-zinc-600' : isSelected ? 'text-emerald-400/80' : 'text-zinc-500'
           )}
         >
           {country.currencySymbol} {country.currency}
         </div>
       </div>
 
-      {/* Selection indicator */}
-      <div
-        className={cn(
-          'flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200',
-          isSelected
-            ? 'bg-emerald-500 text-white'
-            : 'border-2 border-zinc-700 group-hover:border-zinc-600'
-        )}
-      >
-        {isSelected && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-          >
-            <Check className="w-3.5 h-3.5" strokeWidth={3} />
-          </motion.div>
-        )}
-      </div>
+      {/* Coming soon badge or Selection indicator */}
+      {disabled ? (
+        <span className="text-xs font-medium text-zinc-500 bg-zinc-800/80 px-2 py-1 rounded-full">
+          Coming soon
+        </span>
+      ) : (
+        <div
+          className={cn(
+            'flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200',
+            isSelected
+              ? 'bg-emerald-500 text-white'
+              : 'border-2 border-zinc-700 group-hover:border-zinc-600'
+          )}
+        >
+          {isSelected && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            >
+              <Check className="w-3.5 h-3.5" strokeWidth={3} />
+            </motion.div>
+          )}
+        </div>
+      )}
     </motion.button>
   )
 }

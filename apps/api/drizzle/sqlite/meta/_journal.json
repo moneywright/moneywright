@@ -8,6 +8,20 @@
       "when": 1769420568174,
       "tag": "0000_certain_gambit",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1769447997412,
+      "tag": "0001_sour_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769461161813,
+      "tag": "0002_flaky_carmella_unuscione",
+      "breakpoints": true
     }
   ]
 }

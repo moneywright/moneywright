@@ -58,16 +58,63 @@ import {
 import { parseInvestmentStatement } from './investment-parser'
 
 /**
- * Maximum characters for account info extraction (full PDF)
- * Increased to allow full statement for summary extraction
+ * Maximum pages to include before truncating middle pages
+ * If a statement has more than this many pages, we keep the first and last pages
+ * and omit the middle to preserve account info and summary/closing balance
+ */
+const MAX_PAGES_BEFORE_TRUNCATION = 15
+
+/**
+ * Number of pages to keep from the beginning and end when truncating
+ */
+const PAGES_TO_KEEP_EACH_END = 7
+
+/**
+ * Maximum characters for account info extraction (safety fallback)
+ * Applied after page-based truncation as a final safety limit
  */
 const MAX_ACCOUNT_INFO_LENGTH = 80000
 
 /**
- * Combine all pages into a single text with page markers
+ * Combine all pages into a single text with page markers (complete version)
+ * Used for parser code execution where we need ALL transactions
  */
-function combinePages(pages: string[]): string {
+function combineAllPages(pages: string[]): string {
   return pages.map((page, idx) => `\n--- PAGE ${idx + 1} ---\n${page}`).join('\n')
+}
+
+/**
+ * Combine pages for LLM extraction (truncated version for long documents)
+ * For long documents (> MAX_PAGES_BEFORE_TRUNCATION), keeps first and last pages
+ * and omits the middle to ensure we capture both account info and summary/closing balance
+ * while staying within LLM context limits
+ */
+function combinePagesForLLM(pages: string[]): string {
+  if (pages.length <= MAX_PAGES_BEFORE_TRUNCATION) {
+    // Short document - include all pages
+    return pages.map((page, idx) => `\n--- PAGE ${idx + 1} ---\n${page}`).join('\n')
+  }
+
+  // Long document - keep first N and last N pages, omit middle
+  const firstPages = pages.slice(0, PAGES_TO_KEEP_EACH_END)
+  const lastPages = pages.slice(-PAGES_TO_KEEP_EACH_END)
+  const omittedCount = pages.length - PAGES_TO_KEEP_EACH_END * 2
+
+  const firstPagesText = firstPages
+    .map((page, idx) => `\n--- PAGE ${idx + 1} ---\n${page}`)
+    .join('\n')
+
+  const placeholderText = `\n\n--- PAGES ${PAGES_TO_KEEP_EACH_END + 1} TO ${pages.length - PAGES_TO_KEEP_EACH_END} OMITTED (${omittedCount} pages) ---
+[These pages contain transaction rows in the same format as above. They were omitted because this is a long statement with ${pages.length} pages.]
+\n`
+
+  const lastPagesText = lastPages
+    .map(
+      (page, idx) => `\n--- PAGE ${pages.length - PAGES_TO_KEEP_EACH_END + idx + 1} ---\n${page}`
+    )
+    .join('\n')
+
+  return firstPagesText + placeholderText + lastPagesText
 }
 
 /**
@@ -318,6 +365,33 @@ From this, you would extract:
 - total_debits: 3632459.58
 - total_credits: 3679494.92
 
+=== BALANCE EXTRACTION (IMPORTANT) ===
+If the statement does NOT have a summary section with opening/closing balance, you MUST extract balances from the transaction table:
+
+1. **Closing Balance**: Look at the MOST RECENT transaction (by date, not row position) in the transaction table.
+   The balance shown for that transaction IS the closing balance.
+
+2. **Opening Balance**: Look at the OLDEST transaction (by date, not row position) in the transaction table.
+   Calculate: opening_balance = that transaction's balance +/- its amount
+   - If oldest transaction is a CREDIT: opening_balance = balance - amount
+   - If oldest transaction is a DEBIT: opening_balance = balance + amount
+
+Note: Transaction tables can be in ascending (oldest first) OR descending (newest first) order.
+Always determine the chronological order by looking at the DATES, not row position.
+
+Example transaction table (descending order - newest first):
+"Date        Description      Debit    Credit   Balance
+ 31-Dec-22   ATM Withdrawal   500               9,500
+ 15-Dec-22   Salary                    50,000   10,000
+ 01-Dec-22   Opening Balance                    -40,000"
+
+From this:
+- closing_balance: 9500 (balance of most recent date: 31-Dec-22)
+- The oldest transaction is 15-Dec-22 with balance 10,000 and credit 50,000
+- opening_balance: 10000 - 50000 = -40,000
+
+ALWAYS try to extract opening_balance and closing_balance - they are critical for validation.
+
 === FOR CREDIT CARDS ===
 Additionally look for:
 - Total dues: total amount due / statement balance
@@ -430,9 +504,20 @@ export async function parseStatement(options: {
     throw new Error('Statement not found')
   }
 
-  // Combine all pages first (needed for document type detection)
-  const fullText = combinePages(pages)
-  logger.debug(`[Parser] Combined ${pages.length} pages into ${fullText.length} chars`)
+  // Combine pages - two versions:
+  // 1. Full text for parser execution (all pages, all transactions)
+  // 2. Truncated text for LLM calls (first + last pages for account info/summary)
+  const fullText = combineAllPages(pages)
+  const llmText = combinePagesForLLM(pages)
+
+  if (pages.length > MAX_PAGES_BEFORE_TRUNCATION) {
+    const omittedPages = pages.length - PAGES_TO_KEEP_EACH_END * 2
+    logger.debug(
+      `[Parser] Long document: ${pages.length} pages (${fullText.length} chars total), LLM uses ${PAGES_TO_KEEP_EACH_END * 2} pages (${omittedPages} omitted, ${llmText.length} chars)`
+    )
+  } else {
+    logger.debug(`[Parser] Combined ${pages.length} pages into ${fullText.length} chars`)
+  }
 
   // Step 0: Detect document type (skip if user already specified)
   let documentInfo: DocumentInfo | null = null
@@ -441,7 +526,7 @@ export async function parseStatement(options: {
   if (!effectiveDocumentType) {
     // Auto-detect document type
     try {
-      documentInfo = await detectDocumentType(fullText, countryCode, effectiveParsingModel)
+      documentInfo = await detectDocumentType(llmText, countryCode, effectiveParsingModel)
       logger.debug(`[Parser] Auto-detected document type: ${documentInfo.document_type}`)
     } catch (error) {
       logger.warn(`[Parser] Could not detect document type, defaulting to bank_statement:`, error)
@@ -550,7 +635,7 @@ export async function parseStatement(options: {
 
     for (let attempt = 1; attempt <= MAX_ACCOUNT_INFO_RETRIES; attempt++) {
       try {
-        accountInfo = await extractAccountInfo(fullText, countryCode, effectiveParsingModel)
+        accountInfo = await extractAccountInfo(llmText, countryCode, effectiveParsingModel)
         logger.debug(`[Parser] Extracted account info:`, accountInfo)
         break // Success, exit retry loop
       } catch (error) {
@@ -736,6 +821,7 @@ export async function parseStatement(options: {
 
     const agentResult = await generateParserCode(
       fullText,
+      llmText,
       effectiveParsingModel,
       accountInfo?.institution_id,
       expectedSummary,

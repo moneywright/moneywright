@@ -46,7 +46,6 @@ export const profiles = sqliteTable(
     name: text('name').notNull(), // e.g., "Personal", "Spouse"
     relationship: text('relationship'), // e.g., "self", "spouse", "parent"
     summary: text('summary'), // Free-form text about the profile owner (employer, income sources, etc.) - used to help LLM categorize transactions
-    isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // Primary profile for quick access
     createdAt: text('created_at')
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -274,6 +273,10 @@ export const transactions = sqliteTable(
     // Cross-account linking
     linkedTransactionId: text('linked_transaction_id'),
     linkType: text('link_type'), // payment, transfer, refund
+
+    // Manual editing and visibility
+    isManuallyCategorized: integer('is_manually_categorized', { mode: 'boolean' }).default(false), // true if user manually edited summary or category
+    isHidden: integer('is_hidden', { mode: 'boolean' }).default(false), // true if user hides this transaction from queries
 
     createdAt: text('created_at')
       .notNull()
