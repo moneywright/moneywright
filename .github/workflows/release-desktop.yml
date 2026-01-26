@@ -82,11 +82,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      # macOS notarization
+      # macOS notarization (only if Apple credentials are configured)
       - name: Notarize macOS app
-        if: |
-          startsWith(matrix.os, 'macos') &&
-          secrets.APPLE_ID != ''
+        if: startsWith(matrix.os, 'macos') && env.APPLE_ID != ''
         run: |
           DMG_FILE=$(find apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg -name "*.dmg" | head -1)
           if [ -n "$DMG_FILE" ]; then
