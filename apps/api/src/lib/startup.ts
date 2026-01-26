@@ -12,6 +12,17 @@ import { existsSync, writeFileSync, readFileSync } from 'fs'
 import { join, dirname } from 'path'
 
 /**
+ * Normalize Windows extended-length path prefix (\\?\)
+ * This prefix can cause issues with some file operations in Node.js/Bun
+ */
+export function normalizePath(p: string): string {
+  if (p.startsWith('\\\\?\\')) {
+    return p.slice(4)
+  }
+  return p
+}
+
+/**
  * Check if running as a compiled Bun binary
  * True for standalone binary and desktop sidecar
  * False for development (bun run) and Docker (bun start)
@@ -109,7 +120,7 @@ export function openBrowser(url: string): void {
 export function getDataDir(): string {
   // Desktop sidecar: Tauri sets DATA_DIR
   if (process.env.DATA_DIR) {
-    return process.env.DATA_DIR
+    return normalizePath(process.env.DATA_DIR)
   }
 
   // Standalone binary: use binary directory

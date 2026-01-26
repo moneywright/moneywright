@@ -5,11 +5,12 @@ import { migrate as migratePg } from 'drizzle-orm/postgres-js/migrator'
 import { Database } from 'bun:sqlite'
 import postgres from 'postgres'
 import { existsSync, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
+import { join, dirname, normalize } from 'path'
 
 import * as pgSchema from './schema.pg'
 import * as sqliteSchema from './schema.sqlite'
 import { logger } from '../lib/logger'
+import { normalizePath } from '../lib/startup'
 
 // Type alias for the database - use Postgres type for IntelliSense
 // Both SQLite and Postgres have the same runtime API
@@ -50,7 +51,8 @@ const SQLITE_PATH = process.env.SQLITE_PATH || getDefaultSqlitePath()
 // Priority: MIGRATIONS_PATH env var > ./drizzle/<type> relative to binary/project
 const getMigrationsPath = (dbType: 'sqlite' | 'pg') => {
   if (process.env.MIGRATIONS_PATH) {
-    return process.env.MIGRATIONS_PATH
+    // Normalize to handle Windows extended-length path prefix
+    return normalizePath(process.env.MIGRATIONS_PATH)
   }
   // In Docker/production with Postgres, migrations are at /usr/src/app/drizzle/pg
   if (isPostgres && existsSync('/usr/src/app/drizzle/pg')) {

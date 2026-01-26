@@ -13,6 +13,7 @@ import {
   isDesktopSidecar,
   getAppDir,
   openBrowser,
+  normalizePath,
 } from './lib/startup'
 
 // Initialize binary environment (auto-generates .env and loads it from binary directory)
@@ -142,7 +143,9 @@ app.route('/api/chat', chatRoutes)
 // In development, Vite dev server handles this
 if (!isDevelopment()) {
   // Path to public folder - use PUBLIC_DIR env var if set (desktop app), otherwise relative to binary
-  const publicDir = process.env.PUBLIC_DIR || join(APP_DIR, 'public')
+  const publicDir = process.env.PUBLIC_DIR
+    ? normalizePath(process.env.PUBLIC_DIR)
+    : join(APP_DIR, 'public')
   const indexPath = join(publicDir, 'index.html')
 
   logger.debug(`[SPA] Serving static files from: ${publicDir}`)
