@@ -76,7 +76,8 @@
     "prepare": "husky",
     "lint": "bun run --cwd apps/api lint && bun run --cwd apps/web lint && bun run --cwd apps/docs lint",
     "format": "bun run --cwd apps/api format && bun run --cwd apps/web format && bun run --cwd apps/docs format",
-    "format:check": "bun run --cwd apps/api format:check && bun run --cwd apps/web format:check"
+    "format:check": "bun run --cwd apps/api format:check && bun run --cwd apps/web format:check",
+    "release": "./scripts/release.sh"
   },
   "workspaces": [
     "apps/*"

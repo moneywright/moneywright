@@ -70,13 +70,30 @@ update_package_json "$ROOT_DIR/package.json"
 update_package_json "$ROOT_DIR/apps/api/package.json"
 update_package_json "$ROOT_DIR/apps/web/package.json"
 update_package_json "$ROOT_DIR/apps/docs/package.json"
+update_package_json "$ROOT_DIR/apps/desktop/package.json"
 
 echo -e "${GREEN}Package files updated${NC}"
 echo ""
 
+# Update tauri.conf.json
+echo -e "${YELLOW}Updating tauri.conf.json...${NC}"
+TAURI_CONF="$ROOT_DIR/apps/desktop/src-tauri/tauri.conf.json"
+if [ -f "$TAURI_CONF" ]; then
+  bun -e "
+    const fs = require('fs');
+    const conf = JSON.parse(fs.readFileSync('$TAURI_CONF', 'utf8'));
+    conf.version = '$VERSION';
+    fs.writeFileSync('$TAURI_CONF', JSON.stringify(conf, null, 2) + '\n');
+  "
+  echo -e "  Updated: apps/desktop/src-tauri/tauri.conf.json"
+fi
+
+echo -e "${GREEN}All version files updated${NC}"
+echo ""
+
 # Stage changes
 echo -e "${YELLOW}Staging changes...${NC}"
-git add package.json apps/*/package.json
+git add package.json apps/*/package.json apps/desktop/src-tauri/tauri.conf.json
 
 # Commit
 echo -e "${YELLOW}Creating commit...${NC}"
