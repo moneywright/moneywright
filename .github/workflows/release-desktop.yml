@@ -58,14 +58,13 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
 
-      # Linux dependencies
+      # Linux dependencies (use only ayatana, not legacy appindicator)
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
             librsvg2-dev \
             patchelf \
             libgtk-3-dev \
@@ -75,28 +74,19 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Build desktop app
+      # Build desktop app (use bash shell for cross-platform compatibility)
+      # The build script handles code signing and notarization for macOS if credentials are set
       - name: Build desktop app
-        run: bun run build:desktop --target ${{ matrix.target }} --skip-notarize
+        shell: bash
+        run: ./scripts/build-desktop.sh --target ${{ matrix.target }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      # macOS notarization (only if Apple credentials are configured)
-      - name: Notarize macOS app
-        if: startsWith(matrix.os, 'macos') && env.APPLE_ID != ''
-        run: |
-          DMG_FILE=$(find apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg -name "*.dmg" | head -1)
-          if [ -n "$DMG_FILE" ]; then
-            echo "Notarizing: $DMG_FILE"
-            xcrun notarytool submit "$DMG_FILE" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --wait
-            xcrun stapler staple "$DMG_FILE"
-          fi
-        env:
+          # macOS code signing (Tauri will use these automatically)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # macOS notarization
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
