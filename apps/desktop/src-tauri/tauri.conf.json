@@ -36,7 +36,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "nsis", "appimage", "deb"],
+    "targets": [
+      "dmg",
+      "nsis",
+      "appimage",
+      "deb"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -44,7 +49,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/moneywright"],
+    "externalBin": [
+      "binaries/moneywright"
+    ],
     "resources": {
       "binaries/drizzle": "drizzle",
       "binaries/public": "public"
