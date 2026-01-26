@@ -1,35 +1,15 @@
-name: Build Desktop
+name: Release Desktop
 
 on:
-  # Manual trigger with options
-  workflow_dispatch:
-    inputs:
-      create_release:
-        description: 'Create a draft release'
-        required: false
-        default: false
-        type: boolean
-      skip_notarize:
-        description: 'Skip macOS notarization'
-        required: false
-        default: false
-        type: boolean
-
-  # Auto-build on version tags
   push:
     tags:
       - 'v*'
 
-  # Build on PRs that touch desktop code (for testing)
-  pull_request:
-    paths:
-      - 'apps/desktop/**'
-      - 'scripts/build-desktop.sh'
-      - 'scripts/build-binary.sh'
-      - '.github/workflows/build-desktop.yml'
-
 env:
   BUN_VERSION: '1.2.4'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -102,12 +82,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      # macOS notarization (only for release builds, not PRs)
+      # macOS notarization
       - name: Notarize macOS app
         if: |
           startsWith(matrix.os, 'macos') &&
-          github.event_name != 'pull_request' &&
-          !inputs.skip_notarize &&
           secrets.APPLE_ID != ''
         run: |
           DMG_FILE=$(find apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg -name "*.dmg" | head -1)
@@ -154,18 +132,13 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moneywright-${{ matrix.artifact_name }}
+          name: moneywright-desktop-${{ matrix.artifact_name }}
           path: artifacts/*
           if-no-files-found: error
 
-  # Create release with all artifacts
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || inputs.create_release
-
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
@@ -181,8 +154,10 @@ jobs:
         run: ls -la artifacts/
 
       - name: Generate update manifest
+        env:
+          VERSION: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${GITHUB_REF_NAME:-dev}"
           cat > artifacts/latest.json << EOF
           {
             "version": "$VERSION",
@@ -191,19 +166,19 @@ jobs:
             "platforms": {
               "darwin-aarch64": {
                 "signature": "$(cat artifacts/*.app.tar.gz.sig 2>/dev/null | head -1 || echo '')",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$VERSION/Moneywright_${VERSION#v}_aarch64.app.tar.gz"
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION#v}_aarch64.app.tar.gz"
               },
               "darwin-x86_64": {
                 "signature": "$(cat artifacts/*.app.tar.gz.sig 2>/dev/null | tail -1 || echo '')",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$VERSION/Moneywright_${VERSION#v}_x64.app.tar.gz"
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION#v}_x64.app.tar.gz"
               },
               "linux-x86_64": {
                 "signature": "$(cat artifacts/*.AppImage.sig 2>/dev/null || echo '')",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$VERSION/moneywright_${VERSION#v}_amd64.AppImage"
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/moneywright_${VERSION#v}_amd64.AppImage"
               },
               "windows-x86_64": {
                 "signature": "$(cat artifacts/*.exe.sig 2>/dev/null || echo '')",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$VERSION/Moneywright_${VERSION#v}_x64-setup.exe"
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION#v}_x64-setup.exe"
               }
             }
           }

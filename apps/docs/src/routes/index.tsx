@@ -17,7 +17,9 @@ import {
   Sparkles,
   Shield,
   Check,
+  Users,
 } from 'lucide-react';
+import { useLatestRelease, getDownloadUrl } from '@/hooks/use-latest-release';
 import { motion, useInView } from 'motion/react';
 import { useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -107,10 +109,15 @@ const institutions = [
 
 function LandingPage() {
   const [platform, setPlatform] = useState<Platform>('macos');
+  const { data: downloads } = useLatestRelease();
 
   useEffect(() => {
     setPlatform(detectPlatform());
   }, []);
+
+  // Get platform-specific download URL
+  const downloadUrl = downloads ? getDownloadUrl(downloads, platform) : 'https://github.com/moneywright/moneywright/releases';
+  const releasesUrl = downloads?.releasesUrl || 'https://github.com/moneywright/moneywright/releases';
 
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-[#f5f5f7] overflow-x-hidden landing-noise">
@@ -137,7 +144,7 @@ function LandingPage() {
             GitHub
           </a>
           <a
-            href="https://github.com/moneywright/moneywright/releases"
+            href={releasesUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-[#f5f5f7] text-[#0a0a0c] px-5 py-2.5 rounded-lg font-semibold text-sm hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(255,255,255,0.2)] transition-all"
@@ -149,18 +156,27 @@ function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col justify-center items-center text-center px-5 sm:px-8 pt-20 sm:pt-24 pb-12 overflow-hidden">
-        {/* Animated gradient orbs - 4 colors */}
-        <div className="absolute w-[500px] sm:w-[700px] h-[500px] sm:h-[700px] rounded-full blur-[80px] sm:blur-[100px] animate-float bg-[radial-gradient(circle,#10b981_0%,transparent_70%)] -top-[200px] sm:-top-[250px] -left-[200px] sm:-left-[250px]" />
-        <div className="absolute w-[400px] sm:w-[550px] h-[400px] sm:h-[550px] rounded-full blur-[70px] sm:blur-[90px] animate-float-delayed bg-[radial-gradient(circle,#f97316_0%,transparent_70%)] -bottom-[150px] sm:-bottom-[200px] -right-[150px] sm:-right-[200px]" />
-        <div className="absolute w-[350px] h-[350px] rounded-full blur-[80px] animate-float-delayed-2 bg-[radial-gradient(circle,#a855f7_0%,transparent_70%)] top-[20%] right-[5%]" />
-        <div className="absolute w-[400px] h-[400px] rounded-full blur-[80px] animate-float-delayed-3 bg-[radial-gradient(circle,#3b82f6_0%,transparent_70%)] bottom-[15%] left-[2%]" />
+        {/* Animated gradient orbs - 4 colors (smaller/dimmer on mobile) */}
+        <div className="absolute w-[300px] sm:w-[700px] h-[300px] sm:h-[700px] rounded-full blur-[60px] sm:blur-[100px] opacity-40 sm:opacity-50 animate-float bg-[radial-gradient(circle,#10b981_0%,transparent_70%)] -top-[150px] sm:-top-[250px] -left-[150px] sm:-left-[250px]" />
+        <div className="absolute w-[250px] sm:w-[550px] h-[250px] sm:h-[550px] rounded-full blur-[50px] sm:blur-[90px] opacity-40 sm:opacity-50 animate-float-delayed bg-[radial-gradient(circle,#f97316_0%,transparent_70%)] -bottom-[100px] sm:-bottom-[200px] -right-[100px] sm:-right-[200px]" />
+        <div className="absolute hidden sm:block w-[350px] h-[350px] rounded-full blur-[80px] animate-float-delayed-2 bg-[radial-gradient(circle,#a855f7_0%,transparent_70%)] top-[20%] right-[5%]" />
+        <div className="absolute hidden sm:block w-[400px] h-[400px] rounded-full blur-[80px] animate-float-delayed-3 bg-[radial-gradient(circle,#3b82f6_0%,transparent_70%)] bottom-[15%] left-[2%]" />
 
         <div className="relative z-10 max-w-[900px] w-full">
           {/* Badges */}
-          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-8 animate-fade-in-up">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-8 animate-fade-in-up flex-wrap">
             <span className="inline-flex items-center gap-1.5 bg-[#a855f7]/10 border border-[#a855f7]/20 px-3 py-1.5 rounded-full text-xs text-[#a855f7] font-medium">
               <Sparkles className="w-3 h-3" />
               AI-powered
+            </span>
+            <span className="relative group inline-flex items-center gap-1.5 bg-[#f97316]/10 border border-[#f97316]/20 px-3 py-1.5 rounded-full text-xs text-[#f97316] font-medium cursor-help">
+              <Lock className="w-3 h-3" />
+              BYOK
+              {/* Tooltip */}
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#18181c] border border-white/10 rounded-lg text-xs text-[#f5f5f7] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                Bring Your Own API Keys
+                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#18181c]" />
+              </span>
             </span>
             <span className="inline-flex items-center gap-1.5 bg-[#3b82f6]/10 border border-[#3b82f6]/20 px-3 py-1.5 rounded-full text-xs text-[#3b82f6] font-medium">
               <Github className="w-3 h-3" />
@@ -177,14 +193,14 @@ function LandingPage() {
 
           {/* Subtitle */}
           <p className="text-sm sm:text-lg text-[#a1a1aa] max-w-[580px] mx-auto mb-8 sm:mb-10 font-normal px-2 animate-fade-in-up-2 leading-relaxed">
-            Upload any bank statement. Instantly see your spending patterns, find hidden subscriptions,
-            and chat with AI about your finances. Free forever, no signup required.
+            Drop all your bank and card statements. See exactly where your money went,
+            find subscriptions you forgot about, and chat with AI about your finances. Free forever.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex gap-2.5 sm:gap-3 justify-center flex-wrap px-2 animate-fade-in-up-3">
             <a
-              href="https://github.com/moneywright/moneywright/releases"
+              href={downloadUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
@@ -213,7 +229,7 @@ function LandingPage() {
               .map((p) => (
                 <a
                   key={p}
-                  href="https://github.com/moneywright/moneywright/releases"
+                  href={downloads ? getDownloadUrl(downloads, p) : releasesUrl}
                   className="inline-flex items-center gap-1.5 text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors"
                 >
                   <img src={platformInfo[p].icon} alt="" className="w-3.5 h-3.5 opacity-70 invert" />
@@ -423,14 +439,32 @@ function LandingPage() {
               />
             </motion.div>
 
-            {/* Investment Tracking */}
-            <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
-              <BentoCard
-                icon={<TrendingUp className="w-6 h-6 text-[#3b82f6]" />}
-                iconBg="bg-[rgba(59,130,246,0.15)]"
-                title="Track investments"
-                description="Import portfolios from any broker. See your complete net worth in one dashboard."
-              />
+            {/* Investment Tracking - Large card */}
+            <motion.div
+              variants={scaleIn}
+              transition={{ duration: 0.6, ease: smoothEase }}
+              className="lg:col-span-2 group relative flex flex-col overflow-hidden rounded-2xl bg-[#18181c] border border-white/5 p-6 sm:p-8 hover:border-white/10 transition-all h-full"
+            >
+              <div className="absolute top-0 right-0 w-[250px] h-[250px] rounded-full blur-[80px] bg-[radial-gradient(circle,#3b82f6_0%,transparent_70%)] opacity-20" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-[rgba(59,130,246,0.15)] flex items-center justify-center mb-5">
+                  <TrendingUp className="w-6 h-6 text-[#3b82f6]" />
+                </div>
+                <h3 className="text-xl sm:text-2xl font-semibold mb-3">
+                  Track <span className="text-[#3b82f6]">all</span> your investments
+                </h3>
+                <p className="text-[#a1a1aa] text-sm sm:text-base leading-relaxed mb-6">
+                  Stocks, mutual funds, PPF, EPF — see your complete portfolio in one place. Import from any broker and track your real net worth.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <img src="/institutions/zerodha.svg" alt="Zerodha" className="h-6 opacity-60" />
+                  <img src="/institutions/groww.svg" alt="Groww" className="h-6 opacity-60" />
+                  <img src="/institutions/vested.svg" alt="Vested" className="h-6 opacity-60" />
+                  <img src="/institutions/epf.png" alt="EPF" className="h-6 opacity-60" />
+                  <img src="/institutions/mfcentral.svg" alt="MFCentral" className="h-6 opacity-60" />
+                  <span className="px-2 py-1 text-xs text-[#71717a]">+more</span>
+                </div>
+              </div>
             </motion.div>
 
             {/* Insurance Analysis */}
@@ -450,6 +484,16 @@ function LandingPage() {
                 iconBg="bg-[rgba(6,182,212,0.15)]"
                 title="Beautiful insights"
                 description="See where your money goes with charts that actually make sense."
+              />
+            </motion.div>
+
+            {/* Multiple Profiles */}
+            <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
+              <BentoCard
+                icon={<Users className="w-6 h-6 text-[#10b981]" />}
+                iconBg="bg-[rgba(16,185,129,0.15)]"
+                title="Family finances"
+                description="Create profiles for each family member. See individual or combined views instantly."
               />
             </motion.div>
           </motion.div>
@@ -711,7 +755,7 @@ function LandingPage() {
           <motion.a
             variants={fadeInUp}
             transition={{ duration: 0.5, ease: smoothEase, delay: 0.3 }}
-            href="https://github.com/moneywright/moneywright/releases"
+            href={downloadUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-base hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
@@ -768,9 +812,9 @@ function LandingPage() {
             <div>
               <h4 className="font-semibold text-sm mb-4 text-[#a1a1aa]">Download</h4>
               <ul className="space-y-2">
-                <li><a href="https://github.com/moneywright/moneywright/releases" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/apple.svg" className="w-3.5 h-3.5 opacity-60 invert" /> macOS</a></li>
-                <li><a href="https://github.com/moneywright/moneywright/releases" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/windows.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Windows</a></li>
-                <li><a href="https://github.com/moneywright/moneywright/releases" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/linux.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Linux</a></li>
+                <li><a href={downloads ? getDownloadUrl(downloads, 'macos') : releasesUrl} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/apple.svg" className="w-3.5 h-3.5 opacity-60 invert" /> macOS</a></li>
+                <li><a href={downloads ? getDownloadUrl(downloads, 'windows') : releasesUrl} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/windows.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Windows</a></li>
+                <li><a href={downloads ? getDownloadUrl(downloads, 'linux') : releasesUrl} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/linux.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Linux</a></li>
               </ul>
             </div>
 
@@ -779,7 +823,7 @@ function LandingPage() {
               <ul className="space-y-2">
                 <li><a href="https://github.com/moneywright/moneywright" target="_blank" rel="noopener noreferrer" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">GitHub</a></li>
                 <li><a href="https://github.com/moneywright/moneywright/issues" target="_blank" rel="noopener noreferrer" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">Issues</a></li>
-                <li><a href="https://github.com/moneywright/moneywright/releases" target="_blank" rel="noopener noreferrer" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">Releases</a></li>
+                <li><a href={releasesUrl} target="_blank" rel="noopener noreferrer" className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">Releases</a></li>
               </ul>
             </div>
           </div>
@@ -790,10 +834,10 @@ function LandingPage() {
               <span>Open source</span>
               <span className="text-white/20">•</span>
               <Scale className="w-3.5 h-3.5" />
-              <span>MIT License</span>
+              <span>AGPL-3.0</span>
             </div>
             <div className="text-[#71717a] text-sm">
-              Made with care in India
+              Built by <a href="https://priyanshrastogi.com" target="_blank" rel="noopener noreferrer" className="text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors">@priyanshrastogi</a> & <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors">@claude</a>
             </div>
           </div>
         </div>
