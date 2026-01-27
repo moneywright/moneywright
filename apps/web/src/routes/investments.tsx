@@ -45,6 +45,7 @@ import {
   useDeleteSnapshot,
   useFxRates,
   useConstants,
+  useProfileSelection,
 } from '@/hooks'
 import {
   PortfolioStats,
@@ -62,8 +63,14 @@ export const Route = createFileRoute('/investments')({
 
 function InvestmentsPage() {
   const queryClient = useQueryClient()
-  const { defaultProfile } = useAuth()
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const { profiles } = useAuth()
+  const {
+    activeProfileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
   const [showAddSourceDialog, setShowAddSourceDialog] = useState(false)
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false)
   const [editingSource, setEditingSource] = useState<InvestmentSource | null>(null)
@@ -72,17 +79,24 @@ function InvestmentsPage() {
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set())
   const [showInINR, setShowInINR] = useState(true)
 
-  // Use default profile if none selected
-  const activeProfileId = selectedProfileId || defaultProfile?.id
+  // Query enabled when we have a profileId OR we're in family view
+  const queryEnabled = !!activeProfileId || showFamilyView
 
   // Query hooks
   const { data: typesData } = useInvestmentTypes()
   const { rawInvestmentSourceTypes } = useConstants()
-  const { data: sources, isLoading: sourcesLoading } = useInvestmentSources(activeProfileId)
-  const { data: holdings, isLoading: holdingsLoading } = useInvestmentHoldings(activeProfileId)
-  const { data: summary, isLoading: summaryLoading } = useInvestmentSummary(activeProfileId)
+  const { data: sources, isLoading: sourcesLoading } = useInvestmentSources(activeProfileId, {
+    enabled: queryEnabled,
+  })
+  const { data: holdings, isLoading: holdingsLoading } = useInvestmentHoldings(activeProfileId, {
+    enabled: queryEnabled,
+  })
+  const { data: summary, isLoading: summaryLoading } = useInvestmentSummary(activeProfileId, {
+    enabled: queryEnabled,
+  })
   const { data: snapshots, isLoading: snapshotsLoading } = useInvestmentSnapshots(activeProfileId, {
     limit: 50,
+    enabled: queryEnabled,
   })
 
   // Check if we have any non-INR holdings
@@ -220,8 +234,10 @@ function InvestmentsPage() {
                 </div>
               )}
               <ProfileSelector
-                selectedProfileId={activeProfileId || null}
-                onProfileChange={(profile) => setSelectedProfileId(profile.id)}
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -390,6 +406,8 @@ function InvestmentsPage() {
                       showInINR={showInINR}
                       convertToINR={localConvertToINR}
                       getSourceTypeLabel={getSourceTypeLabel}
+                      profiles={profiles}
+                      showProfileBadge={showFamilyView}
                     />
                   )
                 })}
@@ -408,6 +426,8 @@ function InvestmentsPage() {
                 convertToINR={localConvertToINR}
                 onEditHolding={setEditingHolding}
                 onDeleteHolding={(id) => deleteHoldingMutation.mutate(id)}
+                profiles={profiles}
+                showProfileBadge={showFamilyView}
               />
             </TabsContent>
 

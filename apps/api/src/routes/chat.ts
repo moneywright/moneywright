@@ -14,7 +14,7 @@ import { auth, type AuthVariables } from '../middleware/auth'
 import { getLLMSettings } from '../services/config'
 import { AI_PROVIDERS, type LLMProvider } from '../lib/ai'
 import { logger } from '../lib/logger'
-import { getProfileById } from '../services/profiles'
+import { getProfileById, getProfilesByUserId } from '../services/profiles'
 import { findUserById } from '../services/user'
 
 import {
@@ -44,6 +44,16 @@ chat.use('*', auth())
 // ============================================================================
 // Conversation Endpoints
 // ============================================================================
+
+/**
+ * GET /api/chat/conversations
+ * List all family view conversations (profileId = null)
+ */
+chat.get('/conversations', async (c) => {
+  const userId = c.get('userId')
+  const conversations = await listConversations(null, userId)
+  return c.json(conversations)
+})
 
 /**
  * GET /api/chat/profiles/:profileId/conversations
@@ -91,6 +101,16 @@ chat.get('/query/:queryId', async (c) => {
     schema: metadata.schema,
     data,
   })
+})
+
+/**
+ * POST /api/chat/conversations
+ * Create a new family view conversation (profileId = null)
+ */
+chat.post('/conversations', async (c) => {
+  const userId = c.get('userId')
+  const conversation = await createConversation(null, userId)
+  return c.json(conversation, 201)
 })
 
 /**
@@ -283,8 +303,20 @@ chat.post('/conversations/:id/messages', async (c) => {
     model,
   })
 
-  // Get profile for context
-  const profile = await getProfileById(conversation.profileId, userId)
+  // Get profile(s) for context
+  // If family view (profileId is null), get all profiles
+  const isFamilyView = conversation.profileId === null
+  let profile = null
+  let profiles: Array<{ id: string; name: string }> = []
+
+  if (isFamilyView) {
+    // Family view: get all profiles for context
+    const userProfiles = await getProfilesByUserId(userId)
+    profiles = userProfiles.map((p) => ({ id: p.id, name: p.name }))
+  } else {
+    // Single profile view
+    profile = await getProfileById(conversation.profileId, userId)
+  }
 
   // Get user for country code
   const user = await findUserById(userId)
@@ -307,6 +339,7 @@ chat.post('/conversations/:id/messages', async (c) => {
     profileId: conversation.profileId,
     userId,
     profileSummary: profile?.summary || undefined,
+    profiles: isFamilyView ? profiles : undefined,
     thinking,
     countryCode,
   })

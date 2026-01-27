@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a3d4083f-c3d0-4a57-8aaa-21d8c3938401",
+  "id": "8c27b736-a32c-40f7-a027-a8e6122979a8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -212,7 +212,7 @@
           "name": "profile_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "user_id": {
@@ -439,7 +439,7 @@
           "name": "profile_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "data_type": {
@@ -1354,14 +1354,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "is_default": {
-          "name": "is_default",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1933,6 +1925,22 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "is_manually_categorized": {
+          "name": "is_manually_categorized",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "is_hidden": {
+          "name": "is_hidden",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

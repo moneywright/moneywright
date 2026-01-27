@@ -759,7 +759,7 @@ export interface MonthTransactionsResponse {
  */
 export async function getMonthTransactions(
   userId: string,
-  profileId: string,
+  profileId: string | undefined,
   month: string, // Format: YYYY-MM
   excludeCategories?: string[]
 ): Promise<MonthTransactionsResponse> {
@@ -778,19 +778,24 @@ export async function getMonthTransactions(
     year: '2-digit',
   })
 
+  // Build query conditions
+  const conditions = [
+    eq(tables.transactions.userId, userId),
+    eq(tables.transactions.isHidden, false),
+    gte(tables.transactions.date, startDateStr),
+    lte(tables.transactions.date, endDateStr),
+  ]
+
+  // Only filter by profileId if provided (undefined = family view, all profiles)
+  if (profileId) {
+    conditions.push(eq(tables.transactions.profileId, profileId))
+  }
+
   // Fetch all transactions for this month (excluding hidden)
   const transactions = await db
     .select()
     .from(tables.transactions)
-    .where(
-      and(
-        eq(tables.transactions.userId, userId),
-        eq(tables.transactions.profileId, profileId),
-        eq(tables.transactions.isHidden, false),
-        gte(tables.transactions.date, startDateStr),
-        lte(tables.transactions.date, endDateStr)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(tables.transactions.date))
 
   // Filter out excluded categories
@@ -919,7 +924,7 @@ export interface MonthlyTrendsOptions {
  */
 export async function getMonthlyTrends(
   userId: string,
-  profileId: string,
+  profileId: string | undefined,
   options: MonthlyTrendsOptions = {}
 ): Promise<{ trends: MonthlyTrendData[]; currency: string }> {
   const { months = 12, startDate, endDate, excludeCategories } = options
@@ -944,10 +949,14 @@ export async function getMonthlyTrends(
   // Build query conditions
   const conditions = [
     eq(tables.transactions.userId, userId),
-    eq(tables.transactions.profileId, profileId),
     eq(tables.transactions.isHidden, false), // Exclude hidden transactions
     gte(tables.transactions.date, startDateStr),
   ]
+
+  // Only filter by profileId if provided (undefined = family view, all profiles)
+  if (profileId) {
+    conditions.push(eq(tables.transactions.profileId, profileId))
+  }
 
   if (endDateStr) {
     conditions.push(lte(tables.transactions.date, endDateStr))
@@ -1067,6 +1076,8 @@ export interface DetectedSubscription {
   accountLast4: string | null
   accountType: string | null
   institution: string | null
+  // Profile info (for family view)
+  profileId: string
   // Active status
   isActive: boolean
 }
@@ -1077,12 +1088,26 @@ export interface DetectedSubscription {
  */
 export async function getDetectedSubscriptions(
   userId: string,
-  profileId: string
+  profileId: string | undefined
 ): Promise<{ subscriptions: DetectedSubscription[]; totalMonthly: number; currency: string }> {
   // Fetch all subscription transactions with account info (last 12 months for pattern detection)
   const now = new Date()
   const startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1)
   const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-01`
+
+  // Build query conditions
+  const conditions = [
+    eq(tables.transactions.userId, userId),
+    eq(tables.transactions.isSubscription, true),
+    eq(tables.transactions.type, 'debit'),
+    eq(tables.transactions.isHidden, false), // Exclude hidden transactions
+    gte(tables.transactions.date, startDateStr),
+  ]
+
+  // Only filter by profileId if provided (undefined = family view, all profiles)
+  if (profileId) {
+    conditions.push(eq(tables.transactions.profileId, profileId))
+  }
 
   const transactionsWithAccounts = await db
     .select({
@@ -1096,16 +1121,7 @@ export async function getDetectedSubscriptions(
     })
     .from(tables.transactions)
     .leftJoin(tables.accounts, eq(tables.transactions.accountId, tables.accounts.id))
-    .where(
-      and(
-        eq(tables.transactions.userId, userId),
-        eq(tables.transactions.profileId, profileId),
-        eq(tables.transactions.isSubscription, true),
-        eq(tables.transactions.type, 'debit'),
-        eq(tables.transactions.isHidden, false), // Exclude hidden transactions
-        gte(tables.transactions.date, startDateStr)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(tables.transactions.date))
 
   // Group by summary (LLM-generated clean name) or fallback to original description
@@ -1119,6 +1135,7 @@ export async function getDetectedSubscriptions(
       accountLast4: string | null
       accountType: string | null
       institution: string | null
+      profileId: string
     }
   >()
 
@@ -1147,6 +1164,7 @@ export async function getDetectedSubscriptions(
         accountLast4,
         accountType: account?.type || null,
         institution: account?.institution || null,
+        profileId: txn.profileId,
       })
     }
 
@@ -1280,6 +1298,7 @@ export async function getDetectedSubscriptions(
       accountLast4: group.accountLast4,
       accountType: group.accountType,
       institution: group.institution,
+      profileId: group.profileId,
       isActive,
     })
   }

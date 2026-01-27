@@ -18,21 +18,17 @@ summaryRoutes.use('*', auth())
 
 /**
  * GET /summary
- * Get comprehensive financial summary for a profile
+ * Get comprehensive financial summary for a profile or all profiles (family view)
  * Query params:
- *   - profileId (required): Profile to get summary for
+ *   - profileId (optional): Profile to get summary for. If not provided, aggregates all profiles.
  *   - startDate (optional): Start date for transaction stats (YYYY-MM-DD)
  *   - endDate (optional): End date for transaction stats (YYYY-MM-DD)
  */
 summaryRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const profileId = c.req.query('profileId')
+  const profileId = c.req.query('profileId') || undefined
   const startDate = c.req.query('startDate')
   const endDate = c.req.query('endDate')
-
-  if (!profileId) {
-    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
-  }
 
   // Only apply date filters if explicitly provided
   // If no dates provided, fetch all time data
@@ -101,7 +97,7 @@ summaryRoutes.get('/', async (c) => {
  * GET /summary/monthly-trends
  * Get monthly income/expense trends
  * Query params:
- *   - profileId (required): Profile to get trends for
+ *   - profileId (optional): Profile to get trends for. If not provided, aggregates all profiles.
  *   - months (optional): Number of months to fetch (default: 12, max: 120)
  *   - startDate (optional): Start date in YYYY-MM-DD format (takes precedence over months)
  *   - endDate (optional): End date in YYYY-MM-DD format
@@ -110,15 +106,11 @@ summaryRoutes.get('/', async (c) => {
  */
 summaryRoutes.get('/monthly-trends', async (c) => {
   const userId = c.get('userId')
-  const profileId = c.req.query('profileId')
+  const profileId = c.req.query('profileId') || undefined
   const monthsParam = c.req.query('months')
   const startDate = c.req.query('startDate')
   const endDate = c.req.query('endDate')
   const excludeCategoriesParam = c.req.query('excludeCategories')
-
-  if (!profileId) {
-    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
-  }
 
   // Support up to 10 years (120 months) for "all time" view
   const months = Math.min(Math.max(parseInt(monthsParam || '12', 10) || 12, 1), 120)
@@ -152,20 +144,16 @@ summaryRoutes.get('/monthly-trends', async (c) => {
  * GET /summary/month-transactions
  * Get transactions for a specific month with netting and exclusions applied
  * Query params:
- *   - profileId (required): Profile to get transactions for
+ *   - profileId (optional): Profile to get transactions for. If not provided, aggregates all profiles.
  *   - month (required): Month in YYYY-MM format
  *   - excludeCategories (optional): Comma-separated list of category codes to exclude
  *     If not provided, uses user's saved preferences
  */
 summaryRoutes.get('/month-transactions', async (c) => {
   const userId = c.get('userId')
-  const profileId = c.req.query('profileId')
+  const profileId = c.req.query('profileId') || undefined
   const month = c.req.query('month')
   const excludeCategoriesParam = c.req.query('excludeCategories')
-
-  if (!profileId) {
-    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
-  }
 
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return c.json(
@@ -197,15 +185,11 @@ summaryRoutes.get('/month-transactions', async (c) => {
  * GET /summary/subscriptions
  * Get detected recurring subscriptions
  * Query params:
- *   - profileId (required): Profile to get subscriptions for
+ *   - profileId (optional): Profile to get subscriptions for. If not provided, aggregates all profiles.
  */
 summaryRoutes.get('/subscriptions', async (c) => {
   const userId = c.get('userId')
-  const profileId = c.req.query('profileId')
-
-  if (!profileId) {
-    return c.json({ error: 'validation_error', message: 'profileId is required' }, 400)
-  }
+  const profileId = c.req.query('profileId') || undefined
 
   const result = await getDetectedSubscriptions(userId, profileId)
 

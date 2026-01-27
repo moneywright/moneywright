@@ -24,15 +24,56 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Moneywright - Your Money, Your Control',
+        title: 'Moneywright - Private, AI-Powered Personal Finance',
       },
       {
         name: 'description',
-        content: 'Open-source, self-hostable personal finance manager. Upload any bank statement, track expenses, investments, and get AI-powered insights.',
+        content:
+          'Privacy-first personal finance manager. Upload any bank statement, track expenses and investments, get AI-powered insights. Self-hostable and open source.',
       },
       {
         name: 'theme-color',
         content: '#0a0a0b',
+      },
+      // Open Graph
+      {
+        property: 'og:title',
+        content: 'Moneywright - Private, AI-Powered Personal Finance',
+      },
+      {
+        property: 'og:description',
+        content:
+          'Privacy-first personal finance manager. Upload any bank statement, track expenses and investments, get AI-powered insights. Self-hostable and open source.',
+      },
+      {
+        property: 'og:image',
+        content: 'https://moneywright.com/og.png',
+      },
+      {
+        property: 'og:type',
+        content: 'website',
+      },
+      {
+        property: 'og:site_name',
+        content: 'Moneywright',
+      },
+      // Twitter Card
+      {
+        name: 'twitter:card',
+        content: 'summary_large_image',
+      },
+      {
+        name: 'twitter:title',
+        content: 'Moneywright - Private, AI-Powered Personal Finance',
+      },
+      {
+        name: 'twitter:description',
+        content:
+          'Privacy-first personal finance manager. Upload any bank statement, track expenses and investments, get AI-powered insights. Self-hostable and open source.',
+      },
+      {
+        name: 'twitter:image',
+        content: 'https://moneywright.com/og.png',
       },
     ],
     links: [

@@ -15,7 +15,7 @@ import { transactionKeys } from './useTransactions'
 export const statementKeys = {
   all: ['statements'] as const,
   list: (profileId?: string, accountId?: string) =>
-    [...statementKeys.all, 'list', profileId, accountId] as const,
+    [...statementKeys.all, 'list', profileId ?? 'family', accountId] as const,
   detail: (statementId: string) => [...statementKeys.all, 'detail', statementId] as const,
   status: (statementId: string) => [...statementKeys.all, 'status', statementId] as const,
 }
@@ -25,19 +25,22 @@ export const statementKeys = {
 // ============================================
 
 /**
- * Fetch all statements for a profile/account
+ * Fetch all statements for a profile/account or all profiles (family view)
+ * Pass undefined for profileId to get family view (all profiles)
  */
 export function useStatements(
   profileId?: string,
   options?: {
     accountId?: string
     refetchInterval?: number | false | ((query: unknown) => number | false)
+    enabled?: boolean
   }
 ) {
+  const enabled = options?.enabled ?? true
   return useQuery({
     queryKey: statementKeys.list(profileId, options?.accountId),
     queryFn: () => getStatements(profileId, options?.accountId),
-    enabled: !!profileId,
+    enabled,
     refetchInterval: options?.refetchInterval,
   })
 }

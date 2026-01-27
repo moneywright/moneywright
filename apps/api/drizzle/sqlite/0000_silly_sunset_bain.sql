@@ -28,7 +28,7 @@ CREATE TABLE `app_config` (
 --> statement-breakpoint
 CREATE TABLE `chat_conversations` (
 	`id` text PRIMARY KEY NOT NULL,
-	`profile_id` text NOT NULL,
+	`profile_id` text,
 	`user_id` text NOT NULL,
 	`title` text,
 	`summary` text,
@@ -60,7 +60,7 @@ CREATE INDEX `chat_messages_conversation_id_idx` ON `chat_messages` (`conversati
 CREATE INDEX `chat_messages_created_at_idx` ON `chat_messages` (`created_at`);--> statement-breakpoint
 CREATE TABLE `chat_query_cache` (
 	`query_id` text PRIMARY KEY NOT NULL,
-	`profile_id` text NOT NULL,
+	`profile_id` text,
 	`data_type` text NOT NULL,
 	`filters` text NOT NULL,
 	`count` integer NOT NULL,
@@ -186,7 +186,6 @@ CREATE TABLE `profiles` (
 	`name` text NOT NULL,
 	`relationship` text,
 	`summary` text,
-	`is_default` integer DEFAULT false NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
@@ -266,6 +265,8 @@ CREATE TABLE `transactions` (
 	`hash` text NOT NULL,
 	`linked_transaction_id` text,
 	`link_type` text,
+	`is_manually_categorized` integer DEFAULT false,
+	`is_hidden` integer DEFAULT false,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade,

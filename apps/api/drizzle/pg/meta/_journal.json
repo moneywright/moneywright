@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1769420579860,
-      "tag": "0000_dapper_thing",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1769461298184,
-      "tag": "0001_curved_shatterstar",
+      "when": 1769512454642,
+      "tag": "0000_cute_photon",
       "breakpoints": true
     }
   ]

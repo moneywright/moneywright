@@ -549,9 +549,9 @@ export const chatConversations = pgTable(
     id: varchar('id', { length: 21 })
       .primaryKey()
       .$defaultFn(() => nanoid()),
-    profileId: varchar('profile_id', { length: 21 })
-      .notNull()
-      .references(() => profiles.id, { onDelete: 'cascade' }),
+    profileId: varchar('profile_id', { length: 21 }).references(() => profiles.id, {
+      onDelete: 'cascade',
+    }), // null = family view
     userId: varchar('user_id', { length: 21 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -612,7 +612,7 @@ export const chatQueryCache = pgTable(
   'chat_query_cache',
   {
     queryId: varchar('query_id', { length: 50 }).primaryKey(),
-    profileId: varchar('profile_id', { length: 21 }).notNull(),
+    profileId: varchar('profile_id', { length: 21 }), // null = family view query
     dataType: varchar('data_type', { length: 50 }).notNull(), // 'transactions' | 'holdings' | 'accounts' | etc.
     filters: text('filters').notNull(), // JSON: Query filters used
     count: integer('count').notNull(), // Number of records

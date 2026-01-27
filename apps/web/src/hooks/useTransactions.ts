@@ -33,12 +33,17 @@ export const transactionKeys = {
 
 /**
  * Fetch transactions with filters and pagination
+ * Set filters.profileId to undefined for family view (all profiles)
  */
-export function useTransactions(filters?: TransactionFilters, pagination?: TransactionPagination) {
+export function useTransactions(
+  filters?: TransactionFilters & { enabled?: boolean },
+  pagination?: TransactionPagination
+) {
+  const { enabled = true, ...filterOptions } = filters ?? {}
   return useQuery({
-    queryKey: transactionKeys.list(filters, pagination),
-    queryFn: () => getTransactions(filters, pagination),
-    enabled: !!filters?.profileId,
+    queryKey: transactionKeys.list(filterOptions, pagination),
+    queryFn: () => getTransactions(filterOptions, pagination),
+    enabled,
   })
 }
 
@@ -55,6 +60,7 @@ export function useTransaction(transactionId: string) {
 
 /**
  * Fetch transaction stats with filters
+ * Set profileId to undefined for family view (all profiles)
  */
 export function useTransactionStats(filters?: {
   profileId?: string
@@ -66,11 +72,13 @@ export function useTransactionStats(filters?: {
   type?: 'credit' | 'debit'
   search?: string
   isSubscription?: boolean
+  enabled?: boolean
 }) {
+  const { enabled = true, ...filterOptions } = filters ?? {}
   return useQuery({
-    queryKey: transactionKeys.stats(filters),
-    queryFn: () => getTransactionStats(filters),
-    enabled: !!filters?.profileId,
+    queryKey: transactionKeys.stats(filterOptions),
+    queryFn: () => getTransactionStats(filterOptions),
+    enabled,
   })
 }
 

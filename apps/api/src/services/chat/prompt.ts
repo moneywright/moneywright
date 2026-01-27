@@ -57,7 +57,8 @@ ${transferCategories.map((c) => `- ${c}`).join('\n')}`
  */
 export function buildSystemPrompt(
   profileSummary?: string,
-  countryCode: CountryCode = 'IN'
+  countryCode: CountryCode = 'IN',
+  profiles?: Array<{ id: string; name: string }>
 ): string {
   const categoriesSection = formatCategoriesForPrompt(countryCode)
   const today = new Date()
@@ -208,6 +209,23 @@ Your total expenses for December 2025 were **₹4,51,820.87**.
 
 Note: Users may have custom categories not listed above. Analyze unknown categories based on their transaction patterns (mostly credits = likely income, mostly debits = likely expense).`
 
+  // Family view: add profiles info
+  if (profiles && profiles.length > 0) {
+    const profilesList = profiles.map((p) => `- **${p.name}** (ID: ${p.id})`).join('\n')
+    return `${basePrompt}
+
+## Family View Mode
+You are viewing financial data across ALL profiles in this family. The user can ask about any profile's finances.
+
+### Available Profiles:
+${profilesList}
+
+When the user asks about specific people (e.g., "What did Shreya spend on food?"), use the appropriate profile's data. The tools will automatically return data from all profiles - you can identify which profile each transaction/account belongs to by the profile information in the data.
+
+When providing summaries or comparisons, clearly indicate which profile each item belongs to.`
+  }
+
+  // Single profile view with profile summary
   if (profileSummary) {
     return `${basePrompt}
 

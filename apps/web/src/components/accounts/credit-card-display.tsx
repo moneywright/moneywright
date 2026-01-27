@@ -20,7 +20,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import type { Account } from '@/lib/api'
+import type { Account, Profile } from '@/lib/api'
+import { ProfileBadge } from '@/components/ui/profile-badge'
 
 interface CreditCardDisplayProps {
   account: Account
@@ -29,6 +30,10 @@ interface CreditCardDisplayProps {
   onEdit: () => void
   onDelete: () => void
   onRecategorize?: () => void
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 export function CreditCardDisplay({
@@ -38,6 +43,8 @@ export function CreditCardDisplay({
   onEdit,
   onDelete,
   onRecategorize,
+  profiles,
+  showProfileBadge,
 }: CreditCardDisplayProps) {
   const [logoError, setLogoError] = useState(false)
   const logoPath = account.institution
@@ -92,7 +99,12 @@ export function CreditCardDisplay({
             )}
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">{displayCardName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">{displayCardName}</p>
+              {showProfileBadge && profiles && (
+                <ProfileBadge profileId={account.profileId} profiles={profiles} />
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {institutionName || account.institution || 'Credit Card'}
             </p>

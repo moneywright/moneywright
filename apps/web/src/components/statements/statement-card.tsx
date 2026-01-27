@@ -30,7 +30,8 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Statement, Account, InvestmentSource } from '@/lib/api'
+import type { Statement, Account, InvestmentSource, Profile } from '@/lib/api'
+import { ProfileBadge } from '@/components/ui/profile-badge'
 
 interface StatementCardProps {
   statement: Statement
@@ -41,6 +42,10 @@ interface StatementCardProps {
   formatPeriod: (start: string | null, end: string | null) => string | null
   onDelete: () => void
   onRecategorize?: () => void
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 export function StatementCard({
@@ -52,6 +57,8 @@ export function StatementCard({
   formatPeriod,
   onDelete,
   onRecategorize,
+  profiles,
+  showProfileBadge,
 }: StatementCardProps) {
   const [logoError, setLogoError] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -143,7 +150,12 @@ export function StatementCard({
 
             {/* Name + Account Info */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground truncate text-sm">{displayName}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-foreground truncate text-sm">{displayName}</h3>
+                {showProfileBadge && profiles && (
+                  <ProfileBadge profileId={statement.profileId} profiles={profiles} />
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {accountNumber && <span className="tabular-nums">••{accountNumber}</span>}
                 {accountNumber && <span className="mx-1.5 opacity-50">·</span>}

@@ -568,9 +568,7 @@ export const chatConversations = sqliteTable(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => nanoid()),
-    profileId: text('profile_id')
-      .notNull()
-      .references(() => profiles.id, { onDelete: 'cascade' }),
+    profileId: text('profile_id').references(() => profiles.id, { onDelete: 'cascade' }), // null = family view
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -637,7 +635,7 @@ export const chatQueryCache = sqliteTable(
   'chat_query_cache',
   {
     queryId: text('query_id').primaryKey(),
-    profileId: text('profile_id').notNull(),
+    profileId: text('profile_id'), // null = family view query
     dataType: text('data_type').notNull(), // 'transactions' | 'holdings' | 'accounts' | etc.
     filters: text('filters').notNull(), // JSON: Query filters used
     count: integer('count').notNull(), // Number of records

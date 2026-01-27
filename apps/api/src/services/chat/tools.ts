@@ -60,7 +60,7 @@ function getTavilyClient() {
  * Context for tools
  */
 interface ToolContext {
-  profileId: string
+  profileId: string | null // null = family view (all profiles)
   userId: string
 }
 
@@ -110,10 +110,12 @@ function paginate<T>(data: T[], page: number): { slice: T[]; hasMore: boolean } 
 }
 
 /**
- * Create all AI tools bound to a specific profile
+ * Create all AI tools bound to a specific profile (or all profiles for family view)
  */
 export function createTools(context: ToolContext) {
   const { profileId, userId } = context
+  // Convert null to undefined for service functions (undefined = all profiles)
+  const profileIdForQuery = profileId ?? undefined
 
   return {
     // ═══════════════════════════════════════════════════════════════════════
@@ -185,7 +187,7 @@ export function createTools(context: ToolContext) {
 
         // New query - fetch all data and cache it
         const filters: TransactionFilters = {
-          profileId,
+          profileId: profileIdForQuery,
           startDate: params.startDate ?? undefined,
           endDate: params.endDate ?? undefined,
           category: params.category ?? undefined,
@@ -279,7 +281,7 @@ Returns data in CSV format with pagination support.`,
         }
 
         // New query
-        const accounts = await getAccountsWithBalances(userId, profileId)
+        const accounts = await getAccountsWithBalances(userId, profileIdForQuery)
 
         const queryId = generateQueryId('acc')
         await storeQueryCache({
@@ -381,7 +383,7 @@ Use this to analyze the investment portfolio, identify holdings to buy/sell, etc
 
         // New query - fetch all then filter in memory if investmentType specified
         let holdings = await getHoldingsByUserId(userId, {
-          profileId,
+          profileId: profileIdForQuery,
           sourceId: params.sourceId,
         })
 
@@ -480,7 +482,7 @@ Returns data in CSV format.`,
           }
         }
 
-        const sources = await getSourcesByUserId(userId, profileId)
+        const sources = await getSourcesByUserId(userId, profileIdForQuery)
 
         const queryId = generateQueryId('src')
         await storeQueryCache({
@@ -555,7 +557,7 @@ Returns data in CSV format.`,
           }
         }
 
-        const result = await getDetectedSubscriptions(userId, profileId)
+        const result = await getDetectedSubscriptions(userId, profileIdForQuery)
 
         const queryId = generateQueryId('sub')
         await storeQueryCache({
@@ -609,7 +611,7 @@ Returns data in CSV format.`,
         'Get net worth summary calculated from account balances (assets minus liabilities).',
       inputSchema: z.object({}),
       execute: async () => {
-        const netWorth = await calculateNetWorth(userId, profileId)
+        const netWorth = await calculateNetWorth(userId, profileIdForQuery)
         return {
           totalAssets: netWorth.totalAssets,
           totalLiabilities: netWorth.totalLiabilities,
@@ -626,7 +628,7 @@ Returns data in CSV format.`,
         'Get investment portfolio summary with totals, gains/losses, and breakdown by type.',
       inputSchema: z.object({}),
       execute: async () => {
-        const summary = await getInvestmentSummary(userId, profileId)
+        const summary = await getInvestmentSummary(userId, profileIdForQuery)
         return {
           totalInvested: summary.totalInvested,
           totalCurrent: summary.totalCurrent,
@@ -657,7 +659,7 @@ Use this data to identify income categories, expense categories, and calculate m
       }),
       execute: async (params) => {
         return await getCategoryBreakdown(userId, {
-          profileId,
+          profileId: profileIdForQuery,
           startDate: params.startDate,
           endDate: params.endDate,
         })
@@ -671,7 +673,7 @@ Use this data to identify income categories, expense categories, and calculate m
       }),
       execute: async (params) => {
         const months = Math.min(params.months || 12, 24)
-        const result = await getMonthlyTrends(userId, profileId, { months })
+        const result = await getMonthlyTrends(userId, profileIdForQuery, { months })
 
         return {
           currency: result.currency,

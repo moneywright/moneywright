@@ -18,27 +18,33 @@ import {
 } from '@/lib/api'
 
 /**
- * Hook to list all conversations for a profile
+ * Hook to list all conversations for a profile (or family view if profileId is undefined)
+ * Use 'family' as a key when profileId is undefined to represent family view
  */
-export function useConversations(profileId: string | undefined) {
+export function useConversations(profileId: string | undefined, showFamilyView?: boolean) {
+  // When showFamilyView is true, profileId is undefined for family view conversations
+  const queryKeyId = showFamilyView ? 'family' : profileId
+  const enabled = showFamilyView || !!profileId
+
   return useQuery({
-    queryKey: ['conversations', profileId],
-    queryFn: () => listConversations(profileId!),
-    enabled: !!profileId,
+    queryKey: ['conversations', queryKeyId],
+    queryFn: () => listConversations(showFamilyView ? undefined : profileId),
+    enabled,
     staleTime: 30 * 1000, // 30 seconds
   })
 }
 
 /**
  * Hook to create a new conversation
+ * Pass undefined for family view
  */
 export function useCreateConversation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (profileId: string) => createConversation(profileId),
+    mutationFn: (profileId: string | undefined) => createConversation(profileId),
     onSuccess: (_data, profileId) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', profileId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations', profileId ?? 'family'] })
     },
   })
 }

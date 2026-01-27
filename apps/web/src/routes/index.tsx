@@ -8,6 +8,7 @@ import {
   usePreferences,
   useSetPreference,
   useTransactionStats,
+  useProfileSelection,
 } from '@/hooks'
 import { AppLayout } from '@/components/domain/app-layout'
 import { ProfileSelector } from '@/components/domain/profile-selector'
@@ -17,7 +18,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Upload, TrendingUp, Wallet, CreditCard, Banknote } from 'lucide-react'
 import { PREFERENCE_KEYS } from '@/lib/api'
 import { getSummary, getAccounts, getMonthTransactions, getSubscriptions } from '@/lib/api'
-import type { Profile, MonthlyTrendData } from '@/lib/api'
+import type { MonthlyTrendData } from '@/lib/api'
 
 import {
   type TimeframeKey,
@@ -39,9 +40,14 @@ export const Route = createFileRoute('/')({
 })
 
 function DashboardPage() {
-  const { user, defaultProfile, isAuthenticated } = useAuth()
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
-  const [showFamilyView, setShowFamilyView] = useState(false)
+  const { user, isAuthenticated } = useAuth()
+  const {
+    activeProfileId: profileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
   const [timeframe] = useState<TimeframeKey>('this_month')
   const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframeKey>('1y')
   const [selectedMonth, setSelectedMonth] = useState<MonthlyTrendData | null>(null)
@@ -57,9 +63,6 @@ function DashboardPage() {
     endDate: string
   } | null>(null)
   const [showMonthlyAverage, setShowMonthlyAverage] = useState(false)
-
-  const selectedProfile = selectedProfileId ? { id: selectedProfileId } : defaultProfile
-  const profileId = selectedProfile?.id
 
   // Get date range for selected timeframe
   const dateRange = getDateRange(timeframe)
@@ -126,8 +129,11 @@ function DashboardPage() {
   const { data: categoriesData } = useCategories(isAuthenticated)
   const categories = useMemo(() => categoriesData?.categories || [], [categoriesData?.categories])
 
-  // Fetch preferences (only when authenticated)
-  const { data: preferences } = usePreferences(profileId, isAuthenticated)
+  // Query enabled when we have a profileId OR we're in family view
+  const queryEnabled = isAuthenticated && (!!profileId || showFamilyView)
+
+  // Fetch user-wide preferences (not profile-specific)
+  const { data: preferences } = usePreferences(undefined, isAuthenticated)
   const setPreferenceMutation = useSetPreference()
 
   // Category helpers
@@ -172,7 +178,7 @@ function DashboardPage() {
     return []
   }, [preferences])
 
-  // Toggle handlers
+  // Toggle handlers (user-wide preferences, not profile-specific)
   const toggleIncomeExpensesExclusion = useCallback(
     (categoryCode: string) => {
       const newExcluded = incomeExpensesExcluded.includes(categoryCode)
@@ -182,19 +188,17 @@ function DashboardPage() {
       setPreferenceMutation.mutate({
         key: PREFERENCE_KEYS.INCOME_EXPENSES_EXCLUDED_CATEGORIES,
         value: JSON.stringify(newExcluded),
-        profileId,
       })
     },
-    [incomeExpensesExcluded, profileId, setPreferenceMutation]
+    [incomeExpensesExcluded, setPreferenceMutation]
   )
 
   const clearIncomeExpensesExclusions = useCallback(() => {
     setPreferenceMutation.mutate({
       key: PREFERENCE_KEYS.INCOME_EXPENSES_EXCLUDED_CATEGORIES,
       value: JSON.stringify([]),
-      profileId,
     })
-  }, [profileId, setPreferenceMutation])
+  }, [setPreferenceMutation])
 
   const toggleSpendingByCategoryExclusion = useCallback(
     (categoryCode: string) => {
@@ -205,32 +209,30 @@ function DashboardPage() {
       setPreferenceMutation.mutate({
         key: PREFERENCE_KEYS.SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES,
         value: JSON.stringify(newExcluded),
-        profileId,
       })
     },
-    [spendingByCategoryExcluded, profileId, setPreferenceMutation]
+    [spendingByCategoryExcluded, setPreferenceMutation]
   )
 
   const clearSpendingByCategoryExclusions = useCallback(() => {
     setPreferenceMutation.mutate({
       key: PREFERENCE_KEYS.SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES,
       value: JSON.stringify([]),
-      profileId,
     })
-  }, [profileId, setPreferenceMutation])
+  }, [setPreferenceMutation])
 
   // Fetch summary
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['summary', profileId, timeframe],
-    queryFn: () => getSummary(profileId!, dateRange),
-    enabled: !!profileId,
+    queryKey: ['summary', profileId ?? 'family', timeframe],
+    queryFn: () => getSummary(profileId, dateRange),
+    enabled: queryEnabled,
   })
 
   // Fetch accounts
   const { data: accounts, isLoading: accountsLoading } = useQuery({
-    queryKey: ['accounts', profileId],
-    queryFn: () => getAccounts(profileId!),
-    enabled: !!profileId,
+    queryKey: ['accounts', profileId ?? 'family'],
+    queryFn: () => getAccounts(profileId),
+    enabled: queryEnabled,
   })
 
   // Fetch monthly trends
@@ -238,35 +240,41 @@ function DashboardPage() {
     () => ({
       ...chartDateOptions,
       excludeCategories: incomeExpensesExcluded.length > 0 ? incomeExpensesExcluded : undefined,
+      enabled: queryEnabled,
     }),
-    [chartDateOptions, incomeExpensesExcluded]
+    [chartDateOptions, incomeExpensesExcluded, queryEnabled]
   )
   const { data: trendsData, isLoading: trendsLoading } = useMonthlyTrends(profileId, trendsOptions)
 
   // Fetch month transactions for modal
   const { data: monthTransactionsData, isLoading: monthTransactionsLoading } = useQuery({
-    queryKey: ['month-transactions', profileId, selectedMonth?.month, incomeExpensesExcluded],
+    queryKey: [
+      'month-transactions',
+      profileId ?? 'family',
+      selectedMonth?.month,
+      incomeExpensesExcluded,
+    ],
     queryFn: () =>
       getMonthTransactions(
-        profileId!,
+        profileId,
         selectedMonth!.month,
         incomeExpensesExcluded.length > 0 ? incomeExpensesExcluded : undefined
       ),
-    enabled: !!profileId && !!selectedMonth,
+    enabled: queryEnabled && !!selectedMonth,
   })
 
   // Fetch category stats
   const categoryStatsFilters = useMemo(
     () => ({
-      profileId: profileId!,
+      profileId: profileId,
       startDate: categoryDateOptions.startDate,
       endDate: categoryDateOptions.endDate,
+      enabled: queryEnabled,
     }),
-    [profileId, categoryDateOptions]
+    [profileId, categoryDateOptions, queryEnabled]
   )
-  const { data: categoryStatsRaw, isLoading: categoryStatsLoading } = useTransactionStats(
-    profileId ? categoryStatsFilters : undefined
-  )
+  const { data: categoryStatsRaw, isLoading: categoryStatsLoading } =
+    useTransactionStats(categoryStatsFilters)
 
   // Filter category stats
   const categoryStats = useMemo(() => {
@@ -287,20 +295,15 @@ function DashboardPage() {
 
   // Fetch subscriptions
   const { data: subscriptionsData, isLoading: subscriptionsLoading } = useQuery({
-    queryKey: ['subscriptions', profileId],
-    queryFn: () => getSubscriptions(profileId!),
-    enabled: !!profileId,
+    queryKey: ['subscriptions', profileId ?? 'family'],
+    queryFn: () => getSubscriptions(profileId),
+    enabled: queryEnabled,
   })
 
   // Handlers
   const handleMonthClick = useCallback((month: MonthlyTrendData) => {
     setSelectedMonth(month)
   }, [])
-
-  const handleProfileChange = (profile: Profile) => {
-    setSelectedProfileId(profile.id)
-    setShowFamilyView(false)
-  }
 
   const accountsCount = accounts?.length || 0
   const hasData = summary && (summary.netWorth.accounts.length > 0 || accountsCount > 0)
@@ -312,10 +315,10 @@ function DashboardPage() {
         description="Your financial overview"
         actions={
           <ProfileSelector
-            selectedProfileId={selectedProfile?.id || null}
+            selectedProfileId={selectorProfileId}
             onProfileChange={handleProfileChange}
             showFamilyView={showFamilyView}
-            onFamilyViewChange={setShowFamilyView}
+            onFamilyViewChange={handleFamilyViewChange}
           />
         }
       />

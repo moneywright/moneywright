@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   ArrowRight,
   Github,
@@ -18,10 +18,10 @@ import {
   Shield,
   Check,
   Users,
+  ChevronDown,
 } from 'lucide-react';
 import { useLatestRelease, getDownloadUrl } from '@/hooks/use-latest-release';
 import { motion, useInView } from 'motion/react';
-import { useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Marquee } from '@/components/ui/marquee';
 import { ShineBorder } from '@/components/ui/shine-border';
@@ -67,11 +67,11 @@ export const Route = createFileRoute('/')({
   component: LandingPage,
   head: () => ({
     meta: [
-      { title: 'Moneywright - Your Money, Your Control' },
+      { title: 'Moneywright - Private, AI-Powered Personal Finance' },
       {
         name: 'description',
         content:
-          'Open-source, self-hostable personal finance manager. Upload any bank statement, track expenses, investments, and get AI-powered insights.',
+          'Privacy-first personal finance manager. Upload any bank statement, track expenses and investments, get AI-powered insights. Self-hostable and open source.',
       },
     ],
   }),
@@ -109,11 +109,26 @@ const institutions = [
 
 function LandingPage() {
   const [platform, setPlatform] = useState<Platform>('macos');
+  const [showMacDropdown, setShowMacDropdown] = useState(false);
+  const macDropdownRef = useRef<HTMLDivElement>(null);
   const { data: downloads } = useLatestRelease();
 
   useEffect(() => {
     setPlatform(detectPlatform());
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (macDropdownRef.current && !macDropdownRef.current.contains(event.target as Node)) {
+        setShowMacDropdown(false);
+      }
+    }
+    if (showMacDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMacDropdown]);
 
   // Get platform-specific download URL
   const downloadUrl = downloads ? getDownloadUrl(downloads, platform) : 'https://github.com/moneywright/moneywright/releases';
@@ -199,17 +214,59 @@ function LandingPage() {
 
           {/* CTA Buttons */}
           <div className="flex gap-2.5 sm:gap-3 justify-center flex-wrap px-2 animate-fade-in-up-3">
-            <a
-              href={downloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
-            >
-              <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
-              <img src={platformInfo[platform].icon} alt="" className="w-4 h-4 invert" />
-              Download for {platformInfo[platform].label}
-              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </a>
+            {platform === 'macos' ? (
+              <div className="relative" ref={macDropdownRef}>
+                <button
+                  onClick={() => setShowMacDropdown(!showMacDropdown)}
+                  className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
+                >
+                  <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
+                  <img src={platformInfo[platform].icon} alt="" className="w-4 h-4 invert" />
+                  Download for {platformInfo[platform].label}
+                  <ChevronDown className={cn('w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform', showMacDropdown && 'rotate-180')} />
+                </button>
+                {showMacDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-[#18181c] border border-white/10 rounded-xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-50">
+                    <a
+                      href={downloads?.macos || releasesUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+                      onClick={() => setShowMacDropdown(false)}
+                    >
+                      <div className="flex-1 text-left">
+                        <div className="text-sm font-medium text-[#f5f5f7]">Apple Silicon</div>
+                        <div className="text-xs text-[#71717a]">M1, M2, M3, M4 Macs</div>
+                      </div>
+                    </a>
+                    <a
+                      href={downloads?.macosIntel || releasesUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+                      onClick={() => setShowMacDropdown(false)}
+                    >
+                      <div className="flex-1 text-left">
+                        <div className="text-sm font-medium text-[#f5f5f7]">Intel</div>
+                        <div className="text-xs text-[#71717a]">Older Macs (pre-2020)</div>
+                      </div>
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
+              >
+                <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
+                <img src={platformInfo[platform].icon} alt="" className="w-4 h-4 invert" />
+                Download for {platformInfo[platform].label}
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </a>
+            )}
             <a
               href="https://github.com/moneywright/moneywright"
               target="_blank"

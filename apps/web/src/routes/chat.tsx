@@ -13,6 +13,7 @@ import {
   useConversationById,
   useDeleteConversation,
   useChatStream,
+  useProfileSelection,
 } from '@/hooks'
 import { AppLayout } from '@/components/domain/app-layout'
 import { ProfileSelector } from '@/components/domain/profile-selector'
@@ -76,12 +77,15 @@ function ChatPage() {
   }, [urlConversationId])
 
   // Profiles and preferences
-  const { defaultProfile } = useAuth()
   const { data: preferences } = usePreferences()
   const setPreference = useSetPreference()
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
-
-  const activeProfileId = selectedProfileId || defaultProfile?.id
+  const {
+    activeProfileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
 
   // Setup status (providers, LLM configuration)
   const { data: setupStatus, isLoading: setupLoading } = useSetup()
@@ -102,8 +106,11 @@ function ChatPage() {
   const currentProvider = setupStatus?.providers.find((p) => p.id === selectedProvider)
   const currentModel = currentProvider?.models.find((m) => m.id === selectedModel)
 
-  // Conversations
-  const { data: conversations, isLoading: conversationsLoading } = useConversations(activeProfileId)
+  // Conversations - pass showFamilyView for family view conversations
+  const { data: conversations, isLoading: conversationsLoading } = useConversations(
+    activeProfileId,
+    showFamilyView
+  )
   const createConversation = useCreateConversation()
   const deleteConversation = useDeleteConversation()
 
@@ -173,7 +180,8 @@ function ChatPage() {
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
-    if (!input.trim() || chatStream.isLoading || !activeProfileId) return
+    // Allow if we have a profile OR we're in family view
+    if (!input.trim() || chatStream.isLoading || (!activeProfileId && !showFamilyView)) return
 
     const messageContent = input.trim()
     setInput('')
@@ -182,7 +190,9 @@ function ChatPage() {
     let conversationIdToUse = activeConversationId
     if (!conversationIdToUse) {
       try {
-        const newConv = await createConversation.mutateAsync(activeProfileId)
+        // Pass undefined for family view, profileId for single profile
+        const profileIdForConversation = showFamilyView ? undefined : activeProfileId
+        const newConv = await createConversation.mutateAsync(profileIdForConversation)
         conversationIdToUse = newConv.id
         setActiveConversationId(newConv.id)
         window.history.replaceState(null, '', `/chat?conversationId=${newConv.id}`)
@@ -253,13 +263,16 @@ function ChatPage() {
       isSendingRef.current = false
       setIsReasoningStreaming(false)
       queryClient.invalidateQueries({ queryKey: ['conversation', conversationIdToUse] })
-      queryClient.invalidateQueries({ queryKey: ['conversations', activeProfileId] })
+      queryClient.invalidateQueries({
+        queryKey: ['conversations', showFamilyView ? 'family' : activeProfileId],
+      })
     }
   }, [
     input,
     chatStream,
     activeConversationId,
     activeProfileId,
+    showFamilyView,
     selectedProvider,
     selectedModel,
     thinkingLevel,
@@ -365,8 +378,10 @@ function ChatPage() {
               actions={
                 <>
                   <ProfileSelector
-                    selectedProfileId={activeProfileId || null}
-                    onProfileChange={(profile) => setSelectedProfileId(profile.id)}
+                    selectedProfileId={selectorProfileId}
+                    onProfileChange={handleProfileChange}
+                    showFamilyView={showFamilyView}
+                    onFamilyViewChange={handleFamilyViewChange}
                   />
                   <ConversationHistory
                     open={historyOpen}
@@ -406,8 +421,10 @@ function ChatPage() {
             {/* Minimal header for welcome state */}
             <div className="flex items-center justify-end gap-2 mb-4">
               <ProfileSelector
-                selectedProfileId={activeProfileId || null}
-                onProfileChange={(profile) => setSelectedProfileId(profile.id)}
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
               />
               <ConversationHistory
                 open={historyOpen}

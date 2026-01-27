@@ -26,7 +26,7 @@ import { Loader2, Pencil, MoreVertical, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { deleteProfile } from '@/lib/api'
-import { RELATIONSHIP_OPTIONS } from '@/hooks'
+import { RELATIONSHIP_OPTIONS, useProfileSelection } from '@/hooks'
 import type { Profile } from './types'
 
 interface ProfileCardProps {
@@ -38,10 +38,15 @@ interface ProfileCardProps {
 export function ProfileCard({ profile, onEdit, canDelete = false }: ProfileCardProps) {
   const queryClient = useQueryClient()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const { selectedProfileId, clearSelection } = useProfileSelection()
 
   const deleteMutation = useMutation({
     mutationFn: deleteProfile,
     onSuccess: () => {
+      // Clear selection if the deleted profile was selected
+      if (selectedProfileId === profile.id) {
+        clearSelection()
+      }
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
       toast.success('Profile deleted')
       setShowDeleteDialog(false)

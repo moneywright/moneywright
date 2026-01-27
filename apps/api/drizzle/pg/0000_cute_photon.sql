@@ -24,7 +24,7 @@ CREATE TABLE "app_config" (
 --> statement-breakpoint
 CREATE TABLE "chat_conversations" (
 	"id" varchar(21) PRIMARY KEY NOT NULL,
-	"profile_id" varchar(21) NOT NULL,
+	"profile_id" varchar(21),
 	"user_id" varchar(21) NOT NULL,
 	"title" text,
 	"summary" text,
@@ -49,7 +49,7 @@ CREATE TABLE "chat_messages" (
 --> statement-breakpoint
 CREATE TABLE "chat_query_cache" (
 	"query_id" varchar(50) PRIMARY KEY NOT NULL,
-	"profile_id" varchar(21) NOT NULL,
+	"profile_id" varchar(21),
 	"data_type" varchar(50) NOT NULL,
 	"filters" text NOT NULL,
 	"count" integer NOT NULL,
@@ -146,7 +146,6 @@ CREATE TABLE "profiles" (
 	"name" varchar(50) NOT NULL,
 	"relationship" varchar(20),
 	"summary" text,
-	"is_default" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "profiles_user_id_name_unique" UNIQUE("user_id","name")
@@ -210,6 +209,8 @@ CREATE TABLE "transactions" (
 	"hash" varchar(64) NOT NULL,
 	"linked_transaction_id" varchar(21),
 	"link_type" varchar(20),
+	"is_manually_categorized" boolean DEFAULT false,
+	"is_hidden" boolean DEFAULT false,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "transactions_account_hash_unique" UNIQUE("account_id","hash")

@@ -1296,14 +1296,14 @@ export interface FinancialSummary {
 }
 
 /**
- * Get financial summary for a profile
+ * Get financial summary for a profile or all profiles (family view)
  */
 export async function getSummary(
-  profileId: string,
+  profileId: string | undefined,
   options?: { startDate?: string; endDate?: string }
 ): Promise<FinancialSummary> {
   const params = new URLSearchParams()
-  params.set('profileId', profileId)
+  if (profileId) params.set('profileId', profileId)
   if (options?.startDate) params.set('startDate', options.startDate)
   if (options?.endDate) params.set('endDate', options.endDate)
 
@@ -1349,13 +1349,13 @@ export interface MonthlyTrendsOptions {
  * Get monthly income/expense trends
  */
 export async function getMonthlyTrends(
-  profileId: string,
+  profileId: string | undefined,
   options: MonthlyTrendsOptions = {}
 ): Promise<MonthlyTrendsResponse> {
   const { months = 12, startDate, endDate, excludeCategories } = options
 
   const params = new URLSearchParams()
-  params.set('profileId', profileId)
+  if (profileId) params.set('profileId', profileId)
 
   if (startDate) {
     params.set('startDate', startDate)
@@ -1395,12 +1395,12 @@ export interface MonthTransactionsResponse {
  * Get transactions for a specific month with netting and exclusions applied
  */
 export async function getMonthTransactions(
-  profileId: string,
+  profileId: string | undefined,
   month: string,
   excludeCategories?: string[]
 ): Promise<MonthTransactionsResponse> {
   const params = new URLSearchParams()
-  params.set('profileId', profileId)
+  if (profileId) params.set('profileId', profileId)
   params.set('month', month)
   if (excludeCategories?.length) {
     params.set('excludeCategories', excludeCategories.join(','))
@@ -1543,6 +1543,8 @@ export interface DetectedSubscription {
   accountLast4: string | null
   accountType: string | null
   institution: string | null
+  // Profile info (for family view)
+  profileId: string
   // Active status
   isActive: boolean
 }
@@ -1559,9 +1561,11 @@ export interface SubscriptionsResponse {
 /**
  * Get detected subscriptions
  */
-export async function getSubscriptions(profileId: string): Promise<SubscriptionsResponse> {
+export async function getSubscriptions(
+  profileId: string | undefined
+): Promise<SubscriptionsResponse> {
   const params = new URLSearchParams()
-  params.set('profileId', profileId)
+  if (profileId) params.set('profileId', profileId)
 
   const response = await api.get(`/summary/subscriptions?${params.toString()}`)
   return response.data
@@ -1715,22 +1719,24 @@ export interface AIModel {
 }
 
 /**
- * List all conversations for a profile
+ * List all conversations for a profile (or family view if profileId is undefined)
  */
 export async function listConversations(
-  profileId: string
+  profileId: string | undefined
 ): Promise<Omit<ChatConversation, 'messages'>[]> {
-  const response = await api.get(`/chat/profiles/${profileId}/conversations`)
+  const endpoint = profileId ? `/chat/profiles/${profileId}/conversations` : '/chat/conversations'
+  const response = await api.get(endpoint)
   return response.data
 }
 
 /**
- * Create a new conversation for a profile
+ * Create a new conversation for a profile (or family view if profileId is undefined)
  */
 export async function createConversation(
-  profileId: string
+  profileId: string | undefined
 ): Promise<Omit<ChatConversation, 'messages'>> {
-  const response = await api.post(`/chat/profiles/${profileId}/conversations`)
+  const endpoint = profileId ? `/chat/profiles/${profileId}/conversations` : '/chat/conversations'
+  const response = await api.post(endpoint)
   return response.data
 }
 

@@ -14,10 +14,10 @@ import type { MonthlyTrendsOptions } from '@/lib/api'
 // Query Keys
 export const summaryKeys = {
   all: ['summary'] as const,
-  financial: (profileId: string, options?: { startDate?: string; endDate?: string }) =>
-    [...summaryKeys.all, 'financial', profileId, options] as const,
-  monthlyTrends: (profileId: string, options: MonthlyTrendsOptions) =>
-    [...summaryKeys.all, 'monthlyTrends', profileId, options] as const,
+  financial: (profileId: string | undefined, options?: { startDate?: string; endDate?: string }) =>
+    [...summaryKeys.all, 'financial', profileId ?? 'family', options] as const,
+  monthlyTrends: (profileId: string | undefined, options: MonthlyTrendsOptions) =>
+    [...summaryKeys.all, 'monthlyTrends', profileId ?? 'family', options] as const,
   fxRates: (baseCurrency: string) => [...summaryKeys.all, 'fxRates', baseCurrency] as const,
   fxRate: (from: string, to: string) => [...summaryKeys.all, 'fxRate', from, to] as const,
 }
@@ -32,24 +32,35 @@ export const preferencesKeys = {
 // ============================================
 
 /**
- * Fetch comprehensive financial summary for a profile
+ * Fetch comprehensive financial summary for a profile or all profiles (family view)
+ * Pass undefined for profileId to get family view (all profiles)
+ * Pass enabled: false to disable the query (e.g., while loading auth)
  */
-export function useSummary(profileId?: string, options?: { startDate?: string; endDate?: string }) {
+export function useSummary(
+  profileId: string | undefined,
+  options?: { startDate?: string; endDate?: string; enabled?: boolean }
+) {
+  const { startDate, endDate, enabled = true } = options ?? {}
   return useQuery({
-    queryKey: summaryKeys.financial(profileId!, options),
-    queryFn: () => getSummary(profileId!, options),
-    enabled: !!profileId,
+    queryKey: summaryKeys.financial(profileId, { startDate, endDate }),
+    queryFn: () => getSummary(profileId, { startDate, endDate }),
+    enabled,
   })
 }
 
 /**
  * Fetch monthly income/expense trends
+ * Pass undefined for profileId to get family view (all profiles)
  */
-export function useMonthlyTrends(profileId?: string, options: MonthlyTrendsOptions = {}) {
+export function useMonthlyTrends(
+  profileId: string | undefined,
+  options: MonthlyTrendsOptions & { enabled?: boolean } = {}
+) {
+  const { enabled = true, ...trendsOptions } = options
   return useQuery({
-    queryKey: summaryKeys.monthlyTrends(profileId!, options),
-    queryFn: () => getMonthlyTrends(profileId!, options),
-    enabled: !!profileId,
+    queryKey: summaryKeys.monthlyTrends(profileId, trendsOptions),
+    queryFn: () => getMonthlyTrends(profileId, trendsOptions),
+    enabled,
   })
 }
 

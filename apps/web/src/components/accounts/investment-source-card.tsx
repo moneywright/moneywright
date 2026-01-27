@@ -27,13 +27,18 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import type { InvestmentSource, Statement } from '@/lib/api'
+import type { InvestmentSource, Statement, Profile } from '@/lib/api'
+import { ProfileBadge } from '@/components/ui/profile-badge'
 
 interface InvestmentSourceCardProps {
   source: InvestmentSource
   countryCode: string
   statement?: Statement
   onDelete: () => void
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 export function InvestmentSourceCard({
@@ -41,6 +46,8 @@ export function InvestmentSourceCard({
   countryCode,
   statement,
   onDelete,
+  profiles,
+  showProfileBadge,
 }: InvestmentSourceCardProps) {
   const [logoError, setLogoError] = useState(false)
 
@@ -214,9 +221,14 @@ export function InvestmentSourceCard({
           )}
 
           <div className="min-w-0">
-            <h3 className="font-semibold text-zinc-800 dark:text-zinc-100 truncate text-sm">
-              {displayName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-zinc-800 dark:text-zinc-100 truncate text-sm">
+                {displayName}
+              </h3>
+              {showProfileBadge && profiles && (
+                <ProfileBadge profileId={source.profileId} profiles={profiles} />
+              )}
+            </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
               {source.sourceType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             </p>

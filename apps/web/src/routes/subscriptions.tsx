@@ -12,7 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Search, Calendar, TrendingUp, Repeat, Receipt, Info, ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth, useCategories } from '@/hooks'
+import { ProfileBadge } from '@/components/ui/profile-badge'
+import { useAuth, useCategories, useProfileSelection } from '@/hooks'
 import { getSubscriptions } from '@/lib/api'
 import type { DetectedSubscription, Profile } from '@/lib/api'
 
@@ -98,8 +99,14 @@ type FrequencyFilter = 'all' | 'monthly' | 'quarterly' | 'yearly'
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 function SubscriptionsPage() {
-  const { defaultProfile, user } = useAuth()
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const { user, profiles } = useAuth()
+  const {
+    activeProfileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
   const [searchQuery, setSearchQuery] = useState('')
   const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
@@ -107,8 +114,10 @@ function SubscriptionsPage() {
     null
   )
 
-  const activeProfileId = selectedProfileId || defaultProfile?.id
   const countryCode = user?.country?.toLowerCase() || 'in'
+
+  // Query enabled when we have a profileId OR we're in family view
+  const queryEnabled = !!activeProfileId || showFamilyView
 
   // Fetch categories for labels
   const { data: categoriesData } = useCategories()
@@ -124,9 +133,9 @@ function SubscriptionsPage() {
 
   // Fetch subscriptions
   const { data: subscriptionsData, isLoading } = useQuery({
-    queryKey: ['subscriptions', activeProfileId],
-    queryFn: () => getSubscriptions(activeProfileId!),
-    enabled: !!activeProfileId,
+    queryKey: ['subscriptions', activeProfileId ?? 'family'],
+    queryFn: () => getSubscriptions(activeProfileId),
+    enabled: queryEnabled,
   })
 
   const subscriptions = useMemo(
@@ -191,10 +200,6 @@ function SubscriptionsPage() {
     return filtered
   }, [subscriptions, statusFilter, frequencyFilter, searchQuery, getCategoryLabel])
 
-  const handleProfileChange = (profile: Profile) => {
-    setSelectedProfileId(profile.id)
-  }
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -204,8 +209,10 @@ function SubscriptionsPage() {
           description="Track and manage your recurring payments"
           actions={
             <ProfileSelector
-              selectedProfileId={activeProfileId || null}
+              selectedProfileId={selectorProfileId}
               onProfileChange={handleProfileChange}
+              showFamilyView={showFamilyView}
+              onFamilyViewChange={handleFamilyViewChange}
             />
           }
         />
@@ -388,6 +395,8 @@ function SubscriptionsPage() {
                 getCategoryLabel={getCategoryLabel}
                 onClick={() => setSelectedSubscription(sub)}
                 index={index}
+                profiles={profiles}
+                showProfileBadge={showFamilyView}
               />
             ))}
           </div>
@@ -418,6 +427,8 @@ function SubscriptionsPage() {
           countryCode={countryCode}
           getCategoryLabel={getCategoryLabel}
           onClose={() => setSelectedSubscription(null)}
+          profiles={profiles}
+          showProfileBadge={showFamilyView}
         />
       </div>
     </AppLayout>
@@ -465,6 +476,8 @@ function SubscriptionCard({
   getCategoryLabel,
   onClick,
   index,
+  profiles,
+  showProfileBadge,
 }: {
   subscription: DetectedSubscription
   currency: string
@@ -472,6 +485,8 @@ function SubscriptionCard({
   getCategoryLabel: (code: string) => string
   onClick: () => void
   index: number
+  profiles?: Profile[]
+  showProfileBadge?: boolean
 }) {
   const institutionId = sub.institution || ''
   const logoPath = institutionId ? `/institutions/${countryCode}/${institutionId}.svg` : null
@@ -494,6 +509,9 @@ function SubscriptionCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-foreground truncate">{sub.name}</h3>
+            {showProfileBadge && profiles && sub.profileId && (
+              <ProfileBadge profileId={sub.profileId} profiles={profiles} />
+            )}
             {!sub.isActive && (
               <span className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded bg-zinc-500/10 text-zinc-500 uppercase tracking-wide">
                 Inactive
@@ -564,12 +582,16 @@ function TransactionHistoryModal({
   countryCode,
   getCategoryLabel,
   onClose,
+  profiles,
+  showProfileBadge,
 }: {
   subscription: DetectedSubscription | null
   currency: string
   countryCode: string
   getCategoryLabel: (code: string) => string
   onClose: () => void
+  profiles?: Profile[]
+  showProfileBadge?: boolean
 }) {
   if (!sub) return null
 
@@ -583,7 +605,12 @@ function TransactionHistoryModal({
         <DialogHeader className="pb-4 border-b border-border-subtle pr-8">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-lg font-semibold truncate">{sub.name}</DialogTitle>
+              <div className="flex items-center gap-2">
+                <DialogTitle className="text-lg font-semibold truncate">{sub.name}</DialogTitle>
+                {showProfileBadge && profiles && sub.profileId && (
+                  <ProfileBadge profileId={sub.profileId} profiles={profiles} size="md" />
+                )}
+              </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {getCategoryLabel(sub.category)}
               </p>

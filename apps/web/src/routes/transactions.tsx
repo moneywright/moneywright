@@ -21,6 +21,7 @@ import {
   useAccounts,
   useStatements,
   useDebounce,
+  useProfileSelection,
 } from '@/hooks'
 import {
   TransactionStats,
@@ -39,9 +40,15 @@ export const Route = createFileRoute('/transactions')({
 
 function TransactionsPage() {
   const queryClient = useQueryClient()
-  const { defaultProfile, user } = useAuth()
+  const { user, profiles } = useAuth()
+  const {
+    activeProfileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
   const countryCode = user?.country?.toLowerCase() || 'in'
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
 
   // Filter state
@@ -55,14 +62,15 @@ function TransactionsPage() {
   // Debounce search to avoid excessive API calls
   const debouncedSearch = useDebounce(search, 300)
 
-  // Use default profile if none selected
-  const activeProfileId = selectedProfileId || defaultProfile?.id
+  // Query enabled when we have a profileId OR we're in family view
+  const queryEnabled = !!activeProfileId || showFamilyView
 
   // Build active filters
-  const activeFilters: TransactionFilters = {
+  const activeFilters: TransactionFilters & { enabled?: boolean } = {
     ...filters,
     profileId: activeProfileId,
     search: debouncedSearch || undefined,
+    enabled: queryEnabled,
   }
 
   // Query hooks
@@ -72,8 +80,8 @@ function TransactionsPage() {
   )
   const { data: stats, isLoading: statsLoading } = useTransactionStats(activeFilters)
   const { data: categoriesData } = useCategories()
-  const { data: accounts } = useAccounts(activeProfileId)
-  const { data: statements } = useStatements(activeProfileId)
+  const { data: accounts } = useAccounts(activeProfileId, { enabled: queryEnabled })
+  const { data: statements } = useStatements(activeProfileId, { enabled: queryEnabled })
 
   const transactions = transactionsData?.transactions || []
   const total = transactionsData?.total || 0
@@ -190,9 +198,14 @@ function TransactionsPage() {
           description="View and manage your transactions"
           actions={
             <ProfileSelector
-              selectedProfileId={activeProfileId || null}
+              selectedProfileId={selectorProfileId}
               onProfileChange={(profile) => {
-                setSelectedProfileId(profile.id)
+                handleProfileChange(profile)
+                setPage(1)
+              }}
+              showFamilyView={showFamilyView}
+              onFamilyViewChange={(enabled) => {
+                handleFamilyViewChange(enabled)
                 setPage(1)
               }}
             />
@@ -278,6 +291,8 @@ function TransactionsPage() {
             sortBy={sortBy}
             sortOrder={sortOrder}
             onSortChange={handleSortChange}
+            profiles={profiles}
+            showProfileBadge={showFamilyView}
           />
         ) : (
           <EmptyState

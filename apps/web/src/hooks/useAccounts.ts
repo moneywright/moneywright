@@ -12,7 +12,7 @@ import {
 // Query Keys
 export const accountKeys = {
   all: ['accounts'] as const,
-  list: (profileId?: string) => [...accountKeys.all, 'list', profileId] as const,
+  list: (profileId?: string) => [...accountKeys.all, 'list', profileId ?? 'family'] as const,
   detail: (accountId: string) => [...accountKeys.all, 'detail', accountId] as const,
   types: () => [...accountKeys.all, 'types'] as const,
 }
@@ -22,13 +22,15 @@ export const accountKeys = {
 // ============================================
 
 /**
- * Fetch all accounts for a profile
+ * Fetch all accounts for a profile or all profiles (family view)
+ * Pass undefined for profileId to get family view (all profiles)
  */
-export function useAccounts(profileId?: string) {
+export function useAccounts(profileId?: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   return useQuery({
     queryKey: accountKeys.list(profileId),
     queryFn: () => getAccounts(profileId),
-    enabled: !!profileId,
+    enabled,
   })
 }
 

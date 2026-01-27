@@ -53,7 +53,7 @@ export interface CachedQuery<T = unknown> {
 /** Options for storing query cache */
 export interface StoreQueryCacheOptions<T> {
   queryId: string
-  profileId: string
+  profileId: string | null // null = family view query
   dataType: CacheDataType
   filters: Record<string, unknown>
   data: T[]

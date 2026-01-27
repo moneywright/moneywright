@@ -15,6 +15,7 @@ import {
   useInvestmentSources,
   useConstants,
   useDeleteStatement,
+  useProfileSelection,
 } from '@/hooks'
 import { StatementCard, FilterBar, UploadForm, type SortOption } from '@/components/statements'
 import { RecategorizeModal } from '@/components/transactions/recategorize-modal'
@@ -42,8 +43,14 @@ function StatementsPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const searchParams = useSearch({ from: '/statements' })
-  const { defaultProfile } = useAuth()
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const { profiles } = useAuth()
+  const {
+    activeProfileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [accountFilter, setAccountFilter] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<SortOption>(() => {
@@ -70,10 +77,12 @@ function StatementsPage() {
     localStorage.setItem(SORT_STORAGE_KEY, value)
   }
 
-  const activeProfileId = selectedProfileId || defaultProfile?.id
+  // Query enabled when we have a profileId OR we're in family view
+  const queryEnabled = !!activeProfileId || showFamilyView
 
   // Query hooks
   const { data: statements, isLoading: statementsLoading } = useStatements(activeProfileId, {
+    enabled: queryEnabled,
     refetchInterval: (query) => {
       // Poll for updates when any statement is pending or parsing
       const data = (query as { state: { data?: { status: string }[] } }).state.data
@@ -83,8 +92,10 @@ function StatementsPage() {
       return false
     },
   })
-  const { data: accounts } = useAccounts(activeProfileId)
-  const { data: investmentSources } = useInvestmentSources(activeProfileId)
+  const { data: accounts } = useAccounts(activeProfileId, { enabled: queryEnabled })
+  const { data: investmentSources } = useInvestmentSources(activeProfileId, {
+    enabled: queryEnabled,
+  })
   const { rawInvestmentSourceTypes, rawInstitutions } = useConstants()
 
   // Mutation hooks
@@ -152,10 +163,16 @@ function StatementsPage() {
           actions={
             <>
               <ProfileSelector
-                selectedProfileId={activeProfileId || null}
-                onProfileChange={(profile) => setSelectedProfileId(profile.id)}
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
               />
-              <Button onClick={() => setShowUploadDialog(true)}>
+              <Button
+                onClick={() => setShowUploadDialog(true)}
+                disabled={showFamilyView}
+                title={showFamilyView ? 'Select a profile to upload statements' : undefined}
+              >
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Statement
               </Button>
@@ -231,6 +248,8 @@ function StatementsPage() {
                   formatPeriod={formatPeriod}
                   onDelete={() => deleteMutation.mutate(statement.id)}
                   onRecategorize={() => setRecategorizeStatement(statement)}
+                  profiles={profiles}
+                  showProfileBadge={showFamilyView}
                 />
               )
             })}

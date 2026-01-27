@@ -30,11 +30,13 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { HoldingRow } from './holding-row'
 import { cn } from '@/lib/utils'
+import { ProfileBadge } from '@/components/ui/profile-badge'
 import type {
   InvestmentSource,
   InvestmentHolding,
   InvestmentHoldingType,
   InvestmentSourceType,
+  Profile,
 } from '@/lib/api'
 
 interface SourceCardProps {
@@ -54,6 +56,10 @@ interface SourceCardProps {
   showInINR: boolean
   convertToINR: (amount: number, currency: string) => number
   getSourceTypeLabel: (code: string) => string
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 function SourceLogo({
@@ -96,6 +102,8 @@ export function SourceCard({
   showInINR,
   convertToINR,
   getSourceTypeLabel,
+  profiles,
+  showProfileBadge,
 }: SourceCardProps) {
   const [showHoldings, setShowHoldings] = useState(false)
 
@@ -136,7 +144,12 @@ export function SourceCard({
         <div className="flex items-start gap-3 mb-4">
           <SourceLogo logoPath={logoPath} institution={source.institution} />
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-sm truncate">{source.sourceName}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-sm truncate">{source.sourceName}</h3>
+              {showProfileBadge && profiles && (
+                <ProfileBadge profileId={source.profileId} profiles={profiles} />
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{sourceTypeLabel}</p>
           </div>
           <DropdownMenu>

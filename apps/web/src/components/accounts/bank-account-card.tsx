@@ -30,7 +30,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import type { Account, AccountType, Statement } from '@/lib/api'
+import type { Account, AccountType, Statement, Profile } from '@/lib/api'
+import { ProfileBadge } from '@/components/ui/profile-badge'
 
 interface BankAccountCardProps {
   account: Account
@@ -41,6 +42,10 @@ interface BankAccountCardProps {
   onEdit: () => void
   onDelete: () => void
   onRecategorize?: () => void
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 export function BankAccountCard({
@@ -52,6 +57,8 @@ export function BankAccountCard({
   onEdit,
   onDelete,
   onRecategorize,
+  profiles,
+  showProfileBadge,
 }: BankAccountCardProps) {
   const [logoError, setLogoError] = useState(false)
   const logoPath = account.institution
@@ -204,9 +211,14 @@ export function BankAccountCard({
           </div>
 
           <div className="min-w-0">
-            <h3 className="font-semibold text-foreground truncate text-sm">
-              {institutionName || account.institution || 'Bank Account'}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground truncate text-sm">
+                {institutionName || account.institution || 'Bank Account'}
+              </h3>
+              {showProfileBadge && profiles && (
+                <ProfileBadge profileId={account.profileId} profiles={profiles} />
+              )}
+            </div>
             <p className="text-xs text-muted-foreground truncate">
               {getAccountTypeLabel(account.type)}
               {lastFour && ` · •••• ${lastFour}`}

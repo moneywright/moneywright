@@ -19,7 +19,8 @@ import {
   ArrowUpDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Transaction, Account, Category } from '@/lib/api'
+import type { Transaction, Account, Category, Profile } from '@/lib/api'
+import { getProfileName } from '@/components/ui/profile-badge'
 
 export type SortBy = 'date' | 'amount'
 export type SortOrder = 'asc' | 'desc'
@@ -35,6 +36,10 @@ interface TransactionTableProps {
   sortBy?: SortBy
   sortOrder?: SortOrder
   onSortChange?: (sortBy: SortBy, sortOrder: SortOrder) => void
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 // Sort indicator component
@@ -97,6 +102,8 @@ export function TransactionTable({
   sortBy = 'date',
   sortOrder = 'desc',
   onSortChange,
+  profiles,
+  showProfileBadge,
 }: TransactionTableProps) {
   const accountMap = new Map(accounts?.map((a) => [a.id, a]) || [])
   const categoryMap = new Map(categories?.map((c) => [c.code, c]) || [])
@@ -234,6 +241,11 @@ export function TransactionTable({
                           logoPath={logoPath}
                           institutionId={institutionId || 'other'}
                           last4={last4}
+                          profileName={
+                            showProfileBadge && profiles
+                              ? getProfileName(txn.profileId, profiles)
+                              : null
+                          }
                         />
                         {txn.summary && txn.summary !== txn.originalDescription && (
                           <>
@@ -281,10 +293,12 @@ function AccountLogo({
   logoPath,
   institutionId,
   last4,
+  profileName,
 }: {
   logoPath: string | null
   institutionId: string
   last4: string
+  profileName?: string | null
 }) {
   const [logoError, setLogoError] = useState(false)
 
@@ -304,7 +318,9 @@ function AccountLogo({
           </span>
         )}
       </div>
-      <span className="text-xs text-muted-foreground">••{last4}</span>
+      <span className="text-xs text-muted-foreground">
+        {profileName ? `${profileName}'s ` : ''}••{last4}
+      </span>
     </div>
   )
 }

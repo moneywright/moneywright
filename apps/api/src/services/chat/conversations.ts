@@ -4,7 +4,7 @@
  * Manages chat conversations and messages in the database.
  */
 
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, tables, dbType } from '../../db'
 import type { ChatConversation, ChatMessage, NewChatMessage } from '../../db'
 import { nanoid } from '../../lib/id'
@@ -15,7 +15,7 @@ import type { StoredMessage } from './types'
  */
 export interface ConversationResponse {
   id: string
-  profileId: string
+  profileId: string | null // null = family view (all profiles)
   userId: string
   title: string | null
   summary: string | null
@@ -75,31 +75,36 @@ function toMessageResponse(msg: ChatMessage): MessageResponse {
 }
 
 /**
- * List all conversations for a profile
+ * List all conversations for a profile (or all family view conversations if profileId is null)
  */
 export async function listConversations(
-  profileId: string,
+  profileId: string | null,
   userId: string
 ): Promise<ConversationResponse[]> {
+  const conditions = [eq(tables.chatConversations.userId, userId)]
+
+  if (profileId === null) {
+    // Family view: only get conversations where profileId is null
+    conditions.push(sql`${tables.chatConversations.profileId} IS NULL` as ReturnType<typeof eq>)
+  } else {
+    // Profile view: get conversations for this profile
+    conditions.push(eq(tables.chatConversations.profileId, profileId))
+  }
+
   const conversations = await db
     .select()
     .from(tables.chatConversations)
-    .where(
-      and(
-        eq(tables.chatConversations.profileId, profileId),
-        eq(tables.chatConversations.userId, userId)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(tables.chatConversations.updatedAt))
 
   return conversations.map(toConversationResponse)
 }
 
 /**
- * Create a new conversation for a profile
+ * Create a new conversation for a profile (or family view if profileId is null)
  */
 export async function createConversation(
-  profileId: string,
+  profileId: string | null,
   userId: string
 ): Promise<ConversationResponse> {
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
@@ -122,23 +127,25 @@ export async function createConversation(
 }
 
 /**
- * Get or create conversation for a profile
- * Each profile has one conversation
+ * Get or create conversation for a profile (or family view if profileId is null)
  */
 export async function getOrCreateConversation(
-  profileId: string,
+  profileId: string | null,
   userId: string
 ): Promise<ConversationResponse> {
   // Try to find existing conversation
+  const conditions = [eq(tables.chatConversations.userId, userId)]
+
+  if (profileId === null) {
+    conditions.push(sql`${tables.chatConversations.profileId} IS NULL` as ReturnType<typeof eq>)
+  } else {
+    conditions.push(eq(tables.chatConversations.profileId, profileId))
+  }
+
   const [existing] = await db
     .select()
     .from(tables.chatConversations)
-    .where(
-      and(
-        eq(tables.chatConversations.profileId, profileId),
-        eq(tables.chatConversations.userId, userId)
-      )
-    )
+    .where(and(...conditions))
     .limit(1)
 
   if (existing) {

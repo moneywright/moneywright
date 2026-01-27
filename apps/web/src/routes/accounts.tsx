@@ -15,6 +15,7 @@ import {
   useDeleteAccount,
   useStatements,
   useConstants,
+  useProfileSelection,
 } from '@/hooks'
 import { BankAccountCard, CreditCardDisplay, AccountForm } from '@/components/accounts'
 import { RecategorizeModal } from '@/components/transactions/recategorize-modal'
@@ -25,19 +26,27 @@ export const Route = createFileRoute('/accounts')({
 
 function AccountsPage() {
   const queryClient = useQueryClient()
-  const { defaultProfile, user } = useAuth()
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const { user, profiles } = useAuth()
+  const {
+    activeProfileId,
+    showFamilyView,
+    selectorProfileId,
+    handleProfileChange,
+    handleFamilyViewChange,
+  } = useProfileSelection()
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [recategorizeAccount, setRecategorizeAccount] = useState<Account | null>(null)
-
-  // Use default profile if none selected
-  const activeProfileId = selectedProfileId || defaultProfile?.id
   const countryCode = user?.country?.toLowerCase() || 'in'
 
+  // Query enabled when we have a profileId OR we're in family view
+  const queryEnabled = !!activeProfileId || showFamilyView
+
   // Query hooks
-  const { data: accounts, isLoading: accountsLoading } = useAccounts(activeProfileId)
+  const { data: accounts, isLoading: accountsLoading } = useAccounts(activeProfileId, {
+    enabled: queryEnabled,
+  })
   const { data: accountTypes } = useAccountTypes()
-  const { data: statements } = useStatements(activeProfileId)
+  const { data: statements } = useStatements(activeProfileId, { enabled: queryEnabled })
   const { institutions } = useConstants()
 
   // Mutation hooks
@@ -67,8 +76,10 @@ function AccountsPage() {
           description="Manage your financial accounts"
           actions={
             <ProfileSelector
-              selectedProfileId={activeProfileId || null}
-              onProfileChange={(profile) => setSelectedProfileId(profile.id)}
+              selectedProfileId={selectorProfileId}
+              onProfileChange={handleProfileChange}
+              showFamilyView={showFamilyView}
+              onFamilyViewChange={handleFamilyViewChange}
             />
           }
         />
@@ -122,6 +133,8 @@ function AccountsPage() {
                       onEdit={() => setEditingAccount(account)}
                       onDelete={() => deleteMutation.mutate(account.id)}
                       onRecategorize={() => setRecategorizeAccount(account)}
+                      profiles={profiles}
+                      showProfileBadge={showFamilyView}
                     />
                   ))}
                 </div>
@@ -149,6 +162,8 @@ function AccountsPage() {
                       onEdit={() => setEditingAccount(account)}
                       onDelete={() => deleteMutation.mutate(account.id)}
                       onRecategorize={() => setRecategorizeAccount(account)}
+                      profiles={profiles}
+                      showProfileBadge={showFamilyView}
                     />
                   ))}
                 </div>

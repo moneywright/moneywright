@@ -25,14 +25,18 @@ import {
 export const investmentKeys = {
   all: ['investments'] as const,
   types: () => [...investmentKeys.all, 'types'] as const,
-  summary: (profileId?: string) => [...investmentKeys.all, 'summary', profileId] as const,
-  sources: (profileId?: string) => [...investmentKeys.all, 'sources', profileId] as const,
+  summary: (profileId?: string) =>
+    [...investmentKeys.all, 'summary', profileId ?? 'family'] as const,
+  sources: (profileId?: string) =>
+    [...investmentKeys.all, 'sources', profileId ?? 'family'] as const,
   source: (sourceId: string) => [...investmentKeys.all, 'source', sourceId] as const,
-  holdings: (profileId?: string) => [...investmentKeys.all, 'holdings', profileId] as const,
+  holdings: (profileId?: string) =>
+    [...investmentKeys.all, 'holdings', profileId ?? 'family'] as const,
   holdingsForSource: (sourceId: string) =>
     [...investmentKeys.all, 'holdings', 'source', sourceId] as const,
   holding: (holdingId: string) => [...investmentKeys.all, 'holding', holdingId] as const,
-  snapshots: (profileId?: string) => [...investmentKeys.all, 'snapshots', profileId] as const,
+  snapshots: (profileId?: string) =>
+    [...investmentKeys.all, 'snapshots', profileId ?? 'family'] as const,
   snapshotsForSource: (sourceId: string) =>
     [...investmentKeys.all, 'snapshots', 'source', sourceId] as const,
 }
@@ -54,24 +58,28 @@ export function useInvestmentTypes(enabled: boolean = true) {
 }
 
 /**
- * Fetch investment summary for a profile
+ * Fetch investment summary for a profile or all profiles (family view)
+ * Pass undefined for profileId to get family view (all profiles)
  */
-export function useInvestmentSummary(profileId?: string) {
+export function useInvestmentSummary(profileId?: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   return useQuery({
     queryKey: investmentKeys.summary(profileId),
     queryFn: () => getInvestmentSummary(profileId),
-    enabled: !!profileId,
+    enabled,
   })
 }
 
 /**
- * Fetch all investment sources for a profile
+ * Fetch all investment sources for a profile or all profiles (family view)
+ * Pass undefined for profileId to get family view (all profiles)
  */
-export function useInvestmentSources(profileId?: string) {
+export function useInvestmentSources(profileId?: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   return useQuery({
     queryKey: investmentKeys.sources(profileId),
     queryFn: () => getInvestmentSources(profileId),
-    enabled: !!profileId,
+    enabled,
   })
 }
 
@@ -87,13 +95,15 @@ export function useInvestmentSource(sourceId: string) {
 }
 
 /**
- * Fetch all holdings for a profile
+ * Fetch all holdings for a profile or all profiles (family view)
+ * Pass undefined for profileId to get family view (all profiles)
  */
-export function useInvestmentHoldings(profileId?: string) {
+export function useInvestmentHoldings(profileId?: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   return useQuery({
     queryKey: investmentKeys.holdings(profileId),
     queryFn: () => getAllHoldings(profileId),
-    enabled: !!profileId,
+    enabled,
   })
 }
 
@@ -124,12 +134,13 @@ export function useHolding(holdingId: string) {
  */
 export function useInvestmentSnapshots(
   profileId?: string,
-  options?: { startDate?: string; endDate?: string; limit?: number }
+  options?: { startDate?: string; endDate?: string; limit?: number; enabled?: boolean }
 ) {
+  const { enabled = true, ...queryOptions } = options ?? {}
   return useQuery({
     queryKey: investmentKeys.snapshots(profileId),
-    queryFn: () => getAllSnapshots(profileId, options),
-    enabled: !!profileId,
+    queryFn: () => getAllSnapshots(profileId, queryOptions),
+    enabled,
   })
 }
 

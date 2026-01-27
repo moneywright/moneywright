@@ -1,5 +1,5 @@
 {
-  "id": "8b0970e6-2145-4d1b-978f-66a822633465",
+  "id": "0146a297-d695-4511-84cb-2d6dee9c40fe",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -216,7 +216,7 @@
           "name": "profile_id",
           "type": "varchar(21)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "user_id": {
           "name": "user_id",
@@ -462,7 +462,7 @@
           "name": "profile_id",
           "type": "varchar(21)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "data_type": {
           "name": "data_type",
@@ -1450,13 +1450,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "is_default": {
-          "name": "is_default",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2065,6 +2058,20 @@
           "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false
+        },
+        "is_manually_categorized": {
+          "name": "is_manually_categorized",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "is_hidden": {
+          "name": "is_hidden",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

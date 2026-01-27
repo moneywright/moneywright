@@ -124,11 +124,12 @@ export function createChatAgent(options: {
   provider: AIProvider
   model: string
   apiKey?: string
-  profileId: string
+  profileId: string | null // null = family view
   userId: string
   profileSummary?: string
   thinking?: ThinkingConfig
   countryCode?: 'IN' | 'US'
+  profiles?: Array<{ id: string; name: string }> // For family view: list of available profiles
 }) {
   const {
     provider,
@@ -139,6 +140,7 @@ export function createChatAgent(options: {
     profileSummary,
     thinking,
     countryCode = 'IN',
+    profiles,
   } = options
 
   logger.debug(
@@ -166,14 +168,14 @@ export function createChatAgent(options: {
   }
   logger.debug(`[Chat Agent] Model instance created`)
 
-  // Create tools bound to this profile
-  logger.debug(`[Chat Agent] Creating tools for profile ${profileId}...`)
+  // Create tools bound to this profile (or all profiles for family view)
+  logger.debug(`[Chat Agent] Creating tools for profile ${profileId ?? 'family'}...`)
   const tools = createTools({ profileId, userId })
   logger.debug(`[Chat Agent] Tools created: ${Object.keys(tools).join(', ')}`)
 
   // Build system prompt with profile context and country-specific categories
   logger.debug(`[Chat Agent] Building system prompt for country=${countryCode}...`)
-  const instructions = buildSystemPrompt(profileSummary, countryCode)
+  const instructions = buildSystemPrompt(profileSummary, countryCode, profiles)
   logger.debug(`[Chat Agent] System prompt built (${instructions.length} chars)`)
 
   // Build provider options for thinking if enabled

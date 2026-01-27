@@ -19,7 +19,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import type { InvestmentHolding, InvestmentHoldingType, InvestmentSource } from '@/lib/api'
+import { ProfileBadge } from '@/components/ui/profile-badge'
+import type { InvestmentHolding, InvestmentHoldingType, InvestmentSource, Profile } from '@/lib/api'
 
 interface HoldingsTableProps {
   holdings: InvestmentHolding[]
@@ -31,6 +32,10 @@ interface HoldingsTableProps {
   convertToINR: (amount: number, currency: string) => number
   onEditHolding: (holding: InvestmentHolding) => void
   onDeleteHolding: (holdingId: string) => void
+  /** Profiles list for showing profile badge in family view */
+  profiles?: Profile[]
+  /** Whether to show profile badge (family view mode) */
+  showProfileBadge?: boolean
 }
 
 export function HoldingsTable({
@@ -43,9 +48,15 @@ export function HoldingsTable({
   convertToINR,
   onEditHolding,
   onDeleteHolding,
+  profiles,
+  showProfileBadge,
 }: HoldingsTableProps) {
   const getSourceName = (sourceId: string) => {
     return sources.find((s) => s.id === sourceId)?.sourceName || '-'
+  }
+
+  const getSourceProfileId = (sourceId: string) => {
+    return sources.find((s) => s.id === sourceId)?.profileId
   }
 
   const getTypeLabel = (code: string) => {
@@ -108,6 +119,12 @@ export function HoldingsTable({
                     <Badge variant="outline" className="shrink-0 text-[10px]">
                       {holding.currency}
                     </Badge>
+                  )}
+                  {showProfileBadge && profiles && getSourceProfileId(holding.sourceId) && (
+                    <ProfileBadge
+                      profileId={getSourceProfileId(holding.sourceId)!}
+                      profiles={profiles}
+                    />
                   )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
