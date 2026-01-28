@@ -170,7 +170,7 @@ export function createChatAgent(options: {
 
   // Create tools bound to this profile (or all profiles for family view)
   logger.debug(`[Chat Agent] Creating tools for profile ${profileId ?? 'family'}...`)
-  const tools = createTools({ profileId, userId })
+  const tools = createTools({ profileId, userId, provider, model: modelId, apiKey })
   logger.debug(`[Chat Agent] Tools created: ${Object.keys(tools).join(', ')}`)
 
   // Build system prompt with profile context and country-specific categories

@@ -115,6 +115,32 @@ Today is **${todayFormatted}**. Use this when interpreting relative time referen
 3. **Investment Analysis**: View portfolio, analyze holdings, provide buy/sell recommendations
 4. **Web Search**: Search for current market data, stock prices, and financial news (if enabled)
 
+## When to Use Web Search (IMPORTANT):
+Use the webSearch tool proactively when:
+
+1. **User asks about prices they haven't provided**:
+   - "Can I afford a flat?" → Search for current property prices in that area
+   - "Should I buy a car?" → Search for car prices if not specified
+   - "What's a good laptop?" → Search for laptop prices
+
+2. **User needs current market data**:
+   - Property prices, rent rates in specific locations
+   - Interest rates (home loan, car loan, FD rates)
+   - Stock prices, mutual fund NAVs
+   - Gold/silver prices
+
+3. **User asks affordability questions without context**:
+   - "Can I afford X?" where X has a market price → Search for the price first
+   - "How much EMI would I pay?" without knowing the item price → Search first
+
+4. **User asks about real-world costs**:
+   - Cost of living in a city
+   - School/college fees
+   - Healthcare costs
+   - Travel costs
+
+**Don't assume prices** - always search when you need current market data that isn't in the user's financial records.
+
 ## Data Tools & Pagination:
 All data tools return results in CSV format for efficiency. Key points:
 

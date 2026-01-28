@@ -626,16 +626,20 @@ export interface CategoryBreakdown {
 export async function getCategoryBreakdown(
   userId: string,
   filters: {
-    profileId: string
+    profileId?: string
     startDate?: string
     endDate?: string
   }
 ): Promise<CategoryBreakdown> {
   const conditions = [
     eq(tables.transactions.userId, userId),
-    eq(tables.transactions.profileId, filters.profileId),
     eq(tables.transactions.isHidden, false), // Exclude hidden transactions
   ]
+
+  // Filter by profile if specified (undefined = all profiles / family view)
+  if (filters.profileId) {
+    conditions.push(eq(tables.transactions.profileId, filters.profileId))
+  }
 
   if (filters.startDate) {
     conditions.push(gte(tables.transactions.date, filters.startDate))

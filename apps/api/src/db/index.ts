@@ -5,7 +5,7 @@ import { migrate as migratePg } from 'drizzle-orm/postgres-js/migrator'
 import { Database } from 'bun:sqlite'
 import postgres from 'postgres'
 import { existsSync, mkdirSync } from 'fs'
-import { join, dirname, normalize } from 'path'
+import { join, dirname } from 'path'
 
 import * as pgSchema from './schema.pg'
 import * as sqliteSchema from './schema.sqlite'

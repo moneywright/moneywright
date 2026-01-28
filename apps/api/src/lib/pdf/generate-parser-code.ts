@@ -498,6 +498,8 @@ function calculateTotals(transactions: RawPdfTransaction[]): ExtractedTotals {
     creditCount,
     totalDebits: Math.round(totalDebits * 100) / 100,
     totalCredits: Math.round(totalCredits * 100) / 100,
+    openingBalance: null,
+    closingBalance: null,
   }
 }
 

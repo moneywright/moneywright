@@ -7,7 +7,7 @@
 
 import { Sandbox } from '@e2b/code-interpreter'
 import { logger } from '../../lib/logger'
-import { getQueryData, type CacheDataType } from './query-cache'
+import { getQueryData } from './query-cache'
 
 /**
  * Maximum execution time in milliseconds
@@ -92,10 +92,10 @@ function buildDataInjectionCode(dataMap: Map<string, unknown[]>): string {
 export async function executeCode(options: {
   code: string
   queryIds: string[]
-  profileId: string
+  profileId: string | null
   outputType: CodeOutputType
 }): Promise<CodeExecutionResult> {
-  const { code, queryIds, profileId, outputType } = options
+  const { code, queryIds, outputType } = options
   const startTime = Date.now()
 
   if (!isE2BConfigured()) {

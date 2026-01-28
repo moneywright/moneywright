@@ -339,6 +339,7 @@ const processingQueue: Array<{
   statements: StatementInput[]
   countryCode: CountryCode
   categorizationModel?: string
+  categorizationHints?: string
 }> = []
 
 // Categorization status tracking

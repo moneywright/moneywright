@@ -8,11 +8,9 @@
 
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { eq } from 'drizzle-orm'
-import { db, tables, dbType } from '../db'
 import { auth, type AuthVariables } from '../middleware/auth'
 import { getLLMSettings } from '../services/config'
-import { AI_PROVIDERS, type LLMProvider } from '../lib/ai'
+import { type LLMProvider } from '../lib/ai'
 import { logger } from '../lib/logger'
 import { getProfileById, getProfilesByUserId } from '../services/profiles'
 import { findUserById } from '../services/user'
@@ -20,7 +18,6 @@ import { findUserById } from '../services/user'
 import {
   storedToModelMessages,
   createChatAgent,
-  type StoredMessage,
   type ThinkingConfig,
   type ReasoningEffort,
   listConversations,
@@ -29,7 +26,6 @@ import {
   getConversation,
   getConversationMessages,
   addMessage,
-  updateMessage,
   clearConversation,
   deleteConversation,
   toStoredMessages,
@@ -80,7 +76,7 @@ chat.get('/profiles/:profileId/conversations', async (c) => {
  * Returns the cached query results for rendering interactive tables
  */
 chat.get('/query/:queryId', async (c) => {
-  const userId = c.get('userId')
+  const _userId = c.get('userId') // Authentication required but userId not used for query fetch
   const queryId = c.req.param('queryId')
 
   // Get query metadata first to validate
@@ -189,7 +185,7 @@ chat.delete('/conversations/:id', async (c) => {
   try {
     await deleteConversation(conversationId, userId)
     return c.json({ success: true })
-  } catch (error) {
+  } catch {
     return c.json({ error: 'Conversation not found' }, 404)
   }
 })
@@ -205,7 +201,7 @@ chat.delete('/conversations/:id/messages', async (c) => {
   try {
     await clearConversation(conversationId, userId)
     return c.json({ success: true })
-  } catch (error) {
+  } catch {
     return c.json({ error: 'Conversation not found' }, 404)
   }
 })
@@ -321,7 +317,7 @@ chat.post('/conversations/:id/messages', async (c) => {
     // Family view: get all profiles for context
     const userProfiles = await getProfilesByUserId(userId)
     profiles = userProfiles.map((p) => ({ id: p.id, name: p.name }))
-  } else {
+  } else if (conversation.profileId) {
     // Single profile view
     profile = await getProfileById(conversation.profileId, userId)
   }

@@ -8,11 +8,22 @@
  * - All data tools return { totalCount, queryId, data, page, hasMore }
  * - `data` is CSV format to reduce tokens while giving full access
  * - Pagination: 250 rows per page, use queryId + page to fetch more
+ *
+ * Web Search:
+ * - Uses a wrapper approach to avoid provider tool mixing issues
+ * - The web_search tool internally calls generateText with native search tools
+ * - This works around Google's limitation of not mixing provider tools with custom tools
  */
 
-import { tool } from 'ai'
+import { tool, generateText, gateway } from 'ai'
 import { z } from 'zod'
 import { tavily } from '@tavily/core'
+import { openai } from '@ai-sdk/openai'
+import { anthropic } from '@ai-sdk/anthropic'
+import { google } from '@ai-sdk/google'
+import type { AIProvider } from './types'
+import { logger } from '../../lib/logger'
+import { createLLMClient } from '../../llm'
 import {
   storeQueryCache,
   generateQueryId,
@@ -62,6 +73,161 @@ function getTavilyClient() {
 interface ToolContext {
   profileId: string | null // null = family view (all profiles)
   userId: string
+  provider: AIProvider
+  model: string
+  apiKey?: string // API key for provider (used for internal search calls)
+}
+
+/**
+ * Determine the search type based on provider
+ */
+function getSearchType(
+  provider: AIProvider
+): 'openai' | 'anthropic' | 'google' | 'perplexity' | 'tavily' | null {
+  if (provider === 'openai') return 'openai'
+  if (provider === 'anthropic') return 'anthropic'
+  if (provider === 'google') return 'google'
+  if (provider === 'vercel') return 'perplexity' // Gateway uses Perplexity
+  if (provider === 'ollama' && isTavilyConfigured()) return 'tavily'
+  return isTavilyConfigured() ? 'tavily' : null
+}
+
+/**
+ * Execute web search using native provider tools via generateText wrapper
+ * This approach avoids the "cannot mix provider tools with custom tools" limitation
+ * Uses the user's model configuration for the internal search call
+ */
+async function executeWebSearch(
+  query: string,
+  searchType: NonNullable<ReturnType<typeof getSearchType>>,
+  context: { provider: AIProvider; model: string; apiKey?: string }
+): Promise<{ results: Array<{ title?: string; url?: string; content: string }>; error?: string }> {
+  const searchPrompt = `Search the web for: "${query}"\n\nReturn the search results with relevant information.`
+
+  try {
+    // Create model using user's configuration
+    const model = createLLMClient({
+      provider: context.provider,
+      model: context.model,
+      apiKey: context.apiKey,
+    })
+
+    if (searchType === 'openai') {
+      const result = await generateText({
+        // Provider tools require type assertion due to SDK type limitations
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        model: model as any,
+        prompt: searchPrompt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools: { webSearch: openai.tools.webSearch({}) } as any,
+      })
+      const sources = (result as { sources?: Array<{ url: string }> }).sources || []
+      return {
+        results:
+          sources.length > 0
+            ? sources.map((s) => ({ url: s.url, content: s.url }))
+            : [{ content: result.text || 'No results found' }],
+      }
+    }
+
+    if (searchType === 'anthropic') {
+      const result = await generateText({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        model: model as any,
+        prompt: searchPrompt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools: { webSearch: anthropic.tools.webSearch_20250305({ maxUses: 3 }) } as any,
+      })
+      return { results: [{ content: result.text || 'No results found' }] }
+    }
+
+    if (searchType === 'google') {
+      const result = await generateText({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        model: model as any,
+        prompt: searchPrompt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools: { google_search: google.tools.googleSearch({}) } as any,
+      })
+      return { results: [{ content: result.text || 'No results found' }] }
+    }
+
+    if (searchType === 'perplexity') {
+      const result = await generateText({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        model: model as any,
+        prompt: searchPrompt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools: { perplexity_search: gateway.tools.perplexitySearch({ maxResults: 5 }) } as any,
+      })
+
+      // Check tool results for search data
+      if (result.toolResults && result.toolResults.length > 0) {
+        const searchResults: Array<{ title?: string; url?: string; content: string }> = []
+        for (const tr of result.toolResults) {
+          const output =
+            (tr as { result?: unknown; output?: unknown }).result ||
+            (tr as { result?: unknown; output?: unknown }).output
+          if (output && typeof output === 'object') {
+            const outputObj = output as {
+              results?: Array<{
+                title?: string
+                url?: string
+                snippet?: string
+                content?: string
+                text?: string
+              }>
+            }
+            if (Array.isArray(outputObj.results)) {
+              for (const r of outputObj.results) {
+                searchResults.push({
+                  title: r.title,
+                  url: r.url,
+                  content: r.snippet || r.content || r.text || JSON.stringify(r),
+                })
+              }
+            }
+          }
+        }
+        if (searchResults.length > 0) {
+          return { results: searchResults }
+        }
+      }
+
+      return { results: [{ content: result.text || 'No results found' }] }
+    }
+
+    if (searchType === 'tavily') {
+      // Use Tavily directly (not via generateText)
+      const client = getTavilyClient()
+      if (!client) {
+        return { results: [], error: 'Tavily not configured' }
+      }
+      const response = await client.search(query, {
+        maxResults: 5,
+        includeAnswer: true,
+        searchDepth: 'basic',
+      })
+      return {
+        results: [
+          ...(response.answer ? [{ content: response.answer }] : []),
+          ...response.results.map((r) => ({
+            title: r.title,
+            url: r.url,
+            content: r.content,
+          })),
+        ],
+      }
+    }
+
+    return { results: [], error: 'Unknown search type' }
+  } catch (error) {
+    logger.error('[WebSearch] Search failed:', error)
+    return {
+      results: [],
+      error: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    }
+  }
 }
 
 /**
@@ -113,7 +279,7 @@ function paginate<T>(data: T[], page: number): { slice: T[]; hasMore: boolean } 
  * Create all AI tools bound to a specific profile (or all profiles for family view)
  */
 export function createTools(context: ToolContext) {
-  const { profileId, userId } = context
+  const { profileId, userId, provider, model, apiKey } = context
   // Convert null to undefined for service functions (undefined = all profiles)
   const profileIdForQuery = profileId ?? undefined
 
@@ -754,56 +920,66 @@ Use this data to identify income categories, expense categories, and calculate m
     }),
 
     // ═══════════════════════════════════════════════════════════════════════
-    // WEB TOOLS (Tavily) - Only available if TAVILY_API_KEY is set
+    // WEB SEARCH TOOL - Wrapper approach
+    // Uses generateText internally to call native search tools
+    // This avoids the "cannot mix provider tools with custom tools" limitation
     // ═══════════════════════════════════════════════════════════════════════
 
-    ...(isTavilyConfigured()
+    ...createWebSearchTools({ provider, model, apiKey }),
+  }
+}
+
+/**
+ * Create web search tools using the wrapper approach
+ * This creates a custom tool that internally calls generateText with native search tools
+ * Works around the "cannot mix provider tools with custom tools" limitation
+ */
+function createWebSearchTools(context: {
+  provider: AIProvider
+  model: string
+  apiKey?: string
+}): Record<string, unknown> {
+  const { provider, model, apiKey } = context
+  const searchType = getSearchType(provider)
+  if (!searchType) return {}
+
+  return {
+    webSearch: tool({
+      description: `Search the web for current information.
+Use for: market data, stock prices, financial news, company info, general knowledge.
+Returns search results with relevant content from the web.`,
+      inputSchema: z.object({
+        query: z.string().describe('The search query - be specific for better results'),
+      }),
+      execute: async (params) => {
+        logger.debug(`[WebSearch] Executing search`, {
+          query: params.query,
+          type: searchType,
+          provider,
+          model,
+        })
+
+        const result = await executeWebSearch(params.query, searchType, { provider, model, apiKey })
+
+        if (result.error) {
+          logger.error(`[WebSearch] Search error:`, result.error)
+          return { error: result.error }
+        }
+
+        logger.debug(`[WebSearch] Search completed`, {
+          resultsCount: result.results.length,
+        })
+
+        return {
+          query: params.query,
+          results: result.results,
+        }
+      },
+    }),
+
+    // Keep webExtract for Tavily users (it's useful for reading full page content)
+    ...(searchType === 'tavily' && isTavilyConfigured()
       ? {
-          webSearch: tool({
-            description: `Search the web for current information.
-Use for: market data, stock prices, financial news, company info, general knowledge.`,
-            inputSchema: z.object({
-              query: z.string().describe('The search query'),
-              topic: z
-                .enum(['general', 'news', 'finance'])
-                .optional()
-                .default('general')
-                .describe('Search topic'),
-              maxResults: z.number().min(1).max(10).optional().default(5),
-              includeAnswer: z.boolean().optional().default(true),
-            }),
-            execute: async (params) => {
-              const client = getTavilyClient()
-              if (!client) {
-                return { error: 'Web search not available. TAVILY_API_KEY not configured.' }
-              }
-
-              try {
-                const response = await client.search(params.query, {
-                  topic: params.topic,
-                  maxResults: params.maxResults,
-                  includeAnswer: params.includeAnswer,
-                  searchDepth: 'basic',
-                })
-
-                return {
-                  query: response.query,
-                  answer: response.answer || null,
-                  results: response.results.map((r) => ({
-                    title: r.title,
-                    url: r.url,
-                    content: r.content,
-                    score: r.score,
-                  })),
-                }
-              } catch (error) {
-                return {
-                  error: `Web search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                }
-              }
-            },
-          }),
-
           webExtract: tool({
             description: `Extract content from URLs. Use to read full webpage content.`,
             inputSchema: z.object({

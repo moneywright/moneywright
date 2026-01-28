@@ -40,7 +40,7 @@ export interface DataSchema {
 /** Cached query with full data */
 export interface CachedQuery<T = unknown> {
   queryId: string
-  profileId: string
+  profileId: string | null
   dataType: CacheDataType
   filters: Record<string, unknown>
   count: number
@@ -153,7 +153,7 @@ export async function getQueryData<T = unknown>(queryId: string): Promise<T[] | 
  * Get query metadata (without full data) for validation
  */
 export async function getQueryMetadata(queryId: string): Promise<{
-  profileId: string
+  profileId: string | null
   dataType: CacheDataType
   count: number
   schema: DataSchema

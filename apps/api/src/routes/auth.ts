@@ -25,7 +25,7 @@ import {
   deleteUser,
 } from '../services/auth'
 import { ensureDefaultUser } from '../services/user'
-import { isDevelopment, isAuthEnabled, isLocalhost } from '../lib/startup'
+import { isAuthEnabled, isLocalhost } from '../lib/startup'
 
 const authRoutes = new Hono<{ Variables: AuthVariables }>()
 
