@@ -42,7 +42,10 @@ pub async fn check_for_updates<R: Runtime>(app: tauri::AppHandle<R>) {
 fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, new_version: &str, body: Option<&str>) {
     let notes = body.unwrap_or("Bug fixes and improvements");
     // Colors match web app's dark mode design tokens
+    // Note: Save Tauri API reference before replacing document, as innerHTML replacement loses it
     let html = format!(r#"
+        const tauriApi = window.__TAURI__;
+
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
 <html>
@@ -97,7 +100,7 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
     <div class="notes">{}</div>
     <div class="buttons">
         <button class="secondary" onclick="window.close()">Later</button>
-        <button class="primary" onclick="window.__TAURI__.core.invoke('download_update').then(() => window.close())">Update Now</button>
+        <button class="primary" onclick="tauriApi.core.invoke('download_update').then(() => window.close()).catch(e => alert('Update failed: ' + e))">Update Now</button>
     </div>
 </body>
 </html>`;

@@ -88,12 +88,21 @@ if [ -f "$TAURI_CONF" ]; then
   echo -e "  Updated: apps/desktop/src-tauri/tauri.conf.json"
 fi
 
+# Update Cargo.toml
+echo -e "${YELLOW}Updating Cargo.toml...${NC}"
+CARGO_TOML="$ROOT_DIR/apps/desktop/src-tauri/Cargo.toml"
+if [ -f "$CARGO_TOML" ]; then
+  # Update version in [package] section (first version = line)
+  sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$CARGO_TOML"
+  echo -e "  Updated: apps/desktop/src-tauri/Cargo.toml"
+fi
+
 echo -e "${GREEN}All version files updated${NC}"
 echo ""
 
 # Stage changes
 echo -e "${YELLOW}Staging changes...${NC}"
-git add package.json apps/*/package.json apps/desktop/src-tauri/tauri.conf.json
+git add package.json apps/*/package.json apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/Cargo.toml
 
 # Commit
 echo -e "${YELLOW}Creating commit...${NC}"

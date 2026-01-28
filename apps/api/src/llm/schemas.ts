@@ -221,19 +221,40 @@ export const accountInfoSchema = z.object({
 
 /**
  * Investment statement summary schema
+ * IMPORTANT: Only extract values that are EXPLICITLY PRINTED in the document.
+ * DO NOT calculate these values from individual holdings.
  */
 export const investmentStatementSummarySchema = z.object({
   total_invested: z
     .number()
     .nullable()
-    .describe('Total invested amount / cost basis, or null if not shown'),
-  total_current: z.number().nullable().describe('Total current market value, or null if not shown'),
-  total_gain_loss: z.number().nullable().describe('Total gain/loss amount, or null if not shown'),
+    .describe(
+      'Total invested amount / cost basis ONLY if explicitly printed in a summary section. DO NOT calculate from holdings. Return null if not explicitly shown.'
+    ),
+  total_current: z
+    .number()
+    .nullable()
+    .describe(
+      'Total current market value ONLY if explicitly printed in a summary section. DO NOT calculate from holdings. Return null if not explicitly shown.'
+    ),
+  total_gain_loss: z
+    .number()
+    .nullable()
+    .describe(
+      'Total gain/loss amount ONLY if explicitly printed in a summary section. DO NOT calculate. Return null if not explicitly shown.'
+    ),
   gain_loss_percent: z
     .number()
     .nullable()
-    .describe('Total gain/loss percentage, or null if not shown'),
-  holdings_count: z.number().nullable().describe('Number of holdings, or null if not shown'),
+    .describe(
+      'Total gain/loss percentage ONLY if explicitly printed in a summary section. DO NOT calculate. Return null if not explicitly shown.'
+    ),
+  holdings_count: z
+    .number()
+    .nullable()
+    .describe(
+      'Number of holdings ONLY if explicitly printed in a summary section. DO NOT count from the holdings table. Return null if not explicitly shown.'
+    ),
 })
 
 /**

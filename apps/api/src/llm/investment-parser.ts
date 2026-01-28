@@ -136,7 +136,7 @@ Determine what type of document this is:
 - Extract account identifier (Demat ID, Client ID, PAN, Folio number)
 - Extract statement date (as-of date for holdings)
 - Identify if it has holdings table and/or transaction history
-- Extract portfolio summary if shown (total invested, current value, holdings count)
+- Extract portfolio summary ONLY if explicitly printed in a summary section (total invested, current value, holdings count). DO NOT calculate these values from individual holdings. If no summary section exists, set investment_summary to null.
 - Leave bank/credit card fields as null
 
 === IMPORTANT RULES ===
@@ -227,6 +227,25 @@ ${truncatedText}
 === EXTRACTION TASK ===
 
 ${sourceHints}
+
+=== SUMMARY EXTRACTION RULES (CRITICAL) ===
+For the summary field, you MUST follow these rules strictly:
+
+1. **ONLY extract values that are EXPLICITLY PRINTED in the document** as a summary/total.
+   Look for sections labeled "Portfolio Summary", "Total Value", "Summary", etc.
+
+2. **DO NOT CALCULATE summary values** from individual holdings.
+   If the document shows 45 holdings but no total value printed, return null for total_current.
+
+3. **Return null for any summary field not explicitly shown.**
+   - If no "Total Invested" or "Cost Basis" is printed → total_invested: null
+   - If no "Current Value" or "Market Value" total is printed → total_current: null
+   - If no "Gain/Loss" total is printed → total_gain_loss: null
+   - If no "Total Holdings" count is printed → holdings_count: null
+
+4. **If the document has NO summary section at all**, return summary: null
+
+The summary is used for validation. Invented/calculated values will cause parsing failures.
 
 === IMPORTANT RULES ===
 - Extract the EXACT account identifier as shown in the document

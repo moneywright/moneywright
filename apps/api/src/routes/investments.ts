@@ -258,7 +258,7 @@ const createHoldingSchema = z.object({
   sourceId: z.string().optional().nullable(),
   investmentType: z.string().min(1, 'Investment type is required'),
   name: z.string().min(1, 'Name is required'),
-  units: z.number().positive('Units must be positive'),
+  units: z.number().positive('Units must be positive').optional().nullable(),
   currentValue: z.number().min(0, 'Current value must be non-negative'),
   currency: z.string().length(3, 'Currency must be 3 characters'),
   asOfDate: z.string().min(1, 'As of date is required'),
@@ -275,7 +275,7 @@ const createHoldingSchema = z.object({
 const updateHoldingSchema = z.object({
   investmentType: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
-  units: z.number().positive().optional(),
+  units: z.number().positive().optional().nullable(),
   currentValue: z.number().min(0).optional(),
   currency: z.string().length(3).optional(),
   asOfDate: z.string().min(1).optional(),
