@@ -7,13 +7,18 @@ import { generateText } from 'ai'
 import { logger } from '../lib/logger'
 import { AI_PROVIDERS } from '../lib/ai'
 import { listCachedBanks, clearParserCache, getParserCodes } from '../lib/pdf'
+import {
+  getOllamaCustomModels,
+  addOllamaCustomModel,
+  removeOllamaCustomModel,
+} from '../services/preferences'
 
 const llmRoutes = new Hono<{ Variables: AuthVariables }>()
 
 // Apply auth to all routes
 llmRoutes.use('*', auth())
 
-const LLM_PROVIDERS = ['openai', 'anthropic', 'google', 'ollama', 'vercel'] as const
+const LLM_PROVIDERS = ['openai', 'anthropic', 'google', 'vercel', 'ollama'] as const
 
 /**
  * Update LLM settings request schema
@@ -89,20 +94,37 @@ llmRoutes.put('/settings', async (c) => {
  * Get available providers and their models
  */
 llmRoutes.get('/providers', async (c) => {
+  const userId = c.get('userId')
   const settings = await getLLMSettings()
 
-  const providers = AI_PROVIDERS.map((providerConfig) => ({
-    code: providerConfig.id,
-    label: providerConfig.name,
-    models: providerConfig.models,
-    requiresApiKey: providerConfig.id !== 'ollama',
-    isConfigured:
-      (providerConfig.id === 'openai' && !!settings.openaiApiKey) ||
-      (providerConfig.id === 'anthropic' && !!settings.anthropicApiKey) ||
-      (providerConfig.id === 'google' && !!settings.googleAiApiKey) ||
-      (providerConfig.id === 'ollama' && !!settings.ollamaBaseUrl) ||
-      (providerConfig.id === 'vercel' && !!settings.vercelApiKey),
-  }))
+  // Get custom Ollama models for this user
+  const ollamaCustomModels = await getOllamaCustomModels(userId)
+
+  const providers = AI_PROVIDERS.map((providerConfig) => {
+    // For Ollama, use custom models from preferences
+    const models =
+      providerConfig.id === 'ollama'
+        ? ollamaCustomModels.map((m) => ({
+            id: m.id,
+            name: m.name,
+            supportsParsing: true,
+            supportsThinking: m.supportsThinking,
+          }))
+        : providerConfig.models
+
+    return {
+      code: providerConfig.id,
+      label: providerConfig.name,
+      models,
+      requiresApiKey: providerConfig.id !== 'ollama',
+      isConfigured:
+        (providerConfig.id === 'openai' && !!settings.openaiApiKey) ||
+        (providerConfig.id === 'anthropic' && !!settings.anthropicApiKey) ||
+        (providerConfig.id === 'google' && !!settings.googleAiApiKey) ||
+        (providerConfig.id === 'ollama' && !!settings.ollamaBaseUrl) ||
+        (providerConfig.id === 'vercel' && !!settings.vercelApiKey),
+    }
+  })
 
   return c.json({ providers })
 })
@@ -224,6 +246,60 @@ llmRoutes.post('/test', async (c) => {
       400
     )
   }
+})
+
+/**
+ * Ollama model schema
+ */
+const ollamaModelSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  supportsThinking: z.boolean().optional(),
+})
+
+/**
+ * GET /llm/ollama/models
+ * Get custom Ollama models for the current user
+ */
+llmRoutes.get('/ollama/models', async (c) => {
+  const userId = c.get('userId')
+  const models = await getOllamaCustomModels(userId)
+  return c.json({ models })
+})
+
+/**
+ * POST /llm/ollama/models
+ * Add or update a custom Ollama model
+ */
+llmRoutes.post('/ollama/models', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({}))
+
+  const result = ollamaModelSchema.safeParse(body)
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'validation_error',
+        message: result.error.issues[0]?.message || 'Invalid model data',
+      },
+      400
+    )
+  }
+
+  const models = await addOllamaCustomModel(userId, result.data)
+  return c.json({ models })
+})
+
+/**
+ * DELETE /llm/ollama/models/:modelId
+ * Remove a custom Ollama model
+ */
+llmRoutes.delete('/ollama/models/:modelId', async (c) => {
+  const userId = c.get('userId')
+  const modelId = c.req.param('modelId')
+
+  const models = await removeOllamaCustomModel(userId, modelId)
+  return c.json({ models })
 })
 
 /**

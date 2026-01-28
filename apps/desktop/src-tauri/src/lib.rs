@@ -4,13 +4,15 @@ mod server;
 mod updater;
 
 use server::{create_server_manager, get_server_url, start_server, stop_server, kill_process_on_port, SERVER_PORT, ServerStatus, SharedServerManager};
+use updater::{check_for_updates, download_and_install};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-const APP_VERSION: &str = "v0.1.0";
+// Version is read from Cargo.toml at compile time
+const APP_VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
 const MAX_LOG_LINES: usize = 1000;
 
 #[derive(Clone, Serialize)]
@@ -168,6 +170,12 @@ async fn open_browser_cmd(app: AppHandle) -> Result<(), String> {
     open::that(&url).map_err(|e| format!("Failed to open browser: {}", e))
 }
 
+/// Open any URL in the default browser
+#[tauri::command]
+async fn open_url(url: String) -> Result<(), String> {
+    open::that(&url).map_err(|e| format!("Failed to open URL: {}", e))
+}
+
 /// Get backend logs
 #[tauri::command]
 async fn get_logs(log_store: tauri::State<'_, SharedLogStore>) -> Result<Vec<String>, String> {
@@ -188,12 +196,19 @@ async fn clear_logs(log_store: tauri::State<'_, SharedLogStore>) -> Result<(), S
 async fn quit_app_cmd(app: AppHandle) -> Result<(), String> {
     emit_log(&app, "Shutting down...", "info");
 
-    // Kill server process synchronously
+    // Kill server process synchronously (only in release mode)
+    #[cfg(not(debug_assertions))]
     let _ = kill_process_on_port(SERVER_PORT);
 
     // Exit the app
     app.exit(0);
     Ok(())
+}
+
+/// Download and install update
+#[tauri::command]
+async fn download_update(app: AppHandle) -> Result<(), String> {
+    download_and_install(app).await
 }
 
 /// Open the logs window
@@ -337,8 +352,183 @@ fn open_logs_window(app: &AppHandle) {
 fn refresh_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let url = get_server_url();
+        // Using Tauri's webview eval API to navigate - this is safe as we control the URL
         let _ = window.eval(&format!("window.location.href = '{}'", url));
     }
+}
+
+/// Open the about window
+fn open_about_window(app: &AppHandle) {
+    // Check if window already exists
+    if let Some(window) = app.get_webview_window("about") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let window = WebviewWindowBuilder::new(
+        app,
+        "about",
+        WebviewUrl::App("/".into()),
+    )
+    .title("About Moneywright")
+    .inner_size(400.0, 380.0)
+    .resizable(false)
+    .maximizable(false)
+    .minimizable(false)
+    .build();
+
+    if let Ok(win) = window {
+        let version = APP_VERSION;
+        // Use correct port for logo: 3000 in dev, 17777 in production
+        #[cfg(debug_assertions)]
+        let logo_url = "http://localhost:3000/logo.png";
+        #[cfg(not(debug_assertions))]
+        let logo_url = "http://localhost:17777/logo.png";
+
+        // Injecting static HTML into our own about window using Tauri's webview eval API
+        // Colors match web app's dark mode design tokens from index.css
+        // Links use data-url attributes and JavaScript click handlers to open in browser via Tauri command
+        let about_html = format!(r#"
+            // Save Tauri API reference before replacing document
+            const tauriApi = window.__TAURI__;
+
+            document.documentElement.innerHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>About Moneywright</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Outfit:wght@500;600&display=swap');
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #030303;
+            color: #fafafa;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 32px;
+            user-select: none;
+            -webkit-user-select: none;
+        }}
+        .logo-container {{
+            position: relative;
+            margin-bottom: 20px;
+        }}
+        .logo-glow {{
+            position: absolute;
+            inset: -8px;
+            background: rgba(16, 185, 129, 0.2);
+            border-radius: 24px;
+            filter: blur(16px);
+        }}
+        .logo {{
+            position: relative;
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+        }}
+        h1 {{
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }}
+        .version {{
+            font-size: 13px;
+            color: #10b981;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }}
+        .description {{
+            font-size: 13px;
+            color: #71717a;
+            line-height: 1.6;
+            max-width: 280px;
+            margin-bottom: 24px;
+        }}
+        .links {{
+            display: flex;
+            gap: 20px;
+        }}
+        .links a {{
+            font-size: 13px;
+            font-weight: 500;
+            color: #a1a1aa;
+            text-decoration: none;
+            transition: color 0.15s ease;
+            cursor: pointer;
+        }}
+        .links a:hover {{
+            color: #10b981;
+        }}
+        .license {{
+            margin-top: 24px;
+            font-size: 11px;
+            color: #52525b;
+        }}
+        .license a {{
+            color: #71717a;
+            text-decoration: none;
+            cursor: pointer;
+        }}
+        .license a:hover {{
+            color: #10b981;
+        }}
+    </style>
+</head>
+<body>
+    <div class="logo-container">
+        <div class="logo-glow"></div>
+        <img src="{}" class="logo" onerror="this.parentElement.style.display='none'" />
+    </div>
+    <h1>Moneywright</h1>
+    <div class="version">{1}</div>
+    <div class="description">
+        Private, AI-Powered Personal Finance Manager
+    </div>
+    <div class="links">
+        <a data-url="https://moneywright.com">Website</a>
+        <a data-url="https://github.com/moneywright/moneywright">GitHub</a>
+        <a data-url="https://moneywright.com/docs">Docs</a>
+    </div>
+    <div class="license">Open Source · <a data-url="https://github.com/moneywright/moneywright/blob/main/LICENSE">AGPL-3.0</a></div>
+</body>
+</html>`;
+
+            // Attach click handlers to all links with data-url attribute
+            document.querySelectorAll('a[data-url]').forEach(link => {{
+                link.addEventListener('click', (e) => {{
+                    e.preventDefault();
+                    const url = link.getAttribute('data-url');
+                    if (url && tauriApi) {{
+                        tauriApi.core.invoke('open_url', {{ url: url }});
+                    }}
+                }});
+            }});
+        "#, logo_url, version);
+
+        let win_clone = win.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            // Using Tauri's webview eval API to inject static HTML - safe as content is hardcoded
+            let _ = win_clone.eval(&about_html);
+        });
+    }
+}
+
+/// Check for updates and show result
+fn trigger_update_check(app: &AppHandle) {
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        check_for_updates(app_clone).await;
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -353,14 +543,17 @@ pub fn run() {
             stop_server_cmd,
             restart_server_cmd,
             open_browser_cmd,
+            open_url,
             get_logs,
             clear_logs,
             quit_app_cmd,
+            download_update,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
 
             // Create log store
+            #[allow(unused_variables)]
             let log_store: SharedLogStore = Arc::new(Mutex::new(LogStore::new()));
             app.manage(log_store.clone());
 
@@ -371,20 +564,32 @@ pub fn run() {
             // Setup menu
             setup_menu(&handle)?;
 
-            // Start server synchronously before window loads
-            let manager = server_manager.clone();
-            let app_handle = handle.clone();
+            // In debug/dev mode, skip starting sidecar - use external dev servers
+            // Run `bun run dev` separately to start API (17777) and Web (3000)
+            #[cfg(debug_assertions)]
+            {
+                println!("Dev mode: Skipping sidecar startup. Make sure `bun run dev` is running.");
+                println!("  - API: http://localhost:17777");
+                println!("  - Web: http://localhost:3000");
+            }
 
-            tauri::async_runtime::block_on(async move {
-                match start_server(app_handle.clone(), manager, log_store).await {
-                    Ok(_) => {
-                        println!("Server started successfully at {}", get_server_url());
+            // In release mode, start the sidecar server
+            #[cfg(not(debug_assertions))]
+            {
+                let manager = server_manager.clone();
+                let app_handle = handle.clone();
+
+                tauri::async_runtime::block_on(async move {
+                    match start_server(app_handle.clone(), manager, log_store).await {
+                        Ok(_) => {
+                            println!("Server started successfully at {}", get_server_url());
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to start server: {}", e);
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("Failed to start server: {}", e);
-                    }
-                }
-            });
+                });
+            }
 
             Ok(())
         })
@@ -400,7 +605,8 @@ pub fn run() {
                     }
                     #[cfg(not(target_os = "macos"))]
                     {
-                        // Windows/Linux: Quit app and kill server
+                        // Windows/Linux: Quit app and kill server (only in release mode)
+                        #[cfg(not(debug_assertions))]
                         let _ = kill_process_on_port(SERVER_PORT);
                         window.app_handle().exit(0);
                     }
@@ -409,13 +615,16 @@ pub fn run() {
         })
         .on_menu_event(|app, event| {
             match event.id().as_ref() {
+                "about" => open_about_window(app),
+                "check_updates" => trigger_update_check(app),
                 "refresh" => refresh_main_window(app),
                 "open_browser" => {
                     let _ = open::that(get_server_url());
                 }
                 "logs" => open_logs_window(app),
                 "quit" => {
-                    // Kill server process synchronously before exit
+                    // Kill server process synchronously before exit (only in release mode)
+                    #[cfg(not(debug_assertions))]
                     let _ = kill_process_on_port(SERVER_PORT);
                     app.exit(0);
                 }
@@ -437,6 +646,8 @@ pub fn run() {
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
                     // Kill server process synchronously - this is critical for cleanup
                     // We use the direct kill approach because async may not complete before termination
+                    // Only in release mode - don't kill dev servers
+                    #[cfg(not(debug_assertions))]
                     let _ = kill_process_on_port(SERVER_PORT);
                 }
                 _ => {}
@@ -447,6 +658,7 @@ pub fn run() {
 fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // App submenu (macOS)
     let about = MenuItem::with_id(app, "about", "About Moneywright", true, None::<&str>)?;
+    let check_updates = MenuItem::with_id(app, "check_updates", "Check for Updates...", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Moneywright", true, Some("CmdOrCtrl+Q"))?;
 
     let app_menu = Submenu::with_items(
@@ -455,6 +667,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         true,
         &[
             &about,
+            &check_updates,
             &PredefinedMenuItem::separator(app)?,
             &quit,
         ],

@@ -16,6 +16,7 @@ import {
   AccountSection,
   SessionsSection,
   DangerZoneSection,
+  AboutSection,
 } from '@/components/settings'
 
 export const Route = createFileRoute('/settings')({
@@ -72,14 +73,17 @@ function SettingsPage() {
         {/* Profiles Section */}
         <ProfilesSection profiles={profiles} />
 
-        {/* Account Section */}
-        <AccountSection user={user} />
+        {/* Account Section - only show when auth is enabled */}
+        {authEnabled && <AccountSection user={user} />}
 
         {/* Sessions - only show when auth is enabled */}
         {authEnabled && <SessionsSection sessions={sessions} isLoading={sessionsLoading} />}
 
         {/* Danger Zone - only show when auth is enabled */}
         {authEnabled && <DangerZoneSection onLogout={logout} />}
+
+        {/* About Section */}
+        <AboutSection />
       </div>
     </AppLayout>
   )

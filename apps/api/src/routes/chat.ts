@@ -33,6 +33,7 @@ import {
   clearConversation,
   deleteConversation,
   toStoredMessages,
+  generateConversationTitle,
 } from '../services/chat'
 import { getQueryData, getQueryMetadata } from '../services/chat/query-cache'
 
@@ -302,6 +303,13 @@ chat.post('/conversations/:id/messages', async (c) => {
     provider,
     model,
   })
+
+  // Generate title asynchronously (fire and forget) if conversation doesn't have one
+  if (!conversation.title) {
+    generateConversationTitle(conversationId, userId, content, `${provider}:${model}`).catch(
+      () => {}
+    ) // Ignore errors - title generation is non-critical
+  }
 
   // Get profile(s) for context
   // If family view (profileId is null), get all profiles

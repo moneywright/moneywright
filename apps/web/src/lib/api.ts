@@ -388,6 +388,39 @@ export async function testLLMConnection(params: {
   return response.data
 }
 
+/**
+ * Ollama custom model
+ */
+export interface OllamaModel {
+  id: string
+  name: string
+  supportsThinking?: boolean
+}
+
+/**
+ * Get custom Ollama models
+ */
+export async function getOllamaModels(): Promise<OllamaModel[]> {
+  const response = await api.get('/llm/ollama/models')
+  return response.data.models
+}
+
+/**
+ * Add or update a custom Ollama model
+ */
+export async function addOllamaModel(model: OllamaModel): Promise<OllamaModel[]> {
+  const response = await api.post('/llm/ollama/models', model)
+  return response.data.models
+}
+
+/**
+ * Remove a custom Ollama model
+ */
+export async function removeOllamaModel(modelId: string): Promise<OllamaModel[]> {
+  const response = await api.delete(`/llm/ollama/models/${encodeURIComponent(modelId)}`)
+  return response.data.models
+}
+
 // ============================================
 // Accounts API
 // ============================================

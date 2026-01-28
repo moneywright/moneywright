@@ -16,11 +16,13 @@ import {
   Sparkles,
   MessageSquare,
   Layers,
+  Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { AuthLayout, type AuthStep } from '@/components/auth/auth-layout'
 import { PROVIDER_LOGOS, INVERTED_LOGO_PROVIDERS } from '@/lib/provider-logos'
+import { OllamaModelsModal } from '@/components/settings'
 
 export const Route = createFileRoute('/setup')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -44,6 +46,7 @@ function SetupPage() {
 
   // UI state
   const [error, setError] = useState<string | null>(null)
+  const [showOllamaModelsModal, setShowOllamaModelsModal] = useState(false)
 
   // Fetch setup status (includes providers with isConfigured status)
   const { data: setupStatus, isLoading: statusLoading } = useQuery({
@@ -68,6 +71,9 @@ function SetupPage() {
 
   // Check if any provider is configured
   const hasAnyConfiguredProvider = providers?.some((p) => isProviderConfigured(p.id)) ?? false
+
+  // Get Ollama models
+  const ollamaModels = providers?.find((p) => p.id === 'ollama')?.models || []
 
   // Handle provider click - toggle expand/collapse
   const handleProviderClick = (providerId: string) => {
@@ -394,15 +400,43 @@ function SetupPage() {
 
                   {/* Ollama Base URL */}
                   {expandedProvider === 'ollama' && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-400">Ollama Base URL</label>
-                      <Input
-                        type="text"
-                        value={ollamaBaseUrl}
-                        onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                        placeholder="http://localhost:11434/api"
-                        className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                      />
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-400">Ollama Base URL</label>
+                        <Input
+                          type="text"
+                          value={ollamaBaseUrl}
+                          onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                          placeholder="http://localhost:11434/api"
+                          className="h-11 px-4 rounded-xl bg-zinc-900/50 border-zinc-800/80 text-white placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                        />
+                      </div>
+
+                      {/* Ollama Models - show when configured */}
+                      {isProviderConfigured('ollama') && (
+                        <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-zinc-900/50 border border-zinc-800/80">
+                          <span className="text-sm text-zinc-400">
+                            {ollamaModels.length === 0
+                              ? '0 models'
+                              : ollamaModels.length === 1
+                                ? '1 model'
+                                : `${ollamaModels.length} models`}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-zinc-400 hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowOllamaModelsModal(true)
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Model
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -493,6 +527,13 @@ function SetupPage() {
           </motion.p>
         </div>
       </motion.div>
+
+      {/* Ollama Models Modal */}
+      <OllamaModelsModal
+        open={showOllamaModelsModal}
+        onOpenChange={setShowOllamaModelsModal}
+        models={ollamaModels}
+      />
     </AuthLayout>
   )
 }

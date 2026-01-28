@@ -5,7 +5,7 @@
 /**
  * LLM Providers
  */
-export const LLM_PROVIDERS = ['openai', 'anthropic', 'google', 'ollama', 'vercel'] as const
+export const LLM_PROVIDERS = ['openai', 'anthropic', 'google', 'vercel', 'ollama'] as const
 export type LLMProvider = (typeof LLM_PROVIDERS)[number]
 
 /**
@@ -128,25 +128,6 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     ],
   },
   {
-    id: 'ollama',
-    name: 'Ollama (Local)',
-    models: [
-      {
-        id: 'llama3.2',
-        name: 'Llama 3.2',
-        supportsParsing: true,
-        recommendedForParsing: true,
-        recommendedForCategorization: true,
-        recommendedForChat: true,
-      },
-      { id: 'llama3.1', name: 'Llama 3.1', supportsParsing: true },
-      { id: 'mixtral', name: 'Mixtral', supportsParsing: true },
-      { id: 'qwen2.5', name: 'Qwen 2.5', supportsParsing: true },
-      { id: 'mistral', name: 'Mistral', recommendedForCategorization: true },
-      { id: 'phi3', name: 'Phi-3' },
-    ],
-  },
-  {
     id: 'vercel',
     name: 'Vercel AI Gateway',
     models: [
@@ -214,22 +195,26 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         id: 'xai/grok-4.1-fast-non-reasoning',
         name: 'Grok 4.1 Fast',
       },
-      // Minimax models via Gateway (reasoning is built-in)
+      // Other models via Gateway
       {
-        id: 'minimax/minimax-m2.1',
-        name: 'Minimax M2.1',
+        id: 'zai/glm-4.7',
+        name: 'GLM 4.7',
         supportsParsing: true,
         supportsThinking: true,
-        reasoningBuiltIn: true,
       },
       {
-        id: 'minimax/minimax-m2',
-        name: 'Minimax M2',
+        id: 'moonshotai/kimi-k2.5',
+        name: 'Kimi K2.5',
         supportsParsing: true,
         supportsThinking: true,
-        reasoningBuiltIn: true,
       },
     ],
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama (Local)',
+    // Models are user-defined and stored in preferences
+    models: [],
   },
 ]
 

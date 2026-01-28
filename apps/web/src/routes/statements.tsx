@@ -162,12 +162,6 @@ function StatementsPage() {
           description="Upload and manage your financial statements"
           actions={
             <>
-              <ProfileSelector
-                selectedProfileId={selectorProfileId}
-                onProfileChange={handleProfileChange}
-                showFamilyView={showFamilyView}
-                onFamilyViewChange={handleFamilyViewChange}
-              />
               <Button
                 onClick={() => setShowUploadDialog(true)}
                 disabled={showFamilyView}
@@ -176,6 +170,12 @@ function StatementsPage() {
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Statement
               </Button>
+              <ProfileSelector
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
+              />
             </>
           }
         />

@@ -377,12 +377,12 @@ function ChatPage() {
               description="Your wise financial companion"
               actions={
                 <>
-                  <ProfileSelector
-                    selectedProfileId={selectorProfileId}
-                    onProfileChange={handleProfileChange}
-                    showFamilyView={showFamilyView}
-                    onFamilyViewChange={handleFamilyViewChange}
-                  />
+                  {!isNewChat && (
+                    <Button variant="outline" onClick={handleNewChat}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Chat
+                    </Button>
+                  )}
                   <ConversationHistory
                     open={historyOpen}
                     onOpenChange={setHistoryOpen}
@@ -392,12 +392,12 @@ function ChatPage() {
                     onSelectConversation={handleSelectConversation}
                     onDeleteConversation={handleDeleteConversation}
                   />
-                  {!isNewChat && (
-                    <Button variant="outline" onClick={handleNewChat}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      New Chat
-                    </Button>
-                  )}
+                  <ProfileSelector
+                    selectedProfileId={selectorProfileId}
+                    onProfileChange={handleProfileChange}
+                    showFamilyView={showFamilyView}
+                    onFamilyViewChange={handleFamilyViewChange}
+                  />
                 </>
               }
             />
@@ -420,12 +420,6 @@ function ChatPage() {
           <div className="pb-48">
             {/* Minimal header for welcome state */}
             <div className="flex items-center justify-end gap-2 mb-4">
-              <ProfileSelector
-                selectedProfileId={selectorProfileId}
-                onProfileChange={handleProfileChange}
-                showFamilyView={showFamilyView}
-                onFamilyViewChange={handleFamilyViewChange}
-              />
               <ConversationHistory
                 open={historyOpen}
                 onOpenChange={setHistoryOpen}
@@ -434,6 +428,12 @@ function ChatPage() {
                 currentConversationId={urlConversationId}
                 onSelectConversation={handleSelectConversation}
                 onDeleteConversation={handleDeleteConversation}
+              />
+              <ProfileSelector
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
               />
             </div>
             <ChatWelcome onSelectPrompt={handleSelectPrompt} />

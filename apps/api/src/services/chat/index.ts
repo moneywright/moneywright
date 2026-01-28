@@ -35,6 +35,7 @@ export {
   getOrCreateConversation,
   getConversation,
   updateConversationTitle,
+  generateConversationTitle,
   getConversationMessages,
   addMessage,
   updateMessage,

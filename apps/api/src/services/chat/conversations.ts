@@ -8,8 +8,10 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, tables, dbType } from '../../db'
 import type { ChatConversation, ChatMessage, NewChatMessage } from '../../db'
 import { nanoid } from '../../lib/id'
+import { createLLMClientFromSettings } from '../../llm'
+import { generateText } from 'ai'
+import { logger } from '../../lib/logger'
 import type { StoredMessage } from './types'
-
 /**
  * Conversation response type
  */
@@ -205,6 +207,54 @@ export async function updateConversationTitle(
   }
 
   return toConversationResponse(updated)
+}
+
+/**
+ * Generate a short title for a conversation based on the first message
+ * This runs asynchronously and doesn't block the response
+ *
+ * @param conversationId - Conversation to update
+ * @param userId - User ID for verification
+ * @param userMessage - First message to generate title from
+ * @param modelOverride - Model in format "provider:model" (e.g., "openai:gpt-4o")
+ */
+export async function generateConversationTitle(
+  conversationId: string,
+  userId: string,
+  userMessage: string,
+  modelOverride?: string
+): Promise<void> {
+  try {
+    // Check if conversation already has a title
+    const conversation = await getConversation(conversationId, userId)
+    if (!conversation || conversation.title) {
+      return // Already has a title or doesn't exist
+    }
+
+    const model = await createLLMClientFromSettings(modelOverride)
+
+    const { text } = await generateText({
+      model,
+      prompt: `Generate a very short title (3-5 words max) for a conversation that starts with this message. Return ONLY the title, no quotes, no punctuation at the end, no explanation.
+
+Message: "${userMessage.slice(0, 200)}"
+
+Title:`,
+    })
+
+    const title = text
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .replace(/[.!?]$/, '')
+
+    if (title && title.length > 0 && title.length < 100) {
+      await updateConversationTitle(conversationId, userId, title)
+      logger.debug(`[Chat] Generated title for conversation ${conversationId}: "${title}"`)
+    }
+  } catch (error) {
+    // Don't throw - title generation is non-critical
+    logger.error('[Chat] Failed to generate conversation title:', error)
+  }
 }
 
 /**

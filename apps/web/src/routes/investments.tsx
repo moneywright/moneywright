@@ -233,12 +233,6 @@ function InvestmentsPage() {
                   )}
                 </div>
               )}
-              <ProfileSelector
-                selectedProfileId={selectorProfileId}
-                onProfileChange={handleProfileChange}
-                showFamilyView={showFamilyView}
-                onFamilyViewChange={handleFamilyViewChange}
-              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="gap-2">
@@ -259,6 +253,12 @@ function InvestmentsPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <ProfileSelector
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
+              />
             </>
           }
         />

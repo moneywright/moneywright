@@ -11,8 +11,10 @@ export { ProfilesSection } from './profiles-section'
 export { AccountSection } from './account-section'
 export { SessionsSection } from './sessions-section'
 export { DangerZoneSection } from './danger-zone-section'
+export { AboutSection } from './about-section'
 
 // Individual components
 export { ProviderCard } from './provider-card'
 export { ProfileCard } from './profile-card'
 export { ProfileModal } from './profile-modal'
+export { OllamaModelsModal } from './ollama-models-modal'

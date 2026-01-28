@@ -5,7 +5,7 @@
   "identifier": "com.moneywright.desktop",
   "build": {
     "frontendDist": "http://localhost:17777",
-    "devUrl": "http://localhost:17777",
+    "devUrl": "http://localhost:3000",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },

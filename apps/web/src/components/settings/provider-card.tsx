@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Loader2, Eye, EyeOff, Zap, Pencil, MoreVertical, Trash2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Zap, Pencil, MoreVertical, Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { updateLLMSettings, testLLMConnection } from '@/lib/api'
@@ -24,6 +24,7 @@ import {
   type LLMSettings,
   type LLMProviders,
 } from './types'
+import { OllamaModelsModal } from './ollama-models-modal'
 
 interface ProviderCardProps {
   code: string
@@ -36,8 +37,11 @@ export function ProviderCard({ code, settings, providers }: ProviderCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [showKey, setShowKey] = useState(false)
-  const [ollamaUrl, setOllamaUrl] = useState(settings?.ollamaBaseUrl || '')
+  const [ollamaUrl, setOllamaUrl] = useState(
+    settings?.ollamaBaseUrl || 'http://localhost:11434/api'
+  )
   const [isTesting, setIsTesting] = useState(false)
+  const [showModelsModal, setShowModelsModal] = useState(false)
 
   // Update mutation
   const updateMutation = useMutation({
@@ -82,6 +86,10 @@ export function ProviderCard({ code, settings, providers }: ProviderCardProps) {
     if (code === 'vercel') return !!settings?.hasVercelApiKey
     return false
   })()
+
+  // Get Ollama models from providers
+  const ollamaModels =
+    code === 'ollama' ? providers?.find((p) => p.code === 'ollama')?.models || [] : []
 
   const handleSave = () => {
     const data: Parameters<typeof updateLLMSettings>[0] = {}
@@ -188,12 +196,36 @@ export function ProviderCard({ code, settings, providers }: ProviderCardProps) {
       {/* Content */}
       <div className="p-4 pt-3">
         {isConfigured && !showForm ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="text-xs text-muted-foreground">Connected</span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-xs text-muted-foreground">Connected</span>
+              </div>
+              {isTesting && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
-            {isTesting && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+
+            {/* Ollama Models - compact view */}
+            {code === 'ollama' && (
+              <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+                <span className="text-xs text-muted-foreground">
+                  {ollamaModels.length === 0
+                    ? '0 models'
+                    : ollamaModels.length === 1
+                      ? '1 model'
+                      : `${ollamaModels.length} models`}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => setShowModelsModal(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -240,12 +272,27 @@ export function ProviderCard({ code, settings, providers }: ProviderCardProps) {
                 onClick={handleSave}
                 disabled={updateMutation.isPending || (code !== 'ollama' && !apiKeyInput)}
               >
-                {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                {updateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isConfigured ? (
+                  'Save'
+                ) : (
+                  'Enable'
+                )}
               </Button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Ollama Models Modal */}
+      {code === 'ollama' && (
+        <OllamaModelsModal
+          open={showModelsModal}
+          onOpenChange={setShowModelsModal}
+          models={ollamaModels}
+        />
+      )}
     </div>
   )
 }

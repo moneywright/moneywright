@@ -9,7 +9,17 @@ export const PREFERENCE_KEYS = {
   DASHBOARD_CHART_TIMEFRAME: 'dashboard.chart_timeframe',
   INCOME_EXPENSES_EXCLUDED_CATEGORIES: 'dashboard.income_expenses.excluded_categories',
   SPENDING_BY_CATEGORY_EXCLUDED_CATEGORIES: 'dashboard.spending_by_category.excluded_categories',
+  OLLAMA_CUSTOM_MODELS: 'llm.ollama_custom_models',
 } as const
+
+/**
+ * Ollama custom model definition
+ */
+export interface OllamaCustomModel {
+  id: string
+  name: string
+  supportsThinking?: boolean
+}
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS]
 
@@ -206,4 +216,64 @@ export async function setDashboardExcludedCategories(
     JSON.stringify(categories),
     profileId
   )
+}
+
+/**
+ * Helper: Get custom Ollama models for user
+ */
+export async function getOllamaCustomModels(userId: string): Promise<OllamaCustomModel[]> {
+  const value = await getPreference(userId, PREFERENCE_KEYS.OLLAMA_CUSTOM_MODELS, null)
+  if (!value) return []
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Helper: Set custom Ollama models for user
+ */
+export async function setOllamaCustomModels(
+  userId: string,
+  models: OllamaCustomModel[]
+): Promise<void> {
+  await setPreference(userId, PREFERENCE_KEYS.OLLAMA_CUSTOM_MODELS, JSON.stringify(models), null)
+}
+
+/**
+ * Helper: Add a custom Ollama model
+ */
+export async function addOllamaCustomModel(
+  userId: string,
+  model: OllamaCustomModel
+): Promise<OllamaCustomModel[]> {
+  const models = await getOllamaCustomModels(userId)
+
+  // Check if model with same ID already exists
+  const existingIndex = models.findIndex((m) => m.id === model.id)
+  if (existingIndex >= 0) {
+    // Update existing
+    models[existingIndex] = model
+  } else {
+    // Add new
+    models.push(model)
+  }
+
+  await setOllamaCustomModels(userId, models)
+  return models
+}
+
+/**
+ * Helper: Remove a custom Ollama model
+ */
+export async function removeOllamaCustomModel(
+  userId: string,
+  modelId: string
+): Promise<OllamaCustomModel[]> {
+  const models = await getOllamaCustomModels(userId)
+  const filtered = models.filter((m) => m.id !== modelId)
+  await setOllamaCustomModels(userId, filtered)
+  return filtered
 }

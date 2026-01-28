@@ -270,6 +270,10 @@ export function useChatStream(conversationId: string | undefined, profileId: str
                 }))
                 // Invalidate conversation to refresh messages
                 queryClient.invalidateQueries({ queryKey: ['conversation', profileId] })
+                // Refetch conversations after a delay to pick up generated title
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ['conversations'] })
+                }, 3000)
                 break
 
               case 'error':
