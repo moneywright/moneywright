@@ -2,7 +2,17 @@
  * Tool configuration for icons and labels
  */
 
-import { Search, Wallet, TrendingUp, Receipt, Building2, Repeat, Tag, Code2 } from 'lucide-react'
+import {
+  Search,
+  Wallet,
+  TrendingUp,
+  Receipt,
+  Building2,
+  Repeat,
+  Tag,
+  Code2,
+  Shield,
+} from 'lucide-react'
 
 // Tool config for icons and labels (pending = in progress, completed = done)
 export const TOOL_CONFIG: Record<
@@ -64,6 +74,18 @@ export const TOOL_CONFIG: Record<
     icon: Wallet,
     pending: 'Calculating net worth',
     completed: 'Calculated net worth',
+  },
+
+  // Insurance tools
+  getInsurancePolicies: {
+    icon: Shield,
+    pending: 'Fetching insurance policies',
+    completed: 'Fetched insurance policies',
+  },
+  getInsurancePolicyDetails: {
+    icon: Shield,
+    pending: 'Loading policy details',
+    completed: 'Loaded policy details',
   },
 
   // Code execution

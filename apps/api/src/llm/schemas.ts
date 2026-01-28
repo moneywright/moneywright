@@ -580,6 +580,149 @@ export const investmentMetadataSchema = z.object({
 export type InvestmentMetadata = z.infer<typeof investmentMetadataSchema>
 
 // ============================================================================
+// Insurance Policy Extraction Schemas
+// ============================================================================
+
+/**
+ * Insurance policy types
+ */
+export const insurancePolicyTypes = [
+  'life_insurance',
+  'health_insurance',
+  'vehicle_insurance',
+] as const
+
+export type InsurancePolicyType = (typeof insurancePolicyTypes)[number]
+
+/**
+ * Premium frequency options
+ */
+export const premiumFrequencies = ['monthly', 'quarterly', 'half_yearly', 'yearly'] as const
+
+export type PremiumFrequency = (typeof premiumFrequencies)[number]
+
+/**
+ * Life insurance specific details schema
+ */
+export const lifeInsuranceDetailsSchema = z.object({
+  life_insurance_type: z
+    .enum(['term', 'whole_life', 'endowment', 'ulip', 'other'])
+    .nullable()
+    .describe('Type of life insurance policy'),
+  nominee_name: z.string().nullable().describe('Name of the nominee'),
+  nominee_relation: z.string().nullable().describe('Relationship with the nominee'),
+  death_benefit: z.number().nullable().describe('Death benefit amount'),
+  maturity_benefit: z.number().nullable().describe('Maturity benefit amount, if applicable'),
+  rider_details: z
+    .array(z.string())
+    .nullable()
+    .describe(
+      'List of additional riders (e.g., "Critical Illness Rider", "Accidental Death Benefit")'
+    ),
+})
+
+/**
+ * Health insurance specific details schema
+ */
+export const healthInsuranceDetailsSchema = z.object({
+  health_insurance_type: z
+    .enum(['individual', 'family_floater', 'group', 'critical_illness'])
+    .nullable()
+    .describe('Type of health insurance policy'),
+  covered_members: z
+    .array(
+      z.object({
+        name: z.string().describe('Name of the covered member'),
+        relation: z.string().describe('Relationship with the policyholder'),
+        age: z.number().nullable().describe('Age of the member'),
+      })
+    )
+    .nullable()
+    .describe('List of members covered under the policy'),
+  room_rent_limit: z
+    .union([z.number(), z.literal('no_limit')])
+    .nullable()
+    .describe('Daily room rent limit or "no_limit" if unlimited'),
+  co_pay_percentage: z.number().nullable().describe('Co-payment percentage, if applicable'),
+  pre_existing_waiting_period: z
+    .string()
+    .nullable()
+    .describe('Waiting period for pre-existing conditions (e.g., "4 years")'),
+  network_hospitals: z.string().nullable().describe('Network hospital information'),
+})
+
+/**
+ * Vehicle insurance specific details schema
+ */
+export const vehicleInsuranceDetailsSchema = z.object({
+  vehicle_insurance_type: z
+    .enum(['comprehensive', 'third_party', 'own_damage'])
+    .nullable()
+    .describe('Type of vehicle insurance policy'),
+  vehicle_make: z.string().nullable().describe('Vehicle manufacturer (e.g., "Maruti", "Honda")'),
+  vehicle_model: z.string().nullable().describe('Vehicle model (e.g., "Swift", "City")'),
+  vehicle_year: z.number().nullable().describe('Year of manufacture'),
+  registration_number: z
+    .string()
+    .nullable()
+    .describe('Vehicle registration number (e.g., "MH12AB1234")'),
+  idv: z.number().nullable().describe('Insured Declared Value of the vehicle'),
+  add_ons: z
+    .array(z.string())
+    .nullable()
+    .describe(
+      'List of add-ons (e.g., "Zero Depreciation", "Roadside Assistance", "Engine Protection")'
+    ),
+})
+
+/**
+ * Insurance policy extraction schema - for LLM structured output
+ * Used to parse insurance policy documents
+ */
+export const insurancePolicySchema = z.object({
+  // Policy type detection
+  policy_type: z
+    .enum(['life_insurance', 'health_insurance', 'vehicle_insurance'])
+    .describe(
+      'Type of insurance policy: life_insurance (term, whole life, endowment, ULIP), ' +
+        'health_insurance (individual, family floater, critical illness), or ' +
+        'vehicle_insurance (car, bike comprehensive or third party)'
+    ),
+
+  // Common fields
+  provider: z
+    .string()
+    .describe('Insurance company name (e.g., "HDFC Life", "ICICI Lombard", "Star Health")'),
+  policy_number: z
+    .string()
+    .nullable()
+    .describe('Policy number or certificate number as printed on the document'),
+  policy_holder_name: z.string().nullable().describe('Name of the policyholder'),
+  sum_insured: z.number().nullable().describe('Sum insured / coverage amount / sum assured'),
+  premium_amount: z.number().nullable().describe('Premium amount to be paid'),
+  premium_frequency: z
+    .enum(['monthly', 'quarterly', 'half_yearly', 'yearly'])
+    .nullable()
+    .describe('How often the premium is paid'),
+  start_date: z
+    .string()
+    .nullable()
+    .describe('Policy start date / inception date in YYYY-MM-DD format'),
+  end_date: z.string().nullable().describe('Policy end date / expiry date in YYYY-MM-DD format'),
+
+  // Type-specific details (one will be populated based on policy_type)
+  life_insurance_details: lifeInsuranceDetailsSchema
+    .nullable()
+    .describe('Life insurance specific details. Null if not life insurance.'),
+  health_insurance_details: healthInsuranceDetailsSchema
+    .nullable()
+    .describe('Health insurance specific details. Null if not health insurance.'),
+  vehicle_insurance_details: vehicleInsuranceDetailsSchema
+    .nullable()
+    .describe('Vehicle insurance specific details. Null if not vehicle insurance.'),
+})
+
+// ============================================================================
 // Type exports
 // ============================================================================
 
@@ -595,3 +738,7 @@ export type InvestmentHoldingParsed = z.infer<typeof investmentHoldingSchema>
 export type InvestmentHoldingsResult = z.infer<typeof investmentHoldingsResultSchema>
 export type InvestmentTransactionParsed = z.infer<typeof investmentTransactionSchema>
 export type InvestmentTransactionsResult = z.infer<typeof investmentTransactionsResultSchema>
+export type LifeInsuranceDetails = z.infer<typeof lifeInsuranceDetailsSchema>
+export type HealthInsuranceDetails = z.infer<typeof healthInsuranceDetailsSchema>
+export type VehicleInsuranceDetails = z.infer<typeof vehicleInsuranceDetailsSchema>
+export type InsurancePolicyParsed = z.infer<typeof insurancePolicySchema>

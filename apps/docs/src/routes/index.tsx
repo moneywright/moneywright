@@ -809,18 +809,26 @@ function LandingPage() {
             Join thousands who finally know where every rupee goes.
           </motion.p>
 
-          <motion.a
+          <motion.div
             variants={fadeInUp}
             transition={{ duration: 0.5, ease: smoothEase, delay: 0.3 }}
-            href={downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-base hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
           >
-            <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
-            Download Moneywright — Free
-            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-          </motion.a>
+            {platform === 'macos' ? (
+              <CtaMacDropdown downloads={downloads} releasesUrl={releasesUrl} />
+            ) : (
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
+              >
+                <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
+                <img src={platformInfo[platform].icon} alt="" className="w-4 h-4 invert" />
+                Download for {platformInfo[platform].label}
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </a>
+            )}
+          </motion.div>
 
           <motion.div
             variants={fadeIn}
@@ -1111,6 +1119,67 @@ function StatCard({ stat, label }: { stat: string; label: string }) {
     <div className="flex items-center gap-4 px-6 py-2">
       <span className="text-3xl sm:text-4xl font-semibold text-[#f5f5f7] whitespace-nowrap">{stat}</span>
       <span className="text-[#71717a] text-sm max-w-[140px]">{label}</span>
+    </div>
+  );
+}
+
+// CTA Section Mac Dropdown - separate component to manage its own state
+function CtaMacDropdown({ downloads, releasesUrl }: { downloads: ReturnType<typeof useLatestRelease>['data']; releasesUrl: string }) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDropdown]);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
+      >
+        <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
+        <img src={platformInfo.macos.icon} alt="" className="w-4 h-4 invert" />
+        Download for {platformInfo.macos.label}
+        <ChevronDown className={cn('w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform', showDropdown && 'rotate-180')} />
+      </button>
+      {showDropdown && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[#18181c] border border-white/10 rounded-xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-50">
+          <a
+            href={downloads?.macos || releasesUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+            onClick={() => setShowDropdown(false)}
+          >
+            <div className="flex-1 text-left">
+              <div className="text-sm font-medium text-[#f5f5f7]">Apple Silicon</div>
+              <div className="text-xs text-[#71717a]">M1, M2, M3, M4 Macs</div>
+            </div>
+          </a>
+          <a
+            href={downloads?.macosIntel || releasesUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+            onClick={() => setShowDropdown(false)}
+          >
+            <div className="flex-1 text-left">
+              <div className="text-sm font-medium text-[#f5f5f7]">Intel</div>
+              <div className="text-xs text-[#71717a]">Older Macs (pre-2020)</div>
+            </div>
+          </a>
+        </div>
+      )}
     </div>
   );
 }

@@ -60,6 +60,17 @@ export {
   useStatementProcessing,
 } from './useStatements'
 
+// Insurance hooks
+export {
+  insuranceKeys,
+  useInsurancePolicies,
+  useInsurancePolicy,
+  useUploadInsurance,
+  useUpdateInsurance,
+  useDeleteInsurance,
+  useInsuranceProcessing,
+} from './useInsurance'
+
 // Summary hooks
 export {
   summaryKeys,

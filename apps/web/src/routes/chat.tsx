@@ -53,6 +53,7 @@ function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const isSendingRef = useRef(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false)
 
   // Local messages state for optimistic updates
   const [messages, setMessages] = useState<UIMessage[]>([])
@@ -154,10 +155,30 @@ function ChatPage() {
     }
   }, [conversation?.messages, urlConversationId])
 
-  // Scroll to bottom on new messages
+  // Handle scroll to detect if user has scrolled up
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, chatStream.currentText])
+    // Find the main scroll container (the <main> element in AppLayout)
+    const container = document.querySelector('main')
+    if (!container) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+      // Consider "at bottom" if within 100px of the bottom
+      const isAtBottom = distanceFromBottom < 100
+      setUserHasScrolledUp(!isAtBottom)
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Scroll to bottom on new messages (only if user hasn't scrolled up)
+  useEffect(() => {
+    if (!userHasScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, chatStream.currentText, userHasScrolledUp])
 
   // Handle model change
   const handleModelSelect = useCallback(
@@ -220,6 +241,7 @@ function ChatPage() {
 
     setMessages((prev) => [...prev, userMessage, assistantMessage])
     setIsReasoningStreaming(true)
+    setUserHasScrolledUp(false) // Reset scroll state when sending new message
 
     const thinkingEnabled = thinkingLevel !== 'off' && currentModel?.supportsThinking
     const thinkingOptions: {
@@ -288,6 +310,32 @@ function ChatPage() {
     setActiveConversationId(undefined)
     navigate({ to: '/chat', search: {}, replace: true })
   }, [chatStream, navigate])
+
+  // Handle profile change - also reset chat
+  const handleProfileChangeWithReset = useCallback(
+    (profileId: string) => {
+      handleProfileChange(profileId)
+      // Reset chat when switching profiles
+      chatStream.resetState()
+      setMessages([])
+      setActiveConversationId(undefined)
+      navigate({ to: '/chat', search: {}, replace: true })
+    },
+    [handleProfileChange, chatStream, navigate]
+  )
+
+  // Handle family view change - also reset chat
+  const handleFamilyViewChangeWithReset = useCallback(
+    (enabled: boolean) => {
+      handleFamilyViewChange(enabled)
+      // Reset chat when toggling family view
+      chatStream.resetState()
+      setMessages([])
+      setActiveConversationId(undefined)
+      navigate({ to: '/chat', search: {}, replace: true })
+    },
+    [handleFamilyViewChange, chatStream, navigate]
+  )
 
   // Handle selecting a conversation
   const handleSelectConversation = useCallback(
@@ -394,9 +442,9 @@ function ChatPage() {
                   />
                   <ProfileSelector
                     selectedProfileId={selectorProfileId}
-                    onProfileChange={handleProfileChange}
+                    onProfileChange={handleProfileChangeWithReset}
                     showFamilyView={showFamilyView}
-                    onFamilyViewChange={handleFamilyViewChange}
+                    onFamilyViewChange={handleFamilyViewChangeWithReset}
                   />
                 </>
               }
@@ -431,9 +479,9 @@ function ChatPage() {
               />
               <ProfileSelector
                 selectedProfileId={selectorProfileId}
-                onProfileChange={handleProfileChange}
+                onProfileChange={handleProfileChangeWithReset}
                 showFamilyView={showFamilyView}
-                onFamilyViewChange={handleFamilyViewChange}
+                onFamilyViewChange={handleFamilyViewChangeWithReset}
               />
             </div>
             <ChatWelcome onSelectPrompt={handleSelectPrompt} />

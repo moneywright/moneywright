@@ -474,6 +474,67 @@ export const investmentSnapshots = pgTable(
 )
 
 /**
+ * Insurance Policies table - tracks insurance policies uploaded by users
+ * Supports life, health, and vehicle insurance with type-specific details in JSON
+ */
+export const insurancePolicies = pgTable(
+  'insurance_policies',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    profileId: varchar('profile_id', { length: 21 })
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Policy identification
+    policyType: varchar('policy_type', { length: 30 }).notNull(), // 'life_insurance' | 'health_insurance' | 'vehicle_insurance'
+    provider: text('provider').notNull(), // Insurance company name
+    policyNumber: text('policy_number'),
+    policyHolderName: text('policy_holder_name'),
+
+    // Coverage and premium
+    sumInsured: decimal('sum_insured', { precision: 15, scale: 2 }), // Coverage amount
+    premiumAmount: decimal('premium_amount', { precision: 15, scale: 2 }),
+    premiumFrequency: varchar('premium_frequency', { length: 20 }), // 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
+
+    // Policy dates
+    startDate: date('start_date'), // YYYY-MM-DD
+    endDate: date('end_date'), // YYYY-MM-DD
+
+    // Status
+    status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'expired' | 'cancelled'
+
+    // Type-specific details stored as JSON
+    details: jsonb('details'), // JSON for type-specific fields
+
+    // File info
+    originalFilename: text('original_filename'),
+    fileType: varchar('file_type', { length: 10 }), // 'pdf'
+
+    // Parsing status
+    parseStatus: varchar('parse_status', { length: 20 }).notNull().default('pending'), // 'pending' | 'parsing' | 'completed' | 'failed'
+    errorMessage: text('error_message'),
+
+    // Raw text extracted from PDF (for detailed queries)
+    rawText: text('raw_text'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('insurance_policies_profile_id_idx').on(table.profileId),
+    index('insurance_policies_user_id_idx').on(table.userId),
+    index('insurance_policies_policy_type_idx').on(table.policyType),
+    index('insurance_policies_status_idx').on(table.status),
+    index('insurance_policies_end_date_idx').on(table.endDate),
+  ]
+)
+
+/**
  * User Preferences table - key-value store for user/profile settings
  * profileId is nullable - null means the preference applies to all profiles for the user
  */
@@ -535,6 +596,9 @@ export type NewInvestmentTransaction = typeof investmentTransactions.$inferInser
 
 export type InvestmentSnapshot = typeof investmentSnapshots.$inferSelect
 export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
+
+export type InsurancePolicy = typeof insurancePolicies.$inferSelect
+export type NewInsurancePolicy = typeof insurancePolicies.$inferInsert
 
 export type UserPreferences = typeof userPreferences.$inferSelect
 export type NewUserPreferences = typeof userPreferences.$inferInsert

@@ -7,15 +7,26 @@ import { cn } from '@/lib/utils'
 import type { Profile } from '@/lib/api'
 
 interface ProfileBadgeProps {
-  profileId: string
-  profiles: Profile[]
+  /** Direct name to display (simplest usage) */
+  name?: string
+  /** Profile ID to look up in profiles array */
+  profileId?: string
+  /** Array of profiles to look up profileId */
+  profiles?: Profile[]
   className?: string
   size?: 'sm' | 'md'
 }
 
-export function ProfileBadge({ profileId, profiles, className, size = 'sm' }: ProfileBadgeProps) {
-  const profile = profiles.find((p) => p.id === profileId)
-  if (!profile) return null
+export function ProfileBadge({
+  name,
+  profileId,
+  profiles,
+  className,
+  size = 'sm',
+}: ProfileBadgeProps) {
+  // Determine the display name - either from direct name prop or by looking up profileId
+  const displayName = name ?? profiles?.find((p) => p.id === profileId)?.name
+  if (!displayName) return null
 
   return (
     <span
@@ -26,9 +37,9 @@ export function ProfileBadge({ profileId, profiles, className, size = 'sm' }: Pr
         size === 'md' && 'px-2 py-0.5 text-xs',
         className
       )}
-      title={profile.name}
+      title={displayName}
     >
-      {profile.name}
+      {displayName}
     </span>
   )
 }
@@ -36,7 +47,7 @@ export function ProfileBadge({ profileId, profiles, className, size = 'sm' }: Pr
 /**
  * Helper function to get profile name from profileId
  */
-export function getProfileName(profileId: string, profiles: Profile[]): string | null {
-  const profile = profiles.find((p) => p.id === profileId)
+export function getProfileName(profileId: string, profiles?: Profile[]): string | null {
+  const profile = profiles?.find((p) => p.id === profileId)
   return profile?.name || null
 }

@@ -118,7 +118,7 @@ function AccountsPage() {
             {creditCards.length > 0 && (
               <section>
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
+                  <CreditCard className="h-5 w-5 text-violet-500" />
                   Credit Cards
                 </h2>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -145,7 +145,7 @@ function AccountsPage() {
             {bankAccounts.length > 0 && (
               <section>
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
+                  <Building2 className="h-5 w-5 text-emerald-500" />
                   Bank Accounts
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

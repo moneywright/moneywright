@@ -45,6 +45,7 @@ import {
 import { getAccountsWithBalances, calculateNetWorth } from '../accounts'
 import { getHoldingsByUserId, getInvestmentSummary } from '../investment-holdings'
 import { getSourcesByUserId } from '../investment-sources'
+import { getPoliciesByUser, getPolicyById, type PolicyFilters } from '../insurance'
 
 /** Page size for paginated results */
 const PAGE_SIZE = 250
@@ -844,6 +845,173 @@ Use this data to identify income categories, expense categories, and calculate m
         return {
           currency: result.currency,
           trends: result.trends,
+        }
+      },
+    }),
+
+    getInsurancePolicies: tool({
+      description: `Get insurance policies with coverage, premium, and renewal information.
+Returns life insurance, health insurance, and vehicle insurance details.
+
+**Pagination**: Returns up to 250 rows per page.
+- First call: omit queryId and page (or page=1)
+- Next pages: pass the returned queryId with page=2, page=3, etc.
+
+**Data includes**: id, policy type, provider, policy number, sum insured, premium, start/end dates, status.
+
+**For detailed policy info**: Use getInsurancePolicyDetails with the policy id to get full document text for specific questions about terms, exclusions, or claim process.`,
+      inputSchema: z.object({
+        queryId: z.string().optional().describe('Query ID from previous call to fetch next page'),
+        page: z.number().optional().default(1).describe('Page number (1-indexed)'),
+        policyType: z
+          .enum(['life_insurance', 'health_insurance', 'vehicle_insurance'])
+          .optional()
+          .describe('Filter by policy type'),
+        status: z.enum(['active', 'expired', 'cancelled']).optional().describe('Filter by status'),
+      }),
+      execute: async (params) => {
+        const page = params.page || 1
+
+        // If queryId provided, fetch from cache
+        if (params.queryId) {
+          const cached = await getQueryCache(params.queryId)
+          if (!cached) {
+            return { error: `Query ${params.queryId} not found. Run a new query.` }
+          }
+          if (cached.profileId !== profileId) {
+            return { error: `Query ${params.queryId} does not belong to this profile.` }
+          }
+
+          const { slice, hasMore } = paginate(cached.data as Record<string, unknown>[], page)
+          const csvData = toCSV(slice, [
+            'id',
+            'policyType',
+            'provider',
+            'policyNumber',
+            'policyHolderName',
+            'sumInsured',
+            'premiumAmount',
+            'premiumFrequency',
+            'startDate',
+            'endDate',
+            'status',
+            'profileName',
+          ])
+
+          return {
+            queryId: params.queryId,
+            totalCount: cached.count,
+            page,
+            hasMore,
+            rowsInPage: slice.length,
+            data: csvData,
+          }
+        }
+
+        // New query
+        const filters: PolicyFilters = {}
+        if (params.policyType) filters.policyType = params.policyType
+        if (params.status) filters.status = params.status
+
+        const policies = await getPoliciesByUser(userId, filters)
+
+        const queryId = generateQueryId('ins')
+        await storeQueryCache({
+          queryId,
+          profileId,
+          dataType: 'insurance_policies',
+          filters,
+          data: policies,
+          schema: {
+            fields: [
+              { name: 'id', type: 'string' },
+              { name: 'policyType', type: 'string' },
+              { name: 'provider', type: 'string' },
+              { name: 'policyNumber', type: 'string' },
+              { name: 'policyHolderName', type: 'string' },
+              { name: 'sumInsured', type: 'number' },
+              { name: 'premiumAmount', type: 'number' },
+              { name: 'premiumFrequency', type: 'string' },
+              { name: 'startDate', type: 'date' },
+              { name: 'endDate', type: 'date' },
+              { name: 'status', type: 'string' },
+              { name: 'profileName', type: 'string' },
+            ],
+          },
+        })
+
+        const { slice, hasMore } = paginate(policies, page)
+        const csvData = toCSV(
+          slice.map((p) => ({
+            id: p.id,
+            policyType: p.policyType,
+            provider: p.provider,
+            policyNumber: p.policyNumber || '',
+            policyHolderName: p.policyHolderName || '',
+            sumInsured: p.sumInsured || 0,
+            premiumAmount: p.premiumAmount || 0,
+            premiumFrequency: p.premiumFrequency || '',
+            startDate: p.startDate || '',
+            endDate: p.endDate || '',
+            status: p.status,
+            profileName: p.profileName || '',
+          })),
+          [
+            'id',
+            'policyType',
+            'provider',
+            'policyNumber',
+            'policyHolderName',
+            'sumInsured',
+            'premiumAmount',
+            'premiumFrequency',
+            'startDate',
+            'endDate',
+            'status',
+            'profileName',
+          ]
+        )
+
+        return {
+          queryId,
+          totalCount: policies.length,
+          page,
+          hasMore,
+          rowsInPage: slice.length,
+          data: csvData,
+        }
+      },
+    }),
+
+    getInsurancePolicyDetails: tool({
+      description: `Get detailed information about a specific insurance policy, including the full document text.
+Use this when the user asks specific questions about policy terms, exclusions, claim process, or any detailed information that requires the original document text.
+
+**Returns**: Policy metadata plus full raw text extracted from the PDF.`,
+      inputSchema: z.object({
+        policyId: z.string().describe('The policy ID to retrieve details for'),
+      }),
+      execute: async (params) => {
+        const policy = await getPolicyById(params.policyId, userId)
+
+        if (!policy) {
+          return { error: `Policy ${params.policyId} not found.` }
+        }
+
+        return {
+          id: policy.id,
+          policyType: policy.policyType,
+          provider: policy.provider,
+          policyNumber: policy.policyNumber,
+          policyHolderName: policy.policyHolderName,
+          sumInsured: policy.sumInsured,
+          premiumAmount: policy.premiumAmount,
+          premiumFrequency: policy.premiumFrequency,
+          startDate: policy.startDate,
+          endDate: policy.endDate,
+          status: policy.status,
+          details: policy.details,
+          rawText: policy.rawText || 'Raw text not available for this policy.',
         }
       },
     }),

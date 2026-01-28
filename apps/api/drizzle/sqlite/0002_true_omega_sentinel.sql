@@ -1,0 +1,1 @@
+ALTER TABLE `insurance_policies` ADD `raw_text` text;

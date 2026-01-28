@@ -183,6 +183,8 @@ export type {
   NewChatMessage,
   ChatQueryCache,
   NewChatQueryCache,
+  InsurancePolicy,
+  NewInsurancePolicy,
 } from './schema.pg'
 
 // Export table references typed as Postgres for IntelliSense.
@@ -204,6 +206,7 @@ const tablesImpl = isPostgres
       chatConversations: pgSchema.chatConversations,
       chatMessages: pgSchema.chatMessages,
       chatQueryCache: pgSchema.chatQueryCache,
+      insurancePolicies: pgSchema.insurancePolicies,
     }
   : {
       users: sqliteSchema.users,
@@ -221,6 +224,7 @@ const tablesImpl = isPostgres
       chatConversations: sqliteSchema.chatConversations,
       chatMessages: sqliteSchema.chatMessages,
       chatQueryCache: sqliteSchema.chatQueryCache,
+      insurancePolicies: sqliteSchema.insurancePolicies,
     }
 
 export const tables = tablesImpl as {
@@ -239,6 +243,7 @@ export const tables = tablesImpl as {
   chatConversations: typeof pgSchema.chatConversations
   chatMessages: typeof pgSchema.chatMessages
   chatQueryCache: typeof pgSchema.chatQueryCache
+  insurancePolicies: typeof pgSchema.insurancePolicies
 }
 
 /**

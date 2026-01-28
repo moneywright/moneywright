@@ -521,6 +521,71 @@ export const userPreferences = sqliteTable(
   ]
 )
 
+/**
+ * Insurance Policies table - tracks insurance policies uploaded by users
+ * Supports life, health, and vehicle insurance with type-specific details in JSON
+ */
+export const insurancePolicies = sqliteTable(
+  'insurance_policies',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Policy identification
+    policyType: text('policy_type').notNull(), // 'life_insurance' | 'health_insurance' | 'vehicle_insurance'
+    provider: text('provider').notNull(), // Insurance company name
+    policyNumber: text('policy_number'),
+    policyHolderName: text('policy_holder_name'),
+
+    // Coverage and premium
+    sumInsured: real('sum_insured'), // Coverage amount
+    premiumAmount: real('premium_amount'),
+    premiumFrequency: text('premium_frequency'), // 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
+
+    // Policy dates
+    startDate: text('start_date'), // YYYY-MM-DD
+    endDate: text('end_date'), // YYYY-MM-DD
+
+    // Status
+    status: text('status').notNull().default('active'), // 'active' | 'expired' | 'cancelled'
+
+    // Type-specific details stored as JSON
+    details: text('details'), // JSON for type-specific fields
+
+    // File info
+    originalFilename: text('original_filename'),
+    fileType: text('file_type'), // 'pdf'
+
+    // Parsing status
+    parseStatus: text('parse_status').notNull().default('pending'), // 'pending' | 'parsing' | 'completed' | 'failed'
+    errorMessage: text('error_message'),
+
+    // Raw text extracted from PDF (for detailed queries)
+    rawText: text('raw_text'),
+
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('insurance_policies_profile_id_idx').on(table.profileId),
+    index('insurance_policies_user_id_idx').on(table.userId),
+    index('insurance_policies_policy_type_idx').on(table.policyType),
+    index('insurance_policies_status_idx').on(table.status),
+    index('insurance_policies_end_date_idx').on(table.endDate),
+  ]
+)
+
 // Type exports for use throughout the application
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -554,6 +619,9 @@ export type NewInvestmentTransaction = typeof investmentTransactions.$inferInser
 
 export type InvestmentSnapshot = typeof investmentSnapshots.$inferSelect
 export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
+
+export type InsurancePolicy = typeof insurancePolicies.$inferSelect
+export type NewInsurancePolicy = typeof insurancePolicies.$inferInsert
 
 export type UserPreferences = typeof userPreferences.$inferSelect
 export type NewUserPreferences = typeof userPreferences.$inferInsert

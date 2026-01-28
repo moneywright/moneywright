@@ -1680,6 +1680,167 @@ export async function getInvestmentSourceTypes(): Promise<{
 }
 
 // ============================================
+// Insurance API
+// ============================================
+
+/**
+ * Insurance policy type
+ */
+export type InsurancePolicyType = 'life_insurance' | 'health_insurance' | 'vehicle_insurance'
+
+/**
+ * Premium frequency
+ */
+export type PremiumFrequency = 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
+
+/**
+ * Insurance policy status
+ */
+export type InsurancePolicyStatus = 'active' | 'expired' | 'cancelled'
+
+/**
+ * Insurance parse status
+ */
+export type InsuranceParseStatus = 'pending' | 'parsing' | 'completed' | 'failed'
+
+/**
+ * Insurance policy interface
+ */
+export interface InsurancePolicy {
+  id: string
+  profileId: string
+  userId: string
+  policyType: InsurancePolicyType
+  provider: string
+  policyNumber: string | null
+  policyHolderName: string | null
+  sumInsured: number | null
+  premiumAmount: number | null
+  premiumFrequency: PremiumFrequency | null
+  startDate: string | null
+  endDate: string | null
+  status: InsurancePolicyStatus
+  details: Record<string, unknown> | null
+  originalFilename: string | null
+  fileType: string | null
+  parseStatus: InsuranceParseStatus
+  errorMessage: string | null
+  createdAt: string
+  updatedAt: string
+  // Optional for family view
+  profileName?: string
+}
+
+/**
+ * Insurance upload response
+ */
+export interface InsuranceUploadResponse {
+  policyId: string
+  status: 'pending'
+  filename: string
+}
+
+/**
+ * Get all insurance policies for user (family view)
+ */
+export async function getInsurancePolicies(filters?: {
+  policyType?: InsurancePolicyType
+  status?: InsurancePolicyStatus
+  parseStatus?: InsuranceParseStatus
+}): Promise<InsurancePolicy[]> {
+  const params = new URLSearchParams()
+  if (filters?.policyType) params.set('policyType', filters.policyType)
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.parseStatus) params.set('parseStatus', filters.parseStatus)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const response = await api.get(`/insurance/policies${queryString}`)
+  return response.data.policies
+}
+
+/**
+ * Get insurance policies for a specific profile
+ */
+export async function getInsurancePoliciesByProfile(
+  profileId: string,
+  filters?: {
+    policyType?: InsurancePolicyType
+    status?: InsurancePolicyStatus
+    parseStatus?: InsuranceParseStatus
+  }
+): Promise<InsurancePolicy[]> {
+  const params = new URLSearchParams()
+  if (filters?.policyType) params.set('policyType', filters.policyType)
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.parseStatus) params.set('parseStatus', filters.parseStatus)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const response = await api.get(`/insurance/profiles/${profileId}/policies${queryString}`)
+  return response.data.policies
+}
+
+/**
+ * Get a single insurance policy
+ */
+export async function getInsurancePolicy(policyId: string): Promise<InsurancePolicy> {
+  const response = await api.get(`/insurance/policies/${policyId}`)
+  return response.data.policy
+}
+
+/**
+ * Upload an insurance policy PDF
+ */
+export async function uploadInsurancePolicy(
+  file: File,
+  profileId: string,
+  options?: {
+    policyType?: InsurancePolicyType
+    parsingModel?: string
+    password?: string
+  }
+): Promise<InsuranceUploadResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('profileId', profileId)
+  if (options?.policyType) formData.append('policyType', options.policyType)
+  if (options?.parsingModel) formData.append('parsingModel', options.parsingModel)
+  if (options?.password) formData.append('password', options.password)
+
+  const response = await api.post('/insurance/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data
+}
+
+/**
+ * Update an insurance policy
+ */
+export async function updateInsurancePolicy(
+  policyId: string,
+  data: Partial<{
+    policyType: InsurancePolicyType
+    provider: string
+    policyNumber: string | null
+    policyHolderName: string | null
+    sumInsured: number | null
+    premiumAmount: number | null
+    premiumFrequency: PremiumFrequency | null
+    startDate: string | null
+    endDate: string | null
+    status: InsurancePolicyStatus
+    details: Record<string, unknown> | null
+  }>
+): Promise<InsurancePolicy> {
+  const response = await api.put(`/insurance/policies/${policyId}`, data)
+  return response.data.policy
+}
+
+/**
+ * Delete an insurance policy
+ */
+export async function deleteInsurancePolicy(policyId: string): Promise<void> {
+  await api.delete(`/insurance/policies/${policyId}`)
+}
+
+// ============================================
 // Chat API
 // ============================================
 

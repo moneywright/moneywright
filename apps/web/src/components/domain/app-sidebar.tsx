@@ -38,6 +38,7 @@ import {
   Sun,
   Check,
   Repeat,
+  Shield,
 } from 'lucide-react'
 
 // Main navigation items
@@ -76,6 +77,11 @@ const mainNavItems = [
     title: 'Investments',
     icon: TrendingUp,
     href: '/investments',
+  },
+  {
+    title: 'Insurance',
+    icon: Shield,
+    href: '/insurance',
   },
 ]
 

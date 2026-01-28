@@ -8,6 +8,20 @@
       "when": 1769512451245,
       "tag": "0000_silly_sunset_bain",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1769605838001,
+      "tag": "0001_equal_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769609020403,
+      "tag": "0002_true_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }
