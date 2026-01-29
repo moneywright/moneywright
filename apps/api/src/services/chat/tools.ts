@@ -775,35 +775,111 @@ Returns data in CSV format.`,
 
     getNetWorth: tool({
       description:
-        'Get net worth summary calculated from account balances (assets minus liabilities).',
+        'Get net worth = total assets (cash + investments) minus total liabilities. Returns the true net worth with breakdown by asset type.',
       inputSchema: z.object({}),
       execute: async () => {
-        const netWorth = await calculateNetWorth(userId, profileIdForQuery)
+        const [accountData, investments] = await Promise.all([
+          calculateNetWorth(userId, profileIdForQuery),
+          getInvestmentSummary(userId, profileIdForQuery),
+        ])
+
+        // True net worth: (cash + investments) - liabilities
+        const totalAssets = accountData.totalAssets + investments.totalCurrent
+        const totalNetWorth = totalAssets - accountData.totalLiabilities
+
         return {
-          totalAssets: netWorth.totalAssets,
-          totalLiabilities: netWorth.totalLiabilities,
-          netWorth: netWorth.netWorth,
-          currency: netWorth.currency,
-          accountCount: netWorth.accounts.length,
-          calculatedAt: netWorth.calculatedAt,
+          // Net worth summary
+          total: totalNetWorth,
+          totalAssets,
+          totalLiabilities: accountData.totalLiabilities,
+          currency: accountData.currency,
+
+          // Breakdown by asset/liability type
+          breakdown: {
+            cash: {
+              total: accountData.totalAssets,
+              accountCount: accountData.accounts.filter((a) => !a.isLiability).length,
+            },
+            investments: {
+              total: investments.totalCurrent,
+              info: 'Call getInvestmentSummary for detailed breakdown by source',
+            },
+            liabilities: {
+              total: accountData.totalLiabilities,
+              accountCount: accountData.accounts.filter((a) => a.isLiability).length,
+            },
+          },
+
+          calculatedAt: accountData.calculatedAt,
         }
       },
     }),
 
     getInvestmentSummary: tool({
       description:
-        'Get investment portfolio summary with totals, gains/losses, and breakdown by type.',
+        'Get investment portfolio breakdown by source (e.g., Zerodha, Groww, EPF, PPF). Use this to see detailed investment allocation and performance.',
       inputSchema: z.object({}),
       execute: async () => {
-        const summary = await getInvestmentSummary(userId, profileIdForQuery)
+        const [holdings, sources] = await Promise.all([
+          getHoldingsByUserId(userId, { profileId: profileIdForQuery }),
+          getSourcesByUserId(userId, profileIdForQuery),
+        ])
+
+        // Build source name lookup
+        const sourceNameMap = new Map<string, string>()
+        for (const source of sources) {
+          sourceNameMap.set(source.id, source.sourceName)
+        }
+
+        // Group holdings by source
+        const sourceMap = new Map<
+          string,
+          {
+            sourceName: string
+            current: number
+            invested: number
+            holdingsCount: number
+          }
+        >()
+        let totalCurrent = 0
+
+        for (const h of holdings) {
+          const current = h.currentValue ?? 0
+          const invested = h.investedValue ?? 0
+          totalCurrent += current
+
+          const sourceId = h.sourceId || 'unknown'
+          const sourceName = h.sourceId ? sourceNameMap.get(h.sourceId) || 'Unknown' : 'Manual'
+
+          const sourceData = sourceMap.get(sourceId) || {
+            sourceName,
+            current: 0,
+            invested: 0,
+            holdingsCount: 0,
+          }
+          sourceData.current += current
+          sourceData.invested += invested
+          sourceData.holdingsCount++
+          sourceMap.set(sourceId, sourceData)
+        }
+
         return {
-          totalInvested: summary.totalInvested,
-          totalCurrent: summary.totalCurrent,
-          totalGainLoss: summary.totalGainLoss,
-          gainLossPercent: summary.gainLossPercent,
-          holdingsCount: summary.holdingsCount,
-          sourcesCount: summary.sourcesCount,
-          byType: summary.byType,
+          total: totalCurrent,
+          currency: 'INR',
+          bySource: Array.from(sourceMap.values())
+            .map(({ sourceName, current, invested, holdingsCount }) => {
+              const gainLoss = current - invested
+              const percent = invested > 0 ? (gainLoss / invested) * 100 : 0
+              return {
+                source: sourceName,
+                current,
+                invested,
+                gainLoss,
+                gainLossPercent: Math.round(percent * 100) / 100,
+                holdingsCount,
+              }
+            })
+            .sort((a, b) => b.current - a.current),
         }
       },
     }),

@@ -306,7 +306,13 @@ function DashboardPage() {
   }, [])
 
   const accountsCount = accounts?.length || 0
-  const hasData = summary && (summary.netWorth.accounts.length > 0 || accountsCount > 0)
+  const allAccounts = summary
+    ? [
+        ...summary.netWorth.breakdown.cash.accounts,
+        ...summary.netWorth.breakdown.liabilities.accounts,
+      ]
+    : []
+  const hasData = summary && (allAccounts.length > 0 || accountsCount > 0)
 
   return (
     <AppLayout>
@@ -327,22 +333,17 @@ function DashboardPage() {
       <StatCardGrid className="mb-6">
         <StatCard
           label="Net Worth"
-          value={summary?.totals.totalWealth}
-          currency={summary?.totals.currency}
+          value={summary?.netWorth.total}
+          currency={summary?.netWorth.currency}
           subtitle={
-            summary?.investments.totalCurrent && summary.investments.totalCurrent > 0
-              ? `${formatCompact(summary.netWorth.netWorth, summary.netWorth.currency)} cash + ${formatCompact(summary.investments.totalCurrent, summary.totals.currency)} investments`
+            summary?.netWorth.breakdown.investments.total &&
+            summary.netWorth.breakdown.investments.total > 0
+              ? `${formatCompact(summary.netWorth.breakdown.cash.total, summary.netWorth.currency)} cash + ${formatCompact(summary.netWorth.breakdown.investments.total, summary.netWorth.currency)} investments`
               : 'Across all accounts'
           }
           icon={Banknote}
           loading={summaryLoading}
-          trend={
-            summary?.totals.totalWealth
-              ? summary.totals.totalWealth > 0
-                ? 'up'
-                : 'down'
-              : undefined
-          }
+          trend={summary?.netWorth.total ? (summary.netWorth.total > 0 ? 'up' : 'down') : undefined}
         />
         <StatCard
           label={timeframe === 'this_month' ? 'Monthly Expenses' : 'Expenses'}
@@ -358,22 +359,22 @@ function DashboardPage() {
         />
         <StatCard
           label="Investments"
-          value={summary?.investments.totalCurrent}
-          currency={summary?.totals.currency}
+          value={summary?.netWorth.breakdown.investments.total}
+          currency={summary?.netWorth.currency}
           subtitle={
-            summary?.investments.totalInvested &&
-            summary.investments.totalInvested > 0 &&
-            summary.investments.gainLossPercent !== undefined
-              ? `${summary.investments.gainLossPercent > 0 ? '+' : ''}${summary.investments.gainLossPercent.toFixed(1)}% returns`
+            summary?.netWorth.breakdown.investments.invested &&
+            summary.netWorth.breakdown.investments.invested > 0 &&
+            summary.netWorth.breakdown.investments.gainLossPercent !== undefined
+              ? `${summary.netWorth.breakdown.investments.gainLossPercent > 0 ? '+' : ''}${summary.netWorth.breakdown.investments.gainLossPercent.toFixed(1)}% returns`
               : 'Total portfolio'
           }
           icon={TrendingUp}
           loading={summaryLoading}
           trend={
-            summary?.investments.totalInvested &&
-            summary.investments.totalInvested > 0 &&
-            summary?.investments.totalGainLoss
-              ? summary.investments.totalGainLoss > 0
+            summary?.netWorth.breakdown.investments.invested &&
+            summary.netWorth.breakdown.investments.invested > 0 &&
+            summary?.netWorth.breakdown.investments.gainLoss
+              ? summary.netWorth.breakdown.investments.gainLoss > 0
                 ? 'up'
                 : 'down'
               : undefined
@@ -437,7 +438,7 @@ function DashboardPage() {
       </div>
 
       {/* Account Balances */}
-      <AccountBalancesCard accounts={summary?.netWorth.accounts || []} />
+      <AccountBalancesCard accounts={allAccounts} />
 
       {/* Empty State */}
       {!summaryLoading && !hasData && (

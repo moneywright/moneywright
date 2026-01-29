@@ -46,30 +46,43 @@ summaryRoutes.get('/', async (c) => {
     }),
   ])
 
+  // Calculate true net worth: (cash assets + investments) - liabilities
+  const totalAssets = netWorth.totalAssets + investments.totalCurrent
+  const totalNetWorth = totalAssets - netWorth.totalLiabilities
+
   return c.json({
-    // Net worth from account balances
+    // Net worth = total assets (cash + investments) - total liabilities
     netWorth: {
-      totalAssets: netWorth.totalAssets,
+      total: totalNetWorth,
+      totalAssets,
       totalLiabilities: netWorth.totalLiabilities,
-      netWorth: netWorth.netWorth,
       currency: netWorth.currency,
-      accounts: netWorth.accounts,
       calculatedAt: netWorth.calculatedAt,
+
+      // Breakdown by asset/liability type
+      breakdown: {
+        cash: {
+          total: netWorth.totalAssets,
+          accounts: netWorth.accounts.filter((a) => !a.isLiability),
+        },
+        investments: {
+          total: investments.totalCurrent,
+          invested: investments.totalInvested,
+          gainLoss: investments.totalGainLoss,
+          gainLossPercent: investments.gainLossPercent,
+          holdingsCount: investments.holdingsCount,
+          sourcesCount: investments.sourcesCount,
+          byType: investments.byType,
+          byCurrency: investments.byCurrency,
+        },
+        liabilities: {
+          total: netWorth.totalLiabilities,
+          accounts: netWorth.accounts.filter((a) => a.isLiability),
+        },
+      },
     },
 
-    // Investment portfolio summary
-    investments: {
-      totalInvested: investments.totalInvested,
-      totalCurrent: investments.totalCurrent,
-      totalGainLoss: investments.totalGainLoss,
-      gainLossPercent: investments.gainLossPercent,
-      holdingsCount: investments.holdingsCount,
-      sourcesCount: investments.sourcesCount,
-      byType: investments.byType,
-      byCurrency: investments.byCurrency,
-    },
-
-    // Transaction stats for the period
+    // Transaction stats for the period (cash flow, separate from net worth)
     transactions: {
       period: {
         startDate: effectiveStartDate,
@@ -82,13 +95,6 @@ summaryRoutes.get('/', async (c) => {
       netCashFlow: transactionStats.netAmount,
       currency: transactionStats.currency,
       categoryBreakdown: transactionStats.categoryBreakdown,
-    },
-
-    // Combined totals
-    totals: {
-      // Total wealth = net worth from accounts + current investment value
-      totalWealth: netWorth.netWorth + investments.totalCurrent,
-      currency: netWorth.currency,
     },
   })
 })

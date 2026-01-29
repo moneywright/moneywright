@@ -1289,25 +1289,35 @@ export interface AccountBalanceInfo {
 
 /**
  * Financial summary response
+ * Net worth = total assets (cash + investments) - total liabilities
  */
 export interface FinancialSummary {
   netWorth: {
-    totalAssets: number
+    total: number // True net worth: totalAssets - totalLiabilities
+    totalAssets: number // Cash + investments
     totalLiabilities: number
-    netWorth: number
     currency: string
-    accounts: AccountBalanceInfo[]
     calculatedAt: string
-  }
-  investments: {
-    totalInvested: number
-    totalCurrent: number
-    totalGainLoss: number
-    gainLossPercent: number
-    holdingsCount: number
-    sourcesCount: number
-    byType: { type: string; count: number; investedValue: number; currentValue: number }[]
-    byCurrency: { currency: string; investedValue: number; currentValue: number }[]
+    breakdown: {
+      cash: {
+        total: number
+        accounts: AccountBalanceInfo[]
+      }
+      investments: {
+        total: number // Current market value
+        invested: number // Original investment amount
+        gainLoss: number
+        gainLossPercent: number
+        holdingsCount: number
+        sourcesCount: number
+        byType: { type: string; count: number; invested: number; current: number }[]
+        byCurrency: { currency: string; invested: number; current: number }[]
+      }
+      liabilities: {
+        total: number
+        accounts: AccountBalanceInfo[]
+      }
+    }
   }
   transactions: {
     period: {
@@ -1321,10 +1331,6 @@ export interface FinancialSummary {
     netCashFlow: number
     currency: string
     categoryBreakdown: { category: string; total: number; count: number }[]
-  }
-  totals: {
-    totalWealth: number
-    currency: string
   }
 }
 
