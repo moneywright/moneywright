@@ -27,8 +27,8 @@ export interface TransactionResponse {
   category: string
   categoryConfidence: number | null
   isSubscription: boolean
-  linkedTransactionId: string | null
-  linkType: string | null
+  linkedEntityId: string | null
+  linkedEntityType: string | null // 'transaction' | 'credit_card' | 'insurance' | 'loan'
   isManuallyCategorized: boolean
   isHidden: boolean
   createdAt: string | Date
@@ -87,8 +87,8 @@ function toTransactionResponse(txn: Transaction): TransactionResponse {
         : Number(txn.categoryConfidence)
       : null,
     isSubscription: txn.isSubscription ?? false,
-    linkedTransactionId: txn.linkedTransactionId,
-    linkType: txn.linkType,
+    linkedEntityId: txn.linkedEntityId,
+    linkedEntityType: txn.linkedEntityType,
     isManuallyCategorized: txn.isManuallyCategorized ?? false,
     isHidden: txn.isHidden ?? false,
     createdAt: txn.createdAt,
@@ -234,7 +234,7 @@ export async function getTransactionById(
 }
 
 /**
- * Update a transaction (category, summary, isHidden)
+ * Update a transaction (category, summary, isHidden, entity linking)
  */
 export async function updateTransaction(
   transactionId: string,
@@ -243,6 +243,8 @@ export async function updateTransaction(
     category?: string
     summary?: string
     isHidden?: boolean
+    linkedEntityId?: string | null
+    linkedEntityType?: 'credit_card' | 'insurance' | 'loan' | null
   }
 ): Promise<TransactionResponse> {
   // Verify ownership and get existing values for comparison
@@ -281,6 +283,12 @@ export async function updateTransaction(
     updateData.isHidden = data.isHidden
   }
 
+  // Handle entity linking/unlinking
+  if (data.linkedEntityId !== undefined) {
+    updateData.linkedEntityId = data.linkedEntityId
+    updateData.linkedEntityType = data.linkedEntityId ? data.linkedEntityType : null
+  }
+
   const [updated] = await db
     .update(tables.transactions)
     .set(updateData)
@@ -296,12 +304,13 @@ export async function updateTransaction(
 }
 
 /**
- * Link two transactions (payment, transfer, refund)
+ * Link two transactions together (bidirectional)
+ * Used for transfers, refunds, and other transaction-to-transaction links
  */
 export async function linkTransactions(
   transactionId1: string,
   transactionId2: string,
-  linkType: 'payment' | 'transfer' | 'refund',
+  _linkType: 'payment' | 'transfer' | 'refund', // Kept for backward compatibility
   userId: string
 ): Promise<void> {
   // Verify ownership of both transactions
@@ -312,19 +321,14 @@ export async function linkTransactions(
     throw new Error('One or both transactions not found')
   }
 
-  // Validate link makes sense
-  // Payment: debit from bank, credit to credit card
-  // Transfer: debit from one account, credit to another
-  // Refund: credit card credit, matching earlier debit
-
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
   // Update both transactions to link to each other
   await db
     .update(tables.transactions)
     .set({
-      linkedTransactionId: transactionId2,
-      linkType,
+      linkedEntityId: transactionId2,
+      linkedEntityType: 'transaction',
       updatedAt: now as Date,
     })
     .where(eq(tables.transactions.id, transactionId1))
@@ -332,19 +336,18 @@ export async function linkTransactions(
   await db
     .update(tables.transactions)
     .set({
-      linkedTransactionId: transactionId1,
-      linkType,
+      linkedEntityId: transactionId1,
+      linkedEntityType: 'transaction',
       updatedAt: now as Date,
     })
     .where(eq(tables.transactions.id, transactionId2))
 
-  logger.debug(
-    `[Transaction] Linked transactions ${transactionId1} <-> ${transactionId2} (${linkType})`
-  )
+  logger.debug(`[Transaction] Linked transactions ${transactionId1} <-> ${transactionId2}`)
 }
 
 /**
- * Unlink transactions
+ * Unlink a transaction from its linked entity
+ * If linked to another transaction (bidirectional), unlinks both sides
  */
 export async function unlinkTransaction(transactionId: string, userId: string): Promise<void> {
   const txn = await getTransactionById(transactionId, userId)
@@ -352,30 +355,33 @@ export async function unlinkTransaction(transactionId: string, userId: string): 
     throw new Error('Transaction not found')
   }
 
-  if (!txn.linkedTransactionId) {
+  if (!txn.linkedEntityId) {
     throw new Error('Transaction is not linked')
   }
 
   const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
 
-  // Unlink both sides
+  // Unlink this transaction
   await db
     .update(tables.transactions)
     .set({
-      linkedTransactionId: null,
-      linkType: null,
+      linkedEntityId: null,
+      linkedEntityType: null,
       updatedAt: now as Date,
     })
     .where(eq(tables.transactions.id, transactionId))
 
-  await db
-    .update(tables.transactions)
-    .set({
-      linkedTransactionId: null,
-      linkType: null,
-      updatedAt: now as Date,
-    })
-    .where(eq(tables.transactions.id, txn.linkedTransactionId))
+  // If linked to another transaction, unlink that side too
+  if (txn.linkedEntityType === 'transaction') {
+    await db
+      .update(tables.transactions)
+      .set({
+        linkedEntityId: null,
+        linkedEntityType: null,
+        updatedAt: now as Date,
+      })
+      .where(eq(tables.transactions.id, txn.linkedEntityId))
+  }
 
   logger.debug(`[Transaction] Unlinked transaction ${transactionId}`)
 }
@@ -424,7 +430,7 @@ export async function findLinkCandidates(
         gte(tables.transactions.date, startDateStr),
         lte(tables.transactions.date, endDateStr),
         sql`${tables.transactions.accountId} != ${txn.accountId}`,
-        sql`${tables.transactions.linkedTransactionId} IS NULL`
+        sql`${tables.transactions.linkedEntityId} IS NULL`
       )
     )
     .limit(10)

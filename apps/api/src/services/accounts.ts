@@ -4,6 +4,7 @@ import type { Account } from '../db'
 import { encryptOptional, decryptOptional } from '../lib/encryption'
 import { getAccountTypesForCountry, type CountryCode } from '../lib/constants'
 import { logger } from '../lib/logger'
+import { getLoanLiabilities, type LoanLiabilityInfo } from './loans'
 
 /**
  * Account service
@@ -341,6 +342,17 @@ export async function deleteAccount(accountId: string, userId: string): Promise<
     throw new Error('Account not found')
   }
 
+  // Unlink any transactions that reference this account as a credit card
+  await db
+    .update(tables.transactions)
+    .set({ linkedEntityId: null, linkedEntityType: null })
+    .where(
+      and(
+        eq(tables.transactions.linkedEntityId, accountId),
+        eq(tables.transactions.linkedEntityType, 'credit_card')
+      )
+    )
+
   await db.delete(tables.accounts).where(eq(tables.accounts.id, accountId))
 
   logger.debug(`[Account] Deleted account ${accountId}`)
@@ -417,12 +429,16 @@ export interface NetWorthResponse {
   netWorth: number
   currency: string
   accounts: AccountBalanceInfo[]
+  loans: LoanLiabilityInfo[]
   calculatedAt: string
 }
 
+// Re-export for convenience
+export type { LoanLiabilityInfo }
+
 /**
  * Calculate net worth for a user by summing the latest closing balance from each account
- * Credit card balances are treated as liabilities (negative)
+ * Credit card balances and outstanding loan balances are treated as liabilities
  */
 export async function calculateNetWorth(
   userId: string,
@@ -482,6 +498,10 @@ export async function calculateNetWorth(
     }
   }
 
+  // Get loan liabilities (outstanding loan balances)
+  const loanData = await getLoanLiabilities(userId, profileId)
+  totalLiabilities += loanData.totalLoanLiabilities
+
   // Determine primary currency (use most common, default to INR)
   const currencyCounts = accountBalances.reduce(
     (acc, ab) => {
@@ -499,6 +519,7 @@ export async function calculateNetWorth(
     netWorth: totalAssets - totalLiabilities,
     currency: primaryCurrency,
     accounts: accountBalances,
+    loans: loanData.loans,
     calculatedAt: new Date().toISOString(),
   }
 }

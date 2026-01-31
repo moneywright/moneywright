@@ -261,9 +261,9 @@ export const transactions = pgTable(
     // Deduplication
     hash: varchar('hash', { length: 64 }).notNull(), // SHA256
 
-    // Cross-account linking
-    linkedTransactionId: varchar('linked_transaction_id', { length: 21 }),
-    linkType: varchar('link_type', { length: 20 }), // payment, transfer, refund
+    // Entity linking (for CC payments, insurance, loans, transfers)
+    linkedEntityId: varchar('linked_entity_id', { length: 21 }), // ID of linked entity (transaction, account, insurance policy, loan)
+    linkedEntityType: varchar('linked_entity_type', { length: 20 }), // 'transaction' | 'credit_card' | 'insurance' | 'loan'
 
     // Manual editing and visibility
     isManuallyCategorized: boolean('is_manually_categorized').default(false), // true if user manually edited summary or category
@@ -492,7 +492,8 @@ export const insurancePolicies = pgTable(
 
     // Policy identification
     policyType: varchar('policy_type', { length: 30 }).notNull(), // 'life_insurance' | 'health_insurance' | 'vehicle_insurance'
-    provider: text('provider').notNull(), // Insurance company name
+    provider: text('provider').notNull(), // Insurance company name (display name)
+    institution: text('institution'), // Institution ID for logo lookup (e.g., 'hdfc_life', 'icici_lombard')
     policyNumber: text('policy_number'),
     policyHolderName: text('policy_holder_name'),
 
@@ -531,6 +532,71 @@ export const insurancePolicies = pgTable(
     index('insurance_policies_policy_type_idx').on(table.policyType),
     index('insurance_policies_status_idx').on(table.status),
     index('insurance_policies_end_date_idx').on(table.endDate),
+  ]
+)
+
+/**
+ * Loans table - tracks loan documents uploaded by users
+ * Supports personal, home, vehicle, education, business, and gold loans with type-specific details in JSON
+ */
+export const loans = pgTable(
+  'loans',
+  {
+    id: varchar('id', { length: 21 })
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    profileId: varchar('profile_id', { length: 21 })
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 21 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Loan identification
+    loanType: varchar('loan_type', { length: 30 }).notNull(), // 'personal_loan' | 'home_loan' | 'vehicle_loan' | 'education_loan' | 'business_loan' | 'gold_loan'
+    lender: text('lender').notNull(), // Bank/NBFC name (display name)
+    institution: text('institution'), // Institution ID for logo lookup (e.g., 'hdfc', 'icici')
+    loanAccountNumber: text('loan_account_number'),
+    borrowerName: text('borrower_name'),
+
+    // Loan terms
+    principalAmount: decimal('principal_amount', { precision: 15, scale: 2 }), // Original loan amount
+    interestRate: decimal('interest_rate', { precision: 5, scale: 2 }), // Interest rate in percentage
+    interestType: varchar('interest_type', { length: 20 }), // 'fixed' | 'floating'
+    emiAmount: decimal('emi_amount', { precision: 15, scale: 2 }), // Monthly EMI
+    tenureMonths: integer('tenure_months'), // Loan tenure in months
+
+    // Loan dates
+    disbursementDate: date('disbursement_date'), // YYYY-MM-DD - when loan was disbursed
+    firstEmiDate: date('first_emi_date'), // YYYY-MM-DD - first EMI date
+    endDate: date('end_date'), // YYYY-MM-DD - last EMI / maturity date
+
+    // Status
+    status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'closed'
+
+    // Type-specific details stored as JSON
+    details: jsonb('details'), // JSON for type-specific fields
+
+    // File info
+    originalFilename: text('original_filename'),
+    fileType: varchar('file_type', { length: 10 }), // 'pdf'
+
+    // Parsing status
+    parseStatus: varchar('parse_status', { length: 20 }).notNull().default('pending'), // 'pending' | 'parsing' | 'completed' | 'failed'
+    errorMessage: text('error_message'),
+
+    // Raw text extracted from PDF (for detailed queries)
+    rawText: text('raw_text'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('loans_profile_id_idx').on(table.profileId),
+    index('loans_user_id_idx').on(table.userId),
+    index('loans_loan_type_idx').on(table.loanType),
+    index('loans_status_idx').on(table.status),
+    index('loans_end_date_idx').on(table.endDate),
   ]
 )
 
@@ -599,6 +665,9 @@ export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
 
 export type InsurancePolicy = typeof insurancePolicies.$inferSelect
 export type NewInsurancePolicy = typeof insurancePolicies.$inferInsert
+
+export type Loan = typeof loans.$inferSelect
+export type NewLoan = typeof loans.$inferInsert
 
 export type UserPreferences = typeof userPreferences.$inferSelect
 export type NewUserPreferences = typeof userPreferences.$inferInsert

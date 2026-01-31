@@ -50,6 +50,16 @@ summaryRoutes.get('/', async (c) => {
   const totalAssets = netWorth.totalAssets + investments.totalCurrent
   const totalNetWorth = totalAssets - netWorth.totalLiabilities
 
+  // Calculate credit card liabilities
+  const creditCardLiabilities = netWorth.accounts
+    .filter((a) => a.isLiability)
+    .reduce((sum, a) => sum + (a.latestBalance || 0), 0)
+
+  // Calculate loan liabilities
+  const loanLiabilities = netWorth.loans
+    .filter((l) => l.status === 'active')
+    .reduce((sum, l) => sum + l.outstandingBalance, 0)
+
   return c.json({
     // Net worth = total assets (cash + investments) - total liabilities
     netWorth: {
@@ -77,7 +87,14 @@ summaryRoutes.get('/', async (c) => {
         },
         liabilities: {
           total: netWorth.totalLiabilities,
-          accounts: netWorth.accounts.filter((a) => a.isLiability),
+          creditCards: {
+            total: creditCardLiabilities,
+            accounts: netWorth.accounts.filter((a) => a.isLiability),
+          },
+          loans: {
+            total: loanLiabilities,
+            items: netWorth.loans.filter((l) => l.status === 'active'),
+          },
         },
       },
     },

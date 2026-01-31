@@ -398,7 +398,7 @@ async function processQueue(): Promise<void> {
 }
 
 /**
- * Process statements: parse serially, then categorize all together
+ * Process statements: parse serially, then categorize per account, then run entity linking
  */
 async function processStatements(
   statements: StatementInput[],
@@ -409,8 +409,14 @@ async function processStatements(
   const { parseStatement } = await import('../llm/parser')
   const { categorizeStatements } = await import('../lib/pdf')
   const { updateStatementPassword } = await import('./accounts')
+  const { linkEntitiesForAccount } = await import('./entity-linking')
 
-  const successfulStatementIds: string[] = []
+  const successfulStatements: Array<{
+    statementId: string
+    accountId: string | null
+    profileId: string
+    userId: string
+  }> = []
 
   // Step 1: Parse each statement serially (for caching benefits)
   logger.debug(`[Statement] Parsing ${statements.length} statements serially`)
@@ -440,21 +446,24 @@ async function processStatements(
         parsingModel: stmt.parsingModel,
       })
 
-      successfulStatementIds.push(stmt.statementId)
+      // Get the account ID for this statement
+      const [parsedStatement] = await db
+        .select({ accountId: tables.statements.accountId })
+        .from(tables.statements)
+        .where(eq(tables.statements.id, stmt.statementId))
+        .limit(1)
+
+      successfulStatements.push({
+        statementId: stmt.statementId,
+        accountId: parsedStatement?.accountId || null,
+        profileId: stmt.profileId,
+        userId: stmt.userId,
+      })
 
       // Save password to account if requested (after parsing, account is now created)
-      if (stmt.password && stmt.savePassword) {
-        // Get the statement to find the account ID
-        const [parsedStatement] = await db
-          .select({ accountId: tables.statements.accountId })
-          .from(tables.statements)
-          .where(eq(tables.statements.id, stmt.statementId))
-          .limit(1)
-
-        if (parsedStatement?.accountId) {
-          await updateStatementPassword(parsedStatement.accountId, stmt.userId, stmt.password)
-          logger.debug(`[Statement] Saved password for account ${parsedStatement.accountId}`)
-        }
+      if (stmt.password && stmt.savePassword && parsedStatement?.accountId) {
+        await updateStatementPassword(parsedStatement.accountId, stmt.userId, stmt.password)
+        logger.debug(`[Statement] Saved password for account ${parsedStatement.accountId}`)
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -469,31 +478,59 @@ async function processStatements(
   }
 
   logger.debug(
-    `[Statement] Parsing complete: ${successfulStatementIds.length}/${statements.length} succeeded`
+    `[Statement] Parsing complete: ${successfulStatements.length}/${statements.length} succeeded`
   )
 
-  // Step 2: Categorize all successful statements together
-  if (successfulStatementIds.length > 0) {
-    logger.debug(`[Statement] Categorizing ${successfulStatementIds.length} statements together`)
+  // Step 2: Group statements by accountId and categorize per account
+  if (successfulStatements.length > 0) {
+    // Group by accountId
+    const accountGroups = new Map<string, typeof successfulStatements>()
+    for (const stmt of successfulStatements) {
+      const key = stmt.accountId || 'no-account'
+      if (!accountGroups.has(key)) {
+        accountGroups.set(key, [])
+      }
+      accountGroups.get(key)!.push(stmt)
+    }
+
+    logger.debug(`[Statement] Categorizing ${accountGroups.size} account groups`)
     categorizationStatus = { active: true, type: 'categorizing' }
 
-    // Get profileId from first statement (all statements in batch should have same profileId)
-    const profileId = statements[0]?.profileId
+    // Process each account group
+    for (const [accountId, accountStatements] of accountGroups) {
+      const statementIds = accountStatements.map((s) => s.statementId)
+      const profileId = accountStatements[0]?.profileId
+      const userId = accountStatements[0]?.userId
 
-    try {
-      const result = await categorizeStatements(
-        successfulStatementIds,
-        countryCode,
-        categorizationModel,
-        undefined,
-        profileId,
-        categorizationHints
-      )
       logger.debug(
-        `[Statement] Categorized ${result.categorizedCount}/${result.totalCount} transactions`
+        `[Statement] Categorizing account ${accountId}: ${statementIds.length} statements`
       )
-    } catch (error) {
-      logger.error('[Statement] Categorization failed:', error)
+
+      try {
+        const result = await categorizeStatements(
+          statementIds,
+          countryCode,
+          categorizationModel,
+          undefined,
+          profileId,
+          categorizationHints
+        )
+        logger.debug(
+          `[Statement] Categorized ${result.categorizedCount}/${result.totalCount} transactions for account ${accountId}`
+        )
+
+        // Step 3: Run entity linking for this account after categorization
+        if (accountId !== 'no-account' && userId) {
+          try {
+            await linkEntitiesForAccount(accountId, userId, categorizationModel)
+            logger.debug(`[Statement] Entity linking completed for account ${accountId}`)
+          } catch (linkError) {
+            logger.error(`[Statement] Entity linking failed for account ${accountId}:`, linkError)
+          }
+        }
+      } catch (error) {
+        logger.error(`[Statement] Categorization failed for account ${accountId}:`, error)
+      }
     }
   }
 

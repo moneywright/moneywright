@@ -22,6 +22,27 @@
       "when": 1769609020403,
       "tag": "0002_true_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1769703851928,
+      "tag": "0003_yummy_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1769707094644,
+      "tag": "0004_freezing_vin_gonzales",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1769711604114,
+      "tag": "0005_smooth_maelstrom",
+      "breakpoints": true
     }
   ]
 }

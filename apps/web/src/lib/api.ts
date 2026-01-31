@@ -505,6 +505,7 @@ export async function updateAccount(
   accountId: string,
   data: {
     accountName?: string
+    productName?: string | null
     institution?: string | null
     statementPassword?: string | null
     isActive?: boolean
@@ -685,8 +686,8 @@ export interface Transaction {
   category: string
   categoryConfidence: number | null
   isSubscription: boolean
-  linkedTransactionId: string | null
-  linkType: string | null
+  linkedEntityId: string | null
+  linkedEntityType: string | null // 'transaction' | 'credit_card' | 'insurance' | 'loan'
   isManuallyCategorized: boolean
   isHidden: boolean
   createdAt: string
@@ -799,7 +800,13 @@ export async function getTransaction(transactionId: string): Promise<Transaction
  */
 export async function updateTransaction(
   transactionId: string,
-  data: { category?: string; summary?: string; isHidden?: boolean }
+  data: {
+    category?: string
+    summary?: string
+    isHidden?: boolean
+    linkedEntityId?: string | null
+    linkedEntityType?: 'credit_card' | 'insurance' | 'loan' | null
+  }
 ): Promise<Transaction> {
   const response = await api.patch(`/transactions/${transactionId}`, data)
   return response.data.transaction
@@ -1315,7 +1322,14 @@ export interface FinancialSummary {
       }
       liabilities: {
         total: number
-        accounts: AccountBalanceInfo[]
+        creditCards: {
+          total: number
+          accounts: AccountBalanceInfo[]
+        }
+        loans: {
+          total: number
+          items: LoanLiabilityInfo[]
+        }
       }
     }
   }
@@ -1647,6 +1661,7 @@ export interface InvestmentHoldingType {
 export interface ConstantsResponse {
   countryCode: string
   institutions: Institution[]
+  insuranceProviders: Institution[]
   investmentSourceTypes: InvestmentSourceType[]
   accountTypes: AccountType[]
   categories: Category[]
@@ -1718,6 +1733,7 @@ export interface InsurancePolicy {
   userId: string
   policyType: InsurancePolicyType
   provider: string
+  institution: string | null
   policyNumber: string | null
   policyHolderName: string | null
   sumInsured: number | null
@@ -1844,6 +1860,276 @@ export async function updateInsurancePolicy(
  */
 export async function deleteInsurancePolicy(policyId: string): Promise<void> {
   await api.delete(`/insurance/policies/${policyId}`)
+}
+
+// ============================================
+// Loans API
+// ============================================
+
+/**
+ * Loan type
+ */
+export type LoanType =
+  | 'personal_loan'
+  | 'home_loan'
+  | 'vehicle_loan'
+  | 'education_loan'
+  | 'business_loan'
+  | 'gold_loan'
+
+/**
+ * Interest type
+ */
+export type InterestType = 'fixed' | 'floating'
+
+/**
+ * Loan status
+ */
+export type LoanStatus = 'active' | 'closed'
+
+/**
+ * Loan parse status
+ */
+export type LoanParseStatus = 'pending' | 'parsing' | 'completed' | 'failed'
+
+/**
+ * Loan interface
+ */
+export interface Loan {
+  id: string
+  profileId: string
+  userId: string
+  loanType: LoanType
+  lender: string
+  institution: string | null
+  loanAccountNumber: string | null
+  borrowerName: string | null
+  principalAmount: number | null
+  interestRate: number | null
+  interestType: InterestType | null
+  emiAmount: number | null
+  tenureMonths: number | null
+  disbursementDate: string | null
+  firstEmiDate: string | null
+  endDate: string | null
+  status: LoanStatus
+  details: Record<string, unknown> | null
+  originalFilename: string | null
+  fileType: string | null
+  parseStatus: LoanParseStatus
+  errorMessage: string | null
+  createdAt: string
+  updatedAt: string
+  // Optional for family view
+  profileName?: string
+}
+
+/**
+ * Loan upload response
+ */
+export interface LoanUploadResponse {
+  loanId: string
+  status: 'pending'
+  filename: string
+}
+
+/**
+ * Get all loans for user (family view)
+ */
+export async function getLoans(filters?: {
+  loanType?: LoanType
+  status?: LoanStatus
+  parseStatus?: LoanParseStatus
+}): Promise<Loan[]> {
+  const params = new URLSearchParams()
+  if (filters?.loanType) params.set('loanType', filters.loanType)
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.parseStatus) params.set('parseStatus', filters.parseStatus)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const response = await api.get(`/loans${queryString}`)
+  return response.data.loans
+}
+
+/**
+ * Get loans for a specific profile
+ */
+export async function getLoansByProfile(
+  profileId: string,
+  filters?: {
+    loanType?: LoanType
+    status?: LoanStatus
+    parseStatus?: LoanParseStatus
+  }
+): Promise<Loan[]> {
+  const params = new URLSearchParams()
+  if (filters?.loanType) params.set('loanType', filters.loanType)
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.parseStatus) params.set('parseStatus', filters.parseStatus)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const response = await api.get(`/loans/profiles/${profileId}${queryString}`)
+  return response.data.loans
+}
+
+/**
+ * Get a single loan
+ */
+export async function getLoan(loanId: string): Promise<Loan> {
+  const response = await api.get(`/loans/${loanId}`)
+  return response.data.loan
+}
+
+/**
+ * Upload a loan document PDF
+ */
+export async function uploadLoan(
+  file: File,
+  profileId: string,
+  options?: {
+    loanType?: LoanType
+    parsingModel?: string
+    password?: string
+  }
+): Promise<LoanUploadResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('profileId', profileId)
+  if (options?.loanType) formData.append('loanType', options.loanType)
+  if (options?.parsingModel) formData.append('parsingModel', options.parsingModel)
+  if (options?.password) formData.append('password', options.password)
+
+  const response = await api.post('/loans/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data
+}
+
+/**
+ * Update a loan
+ */
+export async function updateLoan(
+  loanId: string,
+  data: Partial<{
+    loanType: LoanType
+    lender: string
+    loanAccountNumber: string | null
+    borrowerName: string | null
+    principalAmount: number | null
+    interestRate: number | null
+    interestType: InterestType | null
+    emiAmount: number | null
+    tenureMonths: number | null
+    disbursementDate: string | null
+    firstEmiDate: string | null
+    endDate: string | null
+    status: LoanStatus
+    details: Record<string, unknown> | null
+  }>
+): Promise<Loan> {
+  const response = await api.put(`/loans/${loanId}`, data)
+  return response.data.loan
+}
+
+/**
+ * Delete a loan
+ */
+export async function deleteLoan(loanId: string): Promise<void> {
+  await api.delete(`/loans/${loanId}`)
+}
+
+/**
+ * Payment history entry
+ */
+export interface PaymentHistoryEntry {
+  id: string
+  date: string
+  amount: number
+  summary: string | null
+  accountId: string
+}
+
+/**
+ * Get loan payment history
+ */
+export async function getLoanPaymentHistory(loanId: string): Promise<PaymentHistoryEntry[]> {
+  const response = await api.get(`/loans/${loanId}/payment-history`)
+  return response.data.payments
+}
+
+/**
+ * Loan outstanding calculation with principal progress
+ * Uses payment-by-payment simulation for accurate calculation
+ */
+export interface LoanOutstanding {
+  principalAmount: number
+  totalPaid: number
+  paymentCount: number
+  emisCompleted: number
+  totalEmis: number
+  // Principal progress (using payment simulation)
+  outstandingPrincipal: number
+  principalPaid: number
+  interestPaid: number
+  principalProgressPercent: number
+  // Total payable progress (original schedule)
+  totalPayable: number | null
+  totalInterest: number | null
+  remainingPayable: number | null
+  // Interest savings from prepayments
+  interestSaved: number | null
+}
+
+/**
+ * Loan liability info for net worth calculation
+ */
+export interface LoanLiabilityInfo {
+  loanId: string
+  loanType: string
+  lender: string
+  institution: string | null
+  principalAmount: number
+  outstandingBalance: number
+  totalPaid: number
+  paymentsMade: number
+  interestRate: number | null
+  tenureMonths: number | null
+  status: string
+}
+
+/**
+ * Get loan outstanding calculation
+ */
+export async function getLoanOutstanding(loanId: string): Promise<LoanOutstanding> {
+  const response = await api.get(`/loans/${loanId}/outstanding`)
+  return response.data
+}
+
+/**
+ * Get insurance payment history
+ */
+export async function getInsurancePaymentHistory(policyId: string): Promise<PaymentHistoryEntry[]> {
+  const response = await api.get(`/insurance/policies/${policyId}/payment-history`)
+  return response.data.payments
+}
+
+/**
+ * CC payment history entry (includes source account)
+ */
+export interface CCPaymentHistoryEntry {
+  id: string
+  date: string
+  amount: number
+  summary: string | null
+  sourceAccountId: string
+}
+
+/**
+ * Get credit card payment history
+ */
+export async function getCreditCardPaymentHistory(
+  accountId: string
+): Promise<CCPaymentHistoryEntry[]> {
+  const response = await api.get(`/accounts/${accountId}/payment-history`)
+  return response.data.payments
 }
 
 // ============================================

@@ -320,7 +320,7 @@ async function extractAccountInfo(
   const accountTypeList = accountTypes.map((t) => t.code).join(', ')
   const institutionList = formatInstitutionsForLLM(countryCode)
 
-  const prompt = `Extract account information AND statement summary from this bank/credit card statement.
+  const prompt = `Extract account information and statement summary from this bank/credit card statement.
 
 STATEMENT TEXT:
 ${truncatedText}
@@ -328,91 +328,51 @@ ${truncatedText}
 AVAILABLE INSTITUTIONS (ID: Name):
 ${institutionList}
 
-=== PART 1: ACCOUNT INFORMATION ===
-Look for:
+=== ACCOUNT INFORMATION ===
+Extract:
 - Account type: one of ${accountTypeList}
-- Institution ID: match the bank name to one of the IDs above (e.g., HDFC for HDFC Bank, ICICI for ICICI Bank)
-- Institution name: full name of the bank/financial institution
+- Institution ID: match bank name to an ID above (e.g., hdfc for HDFC Bank)
+- Institution name: full name of the bank
 - Account number or card number
-- Account holder name (use null if not found)
-- Statement period start date (YYYY-MM-DD format)
-- Statement period end date (YYYY-MM-DD format)
+- Account holder name (null if not found)
+- Statement period start/end dates (YYYY-MM-DD format)
 
-=== PART 2: STATEMENT SUMMARY (CRITICAL) ===
-Find the STATEMENT SUMMARY section of the document. This is usually a box or table showing:
-- Opening Balance
-- Closing Balance (or "Closing Bal")
-- Number of Debits/Withdrawals (often shown as "Dr Count" or "No. of Debits")
-- Number of Credits/Deposits (often shown as "Cr Count" or "No. of Credits")
-- Total Debits amount
-- Total Credits amount
+For credit cards, also extract:
+- Total dues (amount due)
+- Minimum dues
+- Payment due date (YYYY-MM-DD)
 
-IMPORTANT: Return the EXACT numbers printed in the summary section. Do NOT count transactions yourself.
-These numbers are pre-calculated by the bank and printed on the statement.
+=== STATEMENT SUMMARY ===
+Look for a pre-printed STATEMENT SUMMARY section showing:
+- Opening/Closing Balance
+- Debit/Credit counts (e.g., "Dr Count: 56")
+- Total Debits/Credits amounts
 
-Example of what to look for:
+Extract the EXACT numbers printed. Do not calculate these values yourself.
+
+Example:
 "STATEMENT SUMMARY
  Opening Balance: 2,493,023.24
  Dr Count: 56  Cr Count: 122
  Debits: 3,632,459.58  Credits: 3,679,494.92
  Closing Bal: 2,540,058.58"
 
-From this, you would extract:
-- opening_balance: 2493023.24
-- closing_balance: 2540058.58
-- debit_count: 56
-- credit_count: 122
-- total_debits: 3632459.58
-- total_credits: 3679494.92
+If no summary section exists, extract opening/closing balance from the transaction table:
+- Closing balance = balance of the most recent transaction (by date)
+- Opening balance = derive from oldest transaction's balance +/- its amount
 
-=== BALANCE EXTRACTION (IMPORTANT) ===
-If the statement does NOT have a summary section with opening/closing balance, you MUST extract balances from the transaction table:
+=== CSV/EXCEL FILES ===
+If this is CSV/Excel data (columnar transaction rows without a summary section):
+- Return null for: debit_count, credit_count, total_debits, total_credits
+- Do not count transactions or sum amounts to derive these values
+- Opening/closing balance may still be extracted from a Balance column if present
 
-1. **Closing Balance**: Look at the MOST RECENT transaction (by date, not row position) in the transaction table.
-   The balance shown for that transaction IS the closing balance.
-
-2. **Opening Balance**: Look at the OLDEST transaction (by date, not row position) in the transaction table.
-   Calculate: opening_balance = that transaction's balance +/- its amount
-   - If oldest transaction is a CREDIT: opening_balance = balance - amount
-   - If oldest transaction is a DEBIT: opening_balance = balance + amount
-
-Note: Transaction tables can be in ascending (oldest first) OR descending (newest first) order.
-Always determine the chronological order by looking at the DATES, not row position.
-
-Example transaction table (descending order - newest first):
-"Date        Description      Debit    Credit   Balance
- 31-Dec-22   ATM Withdrawal   500               9,500
- 15-Dec-22   Salary                    50,000   10,000
- 01-Dec-22   Opening Balance                    -40,000"
-
-From this:
-- closing_balance: 9500 (balance of most recent date: 31-Dec-22)
-- The oldest transaction is 15-Dec-22 with balance 10,000 and credit 50,000
-- opening_balance: 10000 - 50000 = -40,000
-
-ALWAYS try to extract opening_balance and closing_balance - they are critical for validation.
-
-=== FOR CREDIT CARDS ===
-Additionally look for:
-- Total dues: total amount due / statement balance
-- Minimum dues: minimum payment due
-- Payment due date (YYYY-MM-DD format)
-
-=== CARD NUMBER IDENTIFICATION ===
-For credit card statements, look for the CARD NUMBER or MEMBERSHIP NUMBER, NOT other reference numbers.
-- Credit card numbers are typically 15-16 digits
-- Look for labels like "Card Number", "Membership Number", "Account Number"
-- IGNORE statement numbers, customer IDs, or reference numbers
-
-=== IMPORTANT RULES ===
-- Match the institution to the closest ID from the list above
-- If the institution is not in the list, use "OTHER" as the institution_id
-- All dates should be in YYYY-MM-DD format
-- All amounts should be numbers (not strings), remove commas
-- For summary fields, return null if that specific value is not printed on the statement
-- Do NOT calculate or estimate summary values - only return what's explicitly printed
-
-If you cannot find certain information, use null for nullable fields or make your best guess for required fields.`
+=== RULES ===
+- Use "OTHER" as institution_id if bank not in list
+- All dates: YYYY-MM-DD format
+- All amounts: numbers without commas
+- Return null for any summary field not explicitly printed in the document
+- Do not calculate or estimate summary values`
 
   logger.debug(`[Parser] Account info prompt length: ${prompt.length} chars`)
 

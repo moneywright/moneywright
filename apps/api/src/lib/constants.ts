@@ -387,6 +387,356 @@ const INSTITUTIONS_IN: Institution[] = [
 ]
 
 /**
+ * India insurance providers - Life, Health, and General insurance companies
+ */
+const INSURANCE_PROVIDERS_IN: Institution[] = [
+  // Life Insurance - Public Sector
+  {
+    id: 'lic',
+    name: 'Life Insurance Corporation of India',
+    logo: '/institutions/in/lic.svg',
+    website: 'https://licindia.in',
+  },
+
+  // Life Insurance - Private Sector
+  {
+    id: 'hdfc_life',
+    name: 'HDFC Life Insurance',
+    logo: '/institutions/in/hdfc_life.svg',
+    website: 'https://hdfclife.com',
+  },
+  {
+    id: 'icici_prudential',
+    name: 'ICICI Prudential Life Insurance',
+    logo: '/institutions/in/icici_prudential.svg',
+    website: 'https://iciciprulife.com',
+  },
+  {
+    id: 'sbi_life',
+    name: 'SBI Life Insurance',
+    logo: '/institutions/in/sbi_life.svg',
+    website: 'https://sbilife.co.in',
+  },
+  {
+    id: 'max_life',
+    name: 'Max Life Insurance',
+    logo: '/institutions/in/max_life.svg',
+    website: 'https://maxlifeinsurance.com',
+  },
+  {
+    id: 'bajaj_allianz_life',
+    name: 'Bajaj Allianz Life Insurance',
+    logo: '/institutions/in/bajaj_allianz_life.svg',
+    website: 'https://bajajallianzlife.com',
+  },
+  {
+    id: 'tata_aia',
+    name: 'Tata AIA Life Insurance',
+    logo: '/institutions/in/tata_aia.svg',
+    website: 'https://tataaia.com',
+  },
+  {
+    id: 'kotak_life',
+    name: 'Kotak Mahindra Life Insurance',
+    logo: '/institutions/in/kotak_life.svg',
+    website: 'https://insurance.kotak.com',
+  },
+  {
+    id: 'aditya_birla_sun_life',
+    name: 'Aditya Birla Sun Life Insurance',
+    logo: '/institutions/in/aditya_birla_sun_life.svg',
+    website: 'https://absli.com',
+  },
+  {
+    id: 'pnb_metlife',
+    name: 'PNB MetLife Insurance',
+    logo: '/institutions/in/pnb_metlife.svg',
+    website: 'https://pnbmetlife.com',
+  },
+  {
+    id: 'canara_hsbc_life',
+    name: 'Canara HSBC Life Insurance',
+    logo: '/institutions/in/canara_hsbc_life.svg',
+    website: 'https://canarahsbclife.com',
+  },
+  {
+    id: 'edelweiss_tokio',
+    name: 'Edelweiss Tokio Life Insurance',
+    logo: '/institutions/in/edelweiss_tokio.svg',
+    website: 'https://edelweisstokio.in',
+  },
+  {
+    id: 'bandhan_life',
+    name: 'Bandhan Life Insurance',
+    logo: '/institutions/in/bandhan_life.svg',
+    website: 'https://bandhanlife.com',
+  },
+
+  // Health Insurance
+  {
+    id: 'star_health',
+    name: 'Star Health Insurance',
+    logo: '/institutions/in/star_health.svg',
+    website: 'https://starhealth.in',
+  },
+  {
+    id: 'care_health',
+    name: 'Care Health Insurance',
+    logo: '/institutions/in/care_health.svg',
+    website: 'https://careinsurance.com',
+  },
+  {
+    id: 'niva_bupa',
+    name: 'Niva Bupa Health Insurance',
+    logo: '/institutions/in/niva_bupa.svg',
+    website: 'https://nivabupa.com',
+  },
+  {
+    id: 'manipal_cigna',
+    name: 'ManipalCigna Health Insurance',
+    logo: '/institutions/in/manipal_cigna.svg',
+    website: 'https://manipalcigna.com',
+  },
+  {
+    id: 'aditya_birla_health',
+    name: 'Aditya Birla Health Insurance',
+    logo: '/institutions/in/aditya_birla_health.svg',
+    website: 'https://adityabirlahealthinsurance.com',
+  },
+
+  // General Insurance - Public Sector
+  {
+    id: 'new_india',
+    name: 'New India Assurance',
+    logo: '/institutions/in/new_india.svg',
+    website: 'https://newindia.co.in',
+  },
+  {
+    id: 'united_india',
+    name: 'United India Insurance',
+    logo: '/institutions/in/united_india.svg',
+    website: 'https://uiic.co.in',
+  },
+  {
+    id: 'national_insurance',
+    name: 'National Insurance Company',
+    logo: '/institutions/in/national_insurance.svg',
+    website: 'https://nationalinsurance.nic.co.in',
+  },
+  {
+    id: 'oriental_insurance',
+    name: 'Oriental Insurance',
+    logo: '/institutions/in/oriental_insurance.svg',
+    website: 'https://orientalinsurance.org.in',
+  },
+
+  // General Insurance - Private Sector
+  {
+    id: 'icici_lombard',
+    name: 'ICICI Lombard General Insurance',
+    logo: '/institutions/in/icici_lombard.svg',
+    website: 'https://icicilombard.com',
+  },
+  {
+    id: 'hdfc_ergo',
+    name: 'HDFC ERGO General Insurance',
+    logo: '/institutions/in/hdfc_ergo.svg',
+    website: 'https://hdfcergo.com',
+  },
+  {
+    id: 'bajaj_allianz_general',
+    name: 'Bajaj Allianz General Insurance',
+    logo: '/institutions/in/bajaj_allianz_general.svg',
+    website: 'https://bajajallianz.com',
+  },
+  {
+    id: 'tata_aig',
+    name: 'Tata AIG General Insurance',
+    logo: '/institutions/in/tata_aig.svg',
+    website: 'https://tataaig.com',
+  },
+  {
+    id: 'reliance_general',
+    name: 'Reliance General Insurance',
+    logo: '/institutions/in/reliance_general.svg',
+    website: 'https://reliancegeneral.co.in',
+  },
+  {
+    id: 'future_generali',
+    name: 'Future Generali India Insurance',
+    logo: '/institutions/in/future_generali.svg',
+    website: 'https://general.futuregenerali.in',
+  },
+  {
+    id: 'cholamandalam',
+    name: 'Cholamandalam MS General Insurance',
+    logo: '/institutions/in/cholamandalam.svg',
+    website: 'https://cholainsurance.com',
+  },
+  {
+    id: 'royal_sundaram',
+    name: 'Royal Sundaram General Insurance',
+    logo: '/institutions/in/royal_sundaram.svg',
+    website: 'https://royalsundaram.in',
+  },
+  {
+    id: 'digit',
+    name: 'Digit Insurance',
+    logo: '/institutions/in/digit.svg',
+    website: 'https://godigit.com',
+  },
+  {
+    id: 'acko',
+    name: 'Acko General Insurance',
+    logo: '/institutions/in/acko.svg',
+    website: 'https://acko.com',
+  },
+  {
+    id: 'sbi_general',
+    name: 'SBI General Insurance',
+    logo: '/institutions/in/sbi_general.svg',
+    website: 'https://sbigeneral.in',
+  },
+  {
+    id: 'kotak_general',
+    name: 'Kotak Mahindra General Insurance',
+    logo: '/institutions/in/kotak_general.svg',
+    website: 'https://kotakgeneral.com',
+  },
+
+  // Generic
+  { id: 'other', name: 'Other', logo: '/institutions/in/other.svg' },
+]
+
+/**
+ * US insurance providers
+ */
+const INSURANCE_PROVIDERS_US: Institution[] = [
+  // Life Insurance
+  {
+    id: 'metlife',
+    name: 'MetLife',
+    logo: '/institutions/us/metlife.svg',
+    website: 'https://metlife.com',
+  },
+  {
+    id: 'prudential',
+    name: 'Prudential Financial',
+    logo: '/institutions/us/prudential.svg',
+    website: 'https://prudential.com',
+  },
+  {
+    id: 'northwestern_mutual',
+    name: 'Northwestern Mutual',
+    logo: '/institutions/us/northwestern_mutual.svg',
+    website: 'https://northwesternmutual.com',
+  },
+  {
+    id: 'new_york_life',
+    name: 'New York Life',
+    logo: '/institutions/us/new_york_life.svg',
+    website: 'https://newyorklife.com',
+  },
+  {
+    id: 'lincoln_financial',
+    name: 'Lincoln Financial',
+    logo: '/institutions/us/lincoln_financial.svg',
+    website: 'https://lincolnfinancial.com',
+  },
+
+  // Health Insurance
+  {
+    id: 'unitedhealth',
+    name: 'UnitedHealthcare',
+    logo: '/institutions/us/unitedhealth.svg',
+    website: 'https://uhc.com',
+  },
+  {
+    id: 'anthem',
+    name: 'Anthem Blue Cross',
+    logo: '/institutions/us/anthem.svg',
+    website: 'https://anthem.com',
+  },
+  {
+    id: 'aetna',
+    name: 'Aetna',
+    logo: '/institutions/us/aetna.svg',
+    website: 'https://aetna.com',
+  },
+  {
+    id: 'cigna',
+    name: 'Cigna',
+    logo: '/institutions/us/cigna.svg',
+    website: 'https://cigna.com',
+  },
+  {
+    id: 'humana',
+    name: 'Humana',
+    logo: '/institutions/us/humana.svg',
+    website: 'https://humana.com',
+  },
+  {
+    id: 'kaiser',
+    name: 'Kaiser Permanente',
+    logo: '/institutions/us/kaiser.svg',
+    website: 'https://kaiserpermanente.org',
+  },
+
+  // Auto/General Insurance
+  {
+    id: 'state_farm',
+    name: 'State Farm',
+    logo: '/institutions/us/state_farm.svg',
+    website: 'https://statefarm.com',
+  },
+  {
+    id: 'geico',
+    name: 'GEICO',
+    logo: '/institutions/us/geico.svg',
+    website: 'https://geico.com',
+  },
+  {
+    id: 'progressive',
+    name: 'Progressive',
+    logo: '/institutions/us/progressive.svg',
+    website: 'https://progressive.com',
+  },
+  {
+    id: 'allstate',
+    name: 'Allstate',
+    logo: '/institutions/us/allstate.svg',
+    website: 'https://allstate.com',
+  },
+  {
+    id: 'liberty_mutual',
+    name: 'Liberty Mutual',
+    logo: '/institutions/us/liberty_mutual.svg',
+    website: 'https://libertymutual.com',
+  },
+  {
+    id: 'nationwide',
+    name: 'Nationwide',
+    logo: '/institutions/us/nationwide.svg',
+    website: 'https://nationwide.com',
+  },
+  {
+    id: 'travelers',
+    name: 'Travelers',
+    logo: '/institutions/us/travelers.svg',
+    website: 'https://travelers.com',
+  },
+  {
+    id: 'usaa',
+    name: 'USAA',
+    logo: '/institutions/us/usaa.svg',
+    website: 'https://usaa.com',
+  },
+
+  // Generic
+  { id: 'other', name: 'Other', logo: '/institutions/us/other.svg' },
+]
+
+/**
  * US institutions
  */
 const INSTITUTIONS_US: Institution[] = [
@@ -469,6 +819,14 @@ const INSTITUTIONS: Record<CountryCode, Institution[]> = {
 }
 
 /**
+ * All insurance providers by country
+ */
+const INSURANCE_PROVIDERS: Record<CountryCode, Institution[]> = {
+  IN: INSURANCE_PROVIDERS_IN,
+  US: INSURANCE_PROVIDERS_US,
+}
+
+/**
  * Get institutions for a country
  */
 export function getInstitutionsForCountry(countryCode: CountryCode): Institution[] {
@@ -501,6 +859,44 @@ export function getInstitutionName(countryCode: CountryCode, institutionId: stri
 export function formatInstitutionsForLLM(countryCode: CountryCode): string {
   const institutions = getInstitutionsForCountry(countryCode)
   return institutions.map((i) => `${i.id}: ${i.name}`).join('\n')
+}
+
+// ============================================================================
+// INSURANCE PROVIDERS
+// ============================================================================
+
+/**
+ * Get insurance providers for a country
+ */
+export function getInsuranceProvidersForCountry(countryCode: CountryCode): Institution[] {
+  return INSURANCE_PROVIDERS[countryCode] || []
+}
+
+/**
+ * Get insurance provider by ID for a country
+ */
+export function getInsuranceProviderById(
+  countryCode: CountryCode,
+  providerId: string
+): Institution | undefined {
+  const providers = getInsuranceProvidersForCountry(countryCode)
+  return providers.find((p) => p.id === providerId)
+}
+
+/**
+ * Get insurance provider name by ID (returns ID if not found)
+ */
+export function getInsuranceProviderName(countryCode: CountryCode, providerId: string): string {
+  const provider = getInsuranceProviderById(countryCode, providerId)
+  return provider?.name || providerId
+}
+
+/**
+ * Format insurance provider list for LLM prompt
+ */
+export function formatInsuranceProvidersForLLM(countryCode: CountryCode): string {
+  const providers = getInsuranceProvidersForCountry(countryCode)
+  return providers.map((p) => `${p.id}: ${p.name}`).join('\n')
 }
 
 // ============================================================================

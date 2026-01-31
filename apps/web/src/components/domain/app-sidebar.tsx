@@ -39,6 +39,7 @@ import {
   Check,
   Repeat,
   Shield,
+  Landmark,
 } from 'lucide-react'
 
 // Main navigation items
@@ -82,6 +83,11 @@ const mainNavItems = [
     title: 'Insurance',
     icon: Shield,
     href: '/insurance',
+  },
+  {
+    title: 'Loans',
+    icon: Landmark,
+    href: '/loans',
   },
 ]
 

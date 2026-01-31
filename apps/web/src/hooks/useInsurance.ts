@@ -7,6 +7,7 @@ import {
   uploadInsurancePolicy,
   updateInsurancePolicy,
   deleteInsurancePolicy,
+  getInsurancePaymentHistory,
   type InsurancePolicyType,
   type InsurancePolicyStatus,
   type InsuranceParseStatus,
@@ -17,6 +18,8 @@ export const insuranceKeys = {
   all: ['insurance'] as const,
   list: (profileId?: string) => [...insuranceKeys.all, 'list', profileId ?? 'family'] as const,
   detail: (policyId: string) => [...insuranceKeys.all, 'detail', policyId] as const,
+  paymentHistory: (policyId: string) =>
+    [...insuranceKeys.all, 'payment-history', policyId] as const,
 }
 
 // ============================================
@@ -180,5 +183,16 @@ export function useInsuranceProcessing(
 
       return 2000 // Continue polling every 2 seconds
     },
+  })
+}
+
+/**
+ * Get insurance policy payment history
+ */
+export function useInsurancePaymentHistory(policyId: string) {
+  return useQuery({
+    queryKey: insuranceKeys.paymentHistory(policyId),
+    queryFn: () => getInsurancePaymentHistory(policyId),
+    enabled: !!policyId,
   })
 }

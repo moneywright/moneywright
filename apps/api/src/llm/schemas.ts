@@ -714,6 +714,13 @@ export const insurancePolicySchema = z.object({
   provider: z
     .string()
     .describe('Insurance company name (e.g., "HDFC Life", "ICICI Lombard", "Star Health")'),
+  institution: z
+    .string()
+    .nullable()
+    .describe(
+      'Institution ID code from the provided list for logo lookup (e.g., "hdfc_life", "icici_lombard", "star_health", "lic"). ' +
+        'Must be lowercase with underscores. Use null if provider is not in the list.'
+    ),
   policy_number: z
     .string()
     .nullable()
@@ -744,6 +751,163 @@ export const insurancePolicySchema = z.object({
 })
 
 // ============================================================================
+// Loan Document Extraction Schemas
+// ============================================================================
+
+/**
+ * Loan types
+ */
+export const loanTypes = [
+  'personal_loan',
+  'home_loan',
+  'vehicle_loan',
+  'education_loan',
+  'business_loan',
+  'gold_loan',
+] as const
+
+export type LoanType = (typeof loanTypes)[number]
+
+/**
+ * Interest type options
+ */
+export const interestTypes = ['fixed', 'floating'] as const
+
+export type InterestType = (typeof interestTypes)[number]
+
+/**
+ * Home loan specific details schema
+ */
+export const homeLoanDetailsSchema = z.object({
+  property_address: z.string().nullable().describe('Address of the property'),
+  property_type: z
+    .enum(['apartment', 'house', 'plot', 'commercial'])
+    .nullable()
+    .describe('Type of property'),
+  co_borrower_name: z.string().nullable().describe('Name of the co-borrower, if any'),
+  collateral_value: z.number().nullable().describe('Value of the property/collateral'),
+})
+
+/**
+ * Vehicle loan specific details schema
+ */
+export const vehicleLoanDetailsSchema = z.object({
+  vehicle_make: z.string().nullable().describe('Vehicle manufacturer (e.g., "Honda", "Maruti")'),
+  vehicle_model: z.string().nullable().describe('Vehicle model (e.g., "City", "Swift")'),
+  vehicle_year: z.number().nullable().describe('Year of manufacture'),
+  registration_number: z.string().nullable().describe('Vehicle registration number'),
+  vehicle_type: z.enum(['car', 'two_wheeler', 'commercial']).nullable().describe('Type of vehicle'),
+})
+
+/**
+ * Education loan specific details schema
+ */
+export const educationLoanDetailsSchema = z.object({
+  institution_name: z.string().nullable().describe('Name of the educational institution'),
+  course_name: z.string().nullable().describe('Name of the course/program'),
+  student_name: z.string().nullable().describe('Name of the student'),
+  moratorium_period: z
+    .string()
+    .nullable()
+    .describe('Moratorium/repayment holiday period (e.g., "Course duration + 6 months")'),
+})
+
+/**
+ * Business loan specific details schema
+ */
+export const businessLoanDetailsSchema = z.object({
+  business_name: z.string().nullable().describe('Name of the business'),
+  loan_purpose: z.string().nullable().describe('Purpose of the loan'),
+  collateral_details: z.string().nullable().describe('Collateral/security details, if any'),
+})
+
+/**
+ * Gold loan specific details schema
+ */
+export const goldLoanDetailsSchema = z.object({
+  gold_weight: z.number().nullable().describe('Weight of gold in grams'),
+  gold_purity: z.string().nullable().describe('Purity of gold (e.g., "22K", "24K")'),
+  collateral_value: z.number().nullable().describe('Value of gold collateral'),
+})
+
+/**
+ * Personal loan specific details schema
+ */
+export const personalLoanDetailsSchema = z.object({
+  loan_purpose: z.string().nullable().describe('Purpose of the loan, if mentioned'),
+})
+
+/**
+ * Loan document extraction schema - for LLM structured output
+ * Used to parse loan documents
+ */
+export const loanDocumentSchema = z.object({
+  // Loan type detection
+  loan_type: z
+    .enum([
+      'personal_loan',
+      'home_loan',
+      'vehicle_loan',
+      'education_loan',
+      'business_loan',
+      'gold_loan',
+    ])
+    .describe(
+      'Type of loan: personal_loan (unsecured), home_loan (housing/mortgage), ' +
+        'vehicle_loan (car/bike), education_loan (student), business_loan, or gold_loan'
+    ),
+
+  // Common fields
+  lender: z.string().describe('Bank or NBFC name (e.g., "HDFC Bank", "SBI", "Bajaj Finserv")'),
+  institution: z
+    .string()
+    .nullable()
+    .describe(
+      'Institution ID code from the provided list for logo lookup (e.g., "hdfc", "sbi", "icici", "axis", "kotak"). ' +
+        'Must be lowercase. Use null if lender is not in the list.'
+    ),
+  loan_account_number: z.string().nullable().describe('Loan account number or reference number'),
+  borrower_name: z.string().nullable().describe('Name of the primary borrower'),
+  principal_amount: z.number().nullable().describe('Original loan amount / sanctioned amount'),
+  interest_rate: z
+    .number()
+    .nullable()
+    .describe('Interest rate in percentage (e.g., 10.5 for 10.5%)'),
+  interest_type: z
+    .enum(['fixed', 'floating'])
+    .nullable()
+    .describe('Type of interest rate: fixed or floating'),
+  emi_amount: z.number().nullable().describe('Monthly EMI amount'),
+  tenure_months: z.number().nullable().describe('Loan tenure in months'),
+  disbursement_date: z
+    .string()
+    .nullable()
+    .describe('Date when loan was disbursed in YYYY-MM-DD format'),
+  first_emi_date: z.string().nullable().describe('Date of first EMI payment in YYYY-MM-DD format'),
+  end_date: z.string().nullable().describe('Date of last EMI / loan maturity in YYYY-MM-DD format'),
+
+  // Type-specific details (one will be populated based on loan_type)
+  home_loan_details: homeLoanDetailsSchema
+    .nullable()
+    .describe('Home loan specific details. Null if not home loan.'),
+  vehicle_loan_details: vehicleLoanDetailsSchema
+    .nullable()
+    .describe('Vehicle loan specific details. Null if not vehicle loan.'),
+  education_loan_details: educationLoanDetailsSchema
+    .nullable()
+    .describe('Education loan specific details. Null if not education loan.'),
+  business_loan_details: businessLoanDetailsSchema
+    .nullable()
+    .describe('Business loan specific details. Null if not business loan.'),
+  gold_loan_details: goldLoanDetailsSchema
+    .nullable()
+    .describe('Gold loan specific details. Null if not gold loan.'),
+  personal_loan_details: personalLoanDetailsSchema
+    .nullable()
+    .describe('Personal loan specific details. Null if not personal loan.'),
+})
+
+// ============================================================================
 // Type exports
 // ============================================================================
 
@@ -763,3 +927,10 @@ export type LifeInsuranceDetails = z.infer<typeof lifeInsuranceDetailsSchema>
 export type HealthInsuranceDetails = z.infer<typeof healthInsuranceDetailsSchema>
 export type VehicleInsuranceDetails = z.infer<typeof vehicleInsuranceDetailsSchema>
 export type InsurancePolicyParsed = z.infer<typeof insurancePolicySchema>
+export type HomeLoanDetails = z.infer<typeof homeLoanDetailsSchema>
+export type VehicleLoanDetails = z.infer<typeof vehicleLoanDetailsSchema>
+export type EducationLoanDetails = z.infer<typeof educationLoanDetailsSchema>
+export type BusinessLoanDetails = z.infer<typeof businessLoanDetailsSchema>
+export type GoldLoanDetails = z.infer<typeof goldLoanDetailsSchema>
+export type PersonalLoanDetails = z.infer<typeof personalLoanDetailsSchema>
+export type LoanDocumentParsed = z.infer<typeof loanDocumentSchema>

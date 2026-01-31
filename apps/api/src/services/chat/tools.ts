@@ -46,6 +46,7 @@ import { getAccountsWithBalances, calculateNetWorth } from '../accounts'
 import { getHoldingsByUserId, getInvestmentSummary } from '../investment-holdings'
 import { getSourcesByUserId } from '../investment-sources'
 import { getPoliciesByUser, getPolicyById, type PolicyFilters } from '../insurance'
+import { getLoansByUser, getLoanById, type LoanFilters } from '../loans'
 
 /** Page size for paginated results */
 const PAGE_SIZE = 250
@@ -775,7 +776,7 @@ Returns data in CSV format.`,
 
     getNetWorth: tool({
       description:
-        'Get net worth = total assets (cash + investments) minus total liabilities. Returns the true net worth with breakdown by asset type.',
+        'Get net worth = total assets (cash + investments) minus total liabilities (credit cards + outstanding loans). Returns the true net worth with breakdown by asset type.',
       inputSchema: z.object({}),
       execute: async () => {
         const [accountData, investments] = await Promise.all([
@@ -786,6 +787,14 @@ Returns data in CSV format.`,
         // True net worth: (cash + investments) - liabilities
         const totalAssets = accountData.totalAssets + investments.totalCurrent
         const totalNetWorth = totalAssets - accountData.totalLiabilities
+
+        // Calculate credit card vs loan liabilities
+        const creditCardLiabilities = accountData.accounts
+          .filter((a) => a.isLiability)
+          .reduce((sum, a) => sum + (a.latestBalance || 0), 0)
+
+        const activeLoans = accountData.loans.filter((l) => l.status === 'active')
+        const loanLiabilities = activeLoans.reduce((sum, l) => sum + l.outstandingBalance, 0)
 
         return {
           // Net worth summary
@@ -806,7 +815,21 @@ Returns data in CSV format.`,
             },
             liabilities: {
               total: accountData.totalLiabilities,
-              accountCount: accountData.accounts.filter((a) => a.isLiability).length,
+              creditCards: {
+                total: creditCardLiabilities,
+                count: accountData.accounts.filter((a) => a.isLiability).length,
+              },
+              loans: {
+                total: loanLiabilities,
+                count: activeLoans.length,
+                items: activeLoans.map((l) => ({
+                  loanType: l.loanType,
+                  lender: l.lender,
+                  principalAmount: l.principalAmount,
+                  outstandingBalance: l.outstandingBalance,
+                  paymentsMade: l.paymentsMade,
+                })),
+              },
             },
           },
 
@@ -1088,6 +1111,179 @@ Use this when the user asks specific questions about policy terms, exclusions, c
           status: policy.status,
           details: policy.details,
           rawText: policy.rawText || 'Raw text not available for this policy.',
+        }
+      },
+    }),
+
+    getLoans: tool({
+      description: `Get loan information with lender, principal, EMI, interest rate, and dates.
+Returns personal loans, home loans, vehicle loans, education loans, business loans, and gold loans.
+
+**Pagination**: Returns up to 250 rows per page.
+- First call: omit queryId and page (or page=1)
+- Next pages: pass the returned queryId with page=2, page=3, etc.
+
+**Data includes**: id, loan type, lender, loan account number, principal amount, interest rate, EMI, end date, status.
+
+**For detailed loan info**: Use getLoanDetails with the loan id to get full document text for specific questions about terms, prepayment charges, or foreclosure process.`,
+      inputSchema: z.object({
+        queryId: z.string().optional().describe('Query ID from previous call to fetch next page'),
+        page: z.number().optional().default(1).describe('Page number (1-indexed)'),
+        loanType: z
+          .enum([
+            'personal_loan',
+            'home_loan',
+            'vehicle_loan',
+            'education_loan',
+            'business_loan',
+            'gold_loan',
+          ])
+          .optional()
+          .describe('Filter by loan type'),
+        status: z.enum(['active', 'closed']).optional().describe('Filter by status'),
+      }),
+      execute: async (params) => {
+        const page = params.page || 1
+
+        // If queryId provided, fetch from cache
+        if (params.queryId) {
+          const cached = await getQueryCache(params.queryId)
+          if (!cached) {
+            return { error: `Query ${params.queryId} not found. Run a new query.` }
+          }
+          if (cached.profileId !== profileId) {
+            return { error: `Query ${params.queryId} does not belong to this profile.` }
+          }
+
+          const { slice, hasMore } = paginate(cached.data as Record<string, unknown>[], page)
+          const csvData = toCSV(slice, [
+            'id',
+            'loanType',
+            'lender',
+            'loanAccountNumber',
+            'borrowerName',
+            'principalAmount',
+            'interestRate',
+            'emiAmount',
+            'endDate',
+            'status',
+            'profileName',
+          ])
+
+          return {
+            queryId: params.queryId,
+            totalCount: cached.count,
+            page,
+            hasMore,
+            rowsInPage: slice.length,
+            data: csvData,
+          }
+        }
+
+        // New query
+        const filters: LoanFilters = {}
+        if (params.loanType) filters.loanType = params.loanType
+        if (params.status) filters.status = params.status
+
+        const loans = await getLoansByUser(userId, filters)
+
+        const queryId = generateQueryId('loan')
+        await storeQueryCache({
+          queryId,
+          profileId,
+          dataType: 'loans',
+          filters,
+          data: loans,
+          schema: {
+            fields: [
+              { name: 'id', type: 'string' },
+              { name: 'loanType', type: 'string' },
+              { name: 'lender', type: 'string' },
+              { name: 'loanAccountNumber', type: 'string' },
+              { name: 'borrowerName', type: 'string' },
+              { name: 'principalAmount', type: 'number' },
+              { name: 'interestRate', type: 'number' },
+              { name: 'emiAmount', type: 'number' },
+              { name: 'endDate', type: 'date' },
+              { name: 'status', type: 'string' },
+              { name: 'profileName', type: 'string' },
+            ],
+          },
+        })
+
+        const { slice, hasMore } = paginate(loans, page)
+        const csvData = toCSV(
+          slice.map((l) => ({
+            id: l.id,
+            loanType: l.loanType,
+            lender: l.lender,
+            loanAccountNumber: l.loanAccountNumber || '',
+            borrowerName: l.borrowerName || '',
+            principalAmount: l.principalAmount || 0,
+            interestRate: l.interestRate || 0,
+            emiAmount: l.emiAmount || 0,
+            endDate: l.endDate || '',
+            status: l.status,
+            profileName: l.profileName || '',
+          })),
+          [
+            'id',
+            'loanType',
+            'lender',
+            'loanAccountNumber',
+            'borrowerName',
+            'principalAmount',
+            'interestRate',
+            'emiAmount',
+            'endDate',
+            'status',
+            'profileName',
+          ]
+        )
+
+        return {
+          queryId,
+          totalCount: loans.length,
+          page,
+          hasMore,
+          rowsInPage: slice.length,
+          data: csvData,
+        }
+      },
+    }),
+
+    getLoanDetails: tool({
+      description: `Get detailed information about a specific loan, including the full document text.
+Use this when the user asks specific questions about loan terms, prepayment charges, foreclosure process, or any detailed information that requires the original document text.
+
+**Returns**: Loan metadata plus full raw text extracted from the PDF.`,
+      inputSchema: z.object({
+        loanId: z.string().describe('The loan ID to retrieve details for'),
+      }),
+      execute: async (params) => {
+        const loan = await getLoanById(params.loanId, userId)
+
+        if (!loan) {
+          return { error: `Loan ${params.loanId} not found.` }
+        }
+
+        return {
+          id: loan.id,
+          loanType: loan.loanType,
+          lender: loan.lender,
+          loanAccountNumber: loan.loanAccountNumber,
+          borrowerName: loan.borrowerName,
+          principalAmount: loan.principalAmount,
+          interestRate: loan.interestRate,
+          interestType: loan.interestType,
+          emiAmount: loan.emiAmount,
+          tenureMonths: loan.tenureMonths,
+          disbursementDate: loan.disbursementDate,
+          firstEmiDate: loan.firstEmiDate,
+          endDate: loan.endDate,
+          status: loan.status,
+          details: loan.details,
+          rawText: loan.rawText || 'Raw text not available for this loan.',
         }
       },
     }),

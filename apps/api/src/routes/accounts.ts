@@ -34,6 +34,7 @@ const createAccountSchema = z.object({
  */
 const updateAccountSchema = z.object({
   accountName: z.string().min(1).optional(),
+  productName: z.string().optional().nullable(),
   institution: z.string().optional().nullable(),
   statementPassword: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -176,6 +177,24 @@ accountRoutes.delete('/:id', async (c) => {
     }
 
     return c.json({ error: 'delete_failed', message }, 400)
+  }
+})
+
+/**
+ * GET /accounts/:id/payment-history
+ * Get payment history for a credit card account
+ */
+accountRoutes.get('/:id/payment-history', async (c) => {
+  const userId = c.get('userId')
+  const accountId = c.req.param('id')
+
+  try {
+    const { getCreditCardPaymentHistory } = await import('../services/entity-linking')
+    const payments = await getCreditCardPaymentHistory(accountId, userId)
+    return c.json({ payments })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to get payment history'
+    return c.json({ error: 'fetch_failed', message }, 400)
   }
 })
 

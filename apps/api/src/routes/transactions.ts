@@ -32,6 +32,9 @@ const updateTransactionSchema = z.object({
   category: z.string().min(1).optional(),
   summary: z.string().optional(),
   isHidden: z.boolean().optional(),
+  // Entity linking - allows manual linking/unlinking
+  linkedEntityId: z.string().nullable().optional(),
+  linkedEntityType: z.enum(['credit_card', 'insurance', 'loan']).nullable().optional(),
 })
 
 /**

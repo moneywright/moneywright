@@ -1,36 +1,36 @@
 import { Hono } from 'hono'
 import { auth, type AuthVariables } from '../middleware/auth'
 import {
-  createPolicy,
-  getPolicyById,
-  getPoliciesByProfile,
-  getPoliciesByUser,
-  updatePolicy,
-  deletePolicy,
-  queueInsuranceDocument,
-  type PolicyType,
-  type CreatePolicyInput,
-  type UpdatePolicyInput,
-  type PolicyFilters,
-} from '../services/insurance'
+  createLoan,
+  getLoanById,
+  getLoansByProfile,
+  getLoansByUser,
+  updateLoan,
+  deleteLoan,
+  queueLoanDocument,
+  type LoanType,
+  type CreateLoanInput,
+  type UpdateLoanInput,
+  type LoanFilters,
+} from '../services/loans'
 import { getProfileById } from '../services/profiles'
 import { extractPdfText } from '../lib/file-parser'
 import { logger } from '../lib/logger'
 
-const insuranceRoutes = new Hono<{ Variables: AuthVariables }>()
+const loanRoutes = new Hono<{ Variables: AuthVariables }>()
 
-insuranceRoutes.use('*', auth())
+loanRoutes.use('*', auth())
 
 /**
- * GET /insurance/policies
- * List all policies for user (family view)
+ * GET /loans
+ * List all loans for user (family view)
  */
-insuranceRoutes.get('/policies', async (c) => {
+loanRoutes.get('/', async (c) => {
   const userId = c.get('userId')
 
   // Parse query filters
-  const policyType = c.req.query('policyType') as PolicyType | undefined
-  const status = c.req.query('status') as 'active' | 'expired' | 'cancelled' | undefined
+  const loanType = c.req.query('loanType') as LoanType | undefined
+  const status = c.req.query('status') as 'active' | 'closed' | undefined
   const parseStatus = c.req.query('parseStatus') as
     | 'pending'
     | 'parsing'
@@ -38,20 +38,20 @@ insuranceRoutes.get('/policies', async (c) => {
     | 'failed'
     | undefined
 
-  const filters: PolicyFilters = {}
-  if (policyType) filters.policyType = policyType
+  const filters: LoanFilters = {}
+  if (loanType) filters.loanType = loanType
   if (status) filters.status = status
   if (parseStatus) filters.parseStatus = parseStatus
 
-  const policies = await getPoliciesByUser(userId, filters)
-  return c.json({ policies })
+  const loans = await getLoansByUser(userId, filters)
+  return c.json({ loans })
 })
 
 /**
- * GET /insurance/profiles/:profileId/policies
- * List policies for a specific profile
+ * GET /loans/profiles/:profileId
+ * List loans for a specific profile
  */
-insuranceRoutes.get('/profiles/:profileId/policies', async (c) => {
+loanRoutes.get('/profiles/:profileId', async (c) => {
   const userId = c.get('userId')
   const profileId = c.req.param('profileId')
 
@@ -62,8 +62,8 @@ insuranceRoutes.get('/profiles/:profileId/policies', async (c) => {
   }
 
   // Parse query filters
-  const policyType = c.req.query('policyType') as PolicyType | undefined
-  const status = c.req.query('status') as 'active' | 'expired' | 'cancelled' | undefined
+  const loanType = c.req.query('loanType') as LoanType | undefined
+  const status = c.req.query('status') as 'active' | 'closed' | undefined
   const parseStatus = c.req.query('parseStatus') as
     | 'pending'
     | 'parsing'
@@ -71,37 +71,37 @@ insuranceRoutes.get('/profiles/:profileId/policies', async (c) => {
     | 'failed'
     | undefined
 
-  const filters: PolicyFilters = {}
-  if (policyType) filters.policyType = policyType
+  const filters: LoanFilters = {}
+  if (loanType) filters.loanType = loanType
   if (status) filters.status = status
   if (parseStatus) filters.parseStatus = parseStatus
 
-  const policies = await getPoliciesByProfile(profileId, userId, filters)
-  return c.json({ policies })
+  const loans = await getLoansByProfile(profileId, userId, filters)
+  return c.json({ loans })
 })
 
 /**
- * GET /insurance/policies/:id
- * Get a single policy
+ * GET /loans/:id
+ * Get a single loan
  */
-insuranceRoutes.get('/policies/:id', async (c) => {
+loanRoutes.get('/:id', async (c) => {
   const userId = c.get('userId')
-  const policyId = c.req.param('id')
+  const loanId = c.req.param('id')
 
-  const policy = await getPolicyById(policyId, userId)
-  if (!policy) {
-    return c.json({ error: 'not_found', message: 'Policy not found' }, 404)
+  const loan = await getLoanById(loanId, userId)
+  if (!loan) {
+    return c.json({ error: 'not_found', message: 'Loan not found' }, 404)
   }
 
-  return c.json({ policy })
+  return c.json({ loan })
 })
 
 /**
- * POST /insurance/upload
- * Upload insurance policy PDF
- * Form data: file, profileId, policyType (optional hint), parsingModel (optional)
+ * POST /loans/upload
+ * Upload loan document PDF
+ * Form data: file, profileId, loanType (optional hint), parsingModel (optional)
  */
-insuranceRoutes.post('/upload', async (c) => {
+loanRoutes.post('/upload', async (c) => {
   const userId = c.get('userId')
 
   try {
@@ -109,7 +109,7 @@ insuranceRoutes.post('/upload', async (c) => {
 
     const file = formData.get('file') as File | null
     const profileId = formData.get('profileId') as string | null
-    const policyType = formData.get('policyType') as PolicyType | null
+    const loanType = formData.get('loanType') as LoanType | null
     const parsingModel = formData.get('parsingModel') as string | null
     const password = formData.get('password') as string | null
 
@@ -127,13 +127,13 @@ insuranceRoutes.post('/upload', async (c) => {
       return c.json({ error: 'not_found', message: 'Profile not found' }, 404)
     }
 
-    // Validate file type (only PDF for insurance)
+    // Validate file type (only PDF for loans)
     const filename = file.name.toLowerCase()
     if (!filename.endsWith('.pdf')) {
       return c.json(
         {
           error: 'validation_error',
-          message: 'Only PDF files are supported for insurance policies',
+          message: 'Only PDF files are supported for loan documents',
         },
         400
       )
@@ -176,101 +176,101 @@ insuranceRoutes.post('/upload', async (c) => {
       return c.json({ error: 'validation_error', message: 'Could not extract text from PDF' }, 400)
     }
 
-    // Create policy record with pending status
+    // Create loan record with pending status
     // Use placeholder values that will be updated after parsing
-    const policyInput: CreatePolicyInput = {
+    const loanInput: CreateLoanInput = {
       profileId,
       userId,
-      policyType: policyType || 'life_insurance', // Default, will be updated after parsing
-      provider: 'Processing...', // Will be updated after parsing
+      loanType: loanType || 'personal_loan', // Default, will be updated after parsing
+      lender: 'Processing...', // Will be updated after parsing
       originalFilename: file.name,
       fileType: 'pdf',
       parseStatus: 'pending',
     }
 
-    const policy = await createPolicy(policyInput)
+    const loan = await createLoan(loanInput)
 
     // Queue for processing
-    queueInsuranceDocument({
-      policyId: policy.id,
+    queueLoanDocument({
+      loanId: loan.id,
       userId,
       pages,
-      policyTypeHint: policyType || undefined,
+      loanTypeHint: loanType || undefined,
       parsingModel: parsingModel || undefined,
     })
 
-    logger.debug(`[Insurance] Uploaded policy ${policy.id}, queued for processing`)
+    logger.debug(`[Loans] Uploaded loan ${loan.id}, queued for processing`)
 
     return c.json(
       {
-        policyId: policy.id,
+        loanId: loan.id,
         status: 'pending',
         filename: file.name,
       },
       202
     )
   } catch (error) {
-    logger.error('[Insurance] Upload error:', error)
-    const message = error instanceof Error ? error.message : 'Failed to upload policy'
+    logger.error('[Loans] Upload error:', error)
+    const message = error instanceof Error ? error.message : 'Failed to upload loan document'
     return c.json({ error: 'upload_failed', message }, 500)
   }
 })
 
 /**
- * PUT /insurance/policies/:id
- * Update a policy (manual edits)
+ * PUT /loans/:id
+ * Update a loan (manual edits)
  */
-insuranceRoutes.put('/policies/:id', async (c) => {
+loanRoutes.put('/:id', async (c) => {
   const userId = c.get('userId')
-  const policyId = c.req.param('id')
+  const loanId = c.req.param('id')
 
   try {
-    const body = await c.req.json<UpdatePolicyInput>()
+    const body = await c.req.json<UpdateLoanInput>()
 
-    const policy = await updatePolicy(policyId, userId, body)
-    return c.json({ policy })
+    const loan = await updateLoan(loanId, userId, body)
+    return c.json({ loan })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update policy'
-    if (message === 'Policy not found') {
+    const message = error instanceof Error ? error.message : 'Failed to update loan'
+    if (message === 'Loan not found') {
       return c.json({ error: 'not_found', message }, 404)
     }
-    logger.error('[Insurance] Update error:', error)
+    logger.error('[Loans] Update error:', error)
     return c.json({ error: 'update_failed', message }, 500)
   }
 })
 
 /**
- * DELETE /insurance/policies/:id
- * Delete a policy
+ * DELETE /loans/:id
+ * Delete a loan
  */
-insuranceRoutes.delete('/policies/:id', async (c) => {
+loanRoutes.delete('/:id', async (c) => {
   const userId = c.get('userId')
-  const policyId = c.req.param('id')
+  const loanId = c.req.param('id')
 
   try {
-    await deletePolicy(policyId, userId)
+    await deleteLoan(loanId, userId)
     return c.json({ success: true })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to delete policy'
-    if (message === 'Policy not found') {
+    const message = error instanceof Error ? error.message : 'Failed to delete loan'
+    if (message === 'Loan not found') {
       return c.json({ error: 'not_found', message }, 404)
     }
-    logger.error('[Insurance] Delete error:', error)
+    logger.error('[Loans] Delete error:', error)
     return c.json({ error: 'delete_failed', message }, 500)
   }
 })
 
 /**
- * GET /insurance/policies/:id/payment-history
- * Get payment history for an insurance policy
+ * GET /loans/:id/payment-history
+ * Get payment history for a loan
  */
-insuranceRoutes.get('/policies/:id/payment-history', async (c) => {
+loanRoutes.get('/:id/payment-history', async (c) => {
   const userId = c.get('userId')
-  const policyId = c.req.param('id')
+  const loanId = c.req.param('id')
 
   try {
-    const { getInsurancePaymentHistory } = await import('../services/entity-linking')
-    const payments = await getInsurancePaymentHistory(policyId, userId)
+    const { getLoanPaymentHistory } = await import('../services/entity-linking')
+    const payments = await getLoanPaymentHistory(loanId, userId)
     return c.json({ payments })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to get payment history'
@@ -278,4 +278,25 @@ insuranceRoutes.get('/policies/:id/payment-history', async (c) => {
   }
 })
 
-export { insuranceRoutes }
+/**
+ * GET /loans/:id/outstanding
+ * Get outstanding amount calculation for a loan
+ */
+loanRoutes.get('/:id/outstanding', async (c) => {
+  const userId = c.get('userId')
+  const loanId = c.req.param('id')
+
+  try {
+    const { calculateLoanOutstanding } = await import('../services/entity-linking')
+    const outstanding = await calculateLoanOutstanding(loanId, userId)
+    if (!outstanding) {
+      return c.json({ error: 'not_found', message: 'Loan not found or principal not set' }, 404)
+    }
+    return c.json(outstanding)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to calculate outstanding'
+    return c.json({ error: 'calculation_failed', message }, 400)
+  }
+})
+
+export { loanRoutes }

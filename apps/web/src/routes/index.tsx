@@ -309,7 +309,7 @@ function DashboardPage() {
   const allAccounts = summary
     ? [
         ...summary.netWorth.breakdown.cash.accounts,
-        ...summary.netWorth.breakdown.liabilities.accounts,
+        ...summary.netWorth.breakdown.liabilities.creditCards.accounts,
       ]
     : []
   const hasData = summary && (allAccounts.length > 0 || accountsCount > 0)
@@ -336,9 +336,8 @@ function DashboardPage() {
           value={summary?.netWorth.total}
           currency={summary?.netWorth.currency}
           subtitle={
-            summary?.netWorth.breakdown.investments.total &&
-            summary.netWorth.breakdown.investments.total > 0
-              ? `${formatCompact(summary.netWorth.breakdown.cash.total, summary.netWorth.currency)} cash + ${formatCompact(summary.netWorth.breakdown.investments.total, summary.netWorth.currency)} investments`
+            summary
+              ? `${formatCompact(summary.netWorth.totalAssets, summary.netWorth.currency)} assets - ${formatCompact(summary.netWorth.totalLiabilities, summary.netWorth.currency)} liabilities`
               : 'Across all accounts'
           }
           icon={Banknote}

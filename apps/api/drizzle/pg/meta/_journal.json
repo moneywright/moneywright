@@ -15,6 +15,13 @@
       "when": 1769619315747,
       "tag": "0001_amusing_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769707155910,
+      "tag": "0002_omniscient_psylocke",
+      "breakpoints": true
     }
   ]
 }

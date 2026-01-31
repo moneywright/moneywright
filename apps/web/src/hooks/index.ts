@@ -33,6 +33,7 @@ export {
   useCreateAccount,
   useUpdateAccount,
   useDeleteAccount,
+  useCreditCardPaymentHistory,
 } from './useAccounts'
 
 // Transaction hooks
@@ -69,7 +70,21 @@ export {
   useUpdateInsurance,
   useDeleteInsurance,
   useInsuranceProcessing,
+  useInsurancePaymentHistory,
 } from './useInsurance'
+
+// Loan hooks
+export {
+  loanKeys,
+  useLoans,
+  useLoan,
+  useUploadLoan,
+  useUpdateLoan,
+  useDeleteLoan,
+  useLoanProcessing,
+  useLoanPaymentHistory,
+  useLoanOutstanding,
+} from './useLoans'
 
 // Summary hooks
 export {

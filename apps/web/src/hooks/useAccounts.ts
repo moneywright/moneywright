@@ -7,6 +7,7 @@ import {
   createAccount,
   updateAccount,
   deleteFinancialAccount,
+  getCreditCardPaymentHistory,
 } from '@/lib/api'
 
 // Query Keys
@@ -15,6 +16,8 @@ export const accountKeys = {
   list: (profileId?: string) => [...accountKeys.all, 'list', profileId ?? 'family'] as const,
   detail: (accountId: string) => [...accountKeys.all, 'detail', accountId] as const,
   types: () => [...accountKeys.all, 'types'] as const,
+  paymentHistory: (accountId: string) =>
+    [...accountKeys.all, 'payment-history', accountId] as const,
 }
 
 // ============================================
@@ -119,5 +122,16 @@ export function useDeleteAccount(profileId?: string) {
     onError: () => {
       toast.error('Failed to delete account')
     },
+  })
+}
+
+/**
+ * Get credit card payment history
+ */
+export function useCreditCardPaymentHistory(accountId: string) {
+  return useQuery({
+    queryKey: accountKeys.paymentHistory(accountId),
+    queryFn: () => getCreditCardPaymentHistory(accountId),
+    enabled: !!accountId,
   })
 }

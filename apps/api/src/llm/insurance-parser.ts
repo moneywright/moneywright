@@ -106,6 +106,12 @@ Determine what type of insurance policy this is:
 === STEP 2: EXTRACT COMMON FIELDS ===
 Extract these fields that are common across all policy types:
 - **provider**: Insurance company name (e.g., "HDFC Life", "Star Health", "ICICI Lombard")
+- **institution**: Institution ID code for logo lookup. Use these exact IDs:
+  - Life Insurance: lic, hdfc_life, icici_prudential, sbi_life, max_life, bajaj_allianz_life, tata_aia, kotak_life, aditya_birla_sun_life, pnb_metlife, canara_hsbc_life, edelweiss_tokio, bandhan_life
+  - Health Insurance: star_health, care_health, niva_bupa, manipal_cigna, aditya_birla_health
+  - General Insurance (Public): new_india, united_india, national_insurance, oriental_insurance
+  - General Insurance (Private): icici_lombard, hdfc_ergo, bajaj_allianz_general, tata_aig, reliance_general, future_generali, cholamandalam, royal_sundaram, digit, acko, sbi_general, kotak_general
+  - Use null if provider is not in this list
 - **policy_number**: Policy number or certificate number
 - **policy_holder_name**: Name of the policyholder
 - **sum_insured**: Sum insured / sum assured / coverage amount

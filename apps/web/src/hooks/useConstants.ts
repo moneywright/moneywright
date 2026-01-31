@@ -43,6 +43,7 @@ export function useConstants(enabled: boolean = true) {
     select: (data) => ({
       raw: data,
       institutions: buildLookup(data.institutions, 'id', 'name'),
+      insuranceProviders: buildLookup(data.insuranceProviders, 'id', 'name'),
       investmentSourceTypes: buildLookup(data.investmentSourceTypes, 'code', 'label'),
       accountTypes: buildLookup(data.accountTypes, 'code', 'label'),
       categories: buildLookup(data.categories, 'code', 'label'),
@@ -55,6 +56,7 @@ export function useConstants(enabled: boolean = true) {
   return {
     ...query,
     institutions: query.data?.institutions ?? {},
+    insuranceProviders: query.data?.insuranceProviders ?? {},
     investmentSourceTypes: query.data?.investmentSourceTypes ?? {},
     accountTypes: query.data?.accountTypes ?? {},
     categories: query.data?.categories ?? {},
@@ -63,6 +65,7 @@ export function useConstants(enabled: boolean = true) {
     countries: query.data?.countries,
     // Raw arrays for when you need more than just labels (e.g., logos)
     rawInstitutions: query.data?.raw.institutions ?? [],
+    rawInsuranceProviders: query.data?.raw.insuranceProviders ?? [],
     rawInvestmentSourceTypes: query.data?.raw.investmentSourceTypes ?? [],
   }
 }

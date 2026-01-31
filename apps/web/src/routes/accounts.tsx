@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/domain/app-layout'
 import { ProfileSelector } from '@/components/domain/profile-selector'
 import { PageHeader } from '@/components/ui/page-header'
-import { Building2, CreditCard, Upload } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Building2, CreditCard, Upload, Plus } from 'lucide-react'
 import { CardSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { Account, Statement } from '@/lib/api'
@@ -17,7 +18,12 @@ import {
   useConstants,
   useProfileSelection,
 } from '@/hooks'
-import { BankAccountCard, CreditCardDisplay, AccountForm } from '@/components/accounts'
+import {
+  BankAccountCard,
+  CreditCardDisplay,
+  CreditCardDetailModal,
+  AccountForm,
+} from '@/components/accounts'
 import { RecategorizeModal } from '@/components/transactions/recategorize-modal'
 
 export const Route = createFileRoute('/accounts')({
@@ -36,7 +42,9 @@ function AccountsPage() {
   } = useProfileSelection()
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [recategorizeAccount, setRecategorizeAccount] = useState<Account | null>(null)
+  const [selectedCreditCard, setSelectedCreditCard] = useState<Account | null>(null)
   const countryCode = user?.country?.toLowerCase() || 'in'
+  const currencySymbol = user?.country === 'US' ? '$' : user?.country === 'GB' ? '£' : '₹'
 
   // Query enabled when we have a profileId OR we're in family view
   const queryEnabled = !!activeProfileId || showFamilyView
@@ -75,12 +83,20 @@ function AccountsPage() {
           title="Accounts"
           description="Manage your financial accounts"
           actions={
-            <ProfileSelector
-              selectedProfileId={selectorProfileId}
-              onProfileChange={handleProfileChange}
-              showFamilyView={showFamilyView}
-              onFamilyViewChange={handleFamilyViewChange}
-            />
+            <div className="flex items-center gap-3">
+              <Button asChild size="sm">
+                <Link to="/statements" search={{ upload: true }}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Account
+                </Link>
+              </Button>
+              <ProfileSelector
+                selectedProfileId={selectorProfileId}
+                onProfileChange={handleProfileChange}
+                showFamilyView={showFamilyView}
+                onFamilyViewChange={handleFamilyViewChange}
+              />
+            </div>
           }
         />
 
@@ -133,6 +149,7 @@ function AccountsPage() {
                       onEdit={() => setEditingAccount(account)}
                       onDelete={() => deleteMutation.mutate(account.id)}
                       onRecategorize={() => setRecategorizeAccount(account)}
+                      onSelect={() => setSelectedCreditCard(account)}
                       profiles={profiles}
                       showProfileBadge={showFamilyView}
                     />
@@ -199,6 +216,19 @@ function AccountsPage() {
             }}
           />
         )}
+
+        {/* Credit Card Detail Modal */}
+        <CreditCardDetailModal
+          account={selectedCreditCard}
+          onOpenChange={(open) => !open && setSelectedCreditCard(null)}
+          countryCode={countryCode}
+          institutionName={
+            selectedCreditCard?.institution
+              ? institutions[selectedCreditCard.institution]
+              : undefined
+          }
+          currencySymbol={currencySymbol}
+        />
       </div>
     </AppLayout>
   )

@@ -3,6 +3,7 @@ import { auth, type AuthVariables } from '../middleware/auth'
 import { findUserById } from '../services/user'
 import {
   getInstitutionsForCountry,
+  getInsuranceProvidersForCountry,
   getInvestmentSourceTypesForCountry,
   getAccountTypesForCountry,
   getCategoriesForCountry,
@@ -36,6 +37,7 @@ constantsRoutes.get('/', async (c) => {
   return c.json({
     countryCode,
     institutions: getInstitutionsForCountry(countryCode),
+    insuranceProviders: getInsuranceProvidersForCountry(countryCode),
     investmentSourceTypes: getInvestmentSourceTypesForCountry(countryCode),
     accountTypes: getAccountTypesForCountry(countryCode),
     categories: getCategoriesForCountry(countryCode),

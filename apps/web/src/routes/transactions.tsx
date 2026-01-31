@@ -259,6 +259,10 @@ function TransactionsPage() {
                   setEditingTransaction(null)
                   queryClient.invalidateQueries({ queryKey: ['transactions'] })
                   queryClient.invalidateQueries({ queryKey: ['transaction-stats'] })
+                  // Invalidate entity payment histories in case linking changed
+                  queryClient.invalidateQueries({ queryKey: ['loans'] })
+                  queryClient.invalidateQueries({ queryKey: ['insurance'] })
+                  queryClient.invalidateQueries({ queryKey: ['accounts'] })
                 }}
               />
             )}

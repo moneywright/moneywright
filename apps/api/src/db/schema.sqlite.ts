@@ -270,9 +270,9 @@ export const transactions = sqliteTable(
     // Deduplication
     hash: text('hash').notNull(), // SHA256
 
-    // Cross-account linking
-    linkedTransactionId: text('linked_transaction_id'),
-    linkType: text('link_type'), // payment, transfer, refund
+    // Entity linking (for CC payments, insurance, loans, transfers)
+    linkedEntityId: text('linked_entity_id'), // ID of linked entity (transaction, account, insurance policy, loan)
+    linkedEntityType: text('linked_entity_type'), // 'transaction' | 'credit_card' | 'insurance' | 'loan'
 
     // Manual editing and visibility
     isManuallyCategorized: integer('is_manually_categorized', { mode: 'boolean' }).default(false), // true if user manually edited summary or category
@@ -540,7 +540,8 @@ export const insurancePolicies = sqliteTable(
 
     // Policy identification
     policyType: text('policy_type').notNull(), // 'life_insurance' | 'health_insurance' | 'vehicle_insurance'
-    provider: text('provider').notNull(), // Insurance company name
+    provider: text('provider').notNull(), // Insurance company name (display name)
+    institution: text('institution'), // Institution ID for logo lookup (e.g., 'hdfc_life', 'icici_lombard')
     policyNumber: text('policy_number'),
     policyHolderName: text('policy_holder_name'),
 
@@ -586,6 +587,75 @@ export const insurancePolicies = sqliteTable(
   ]
 )
 
+/**
+ * Loans table - tracks loan documents uploaded by users
+ * Supports personal, home, vehicle, education, business, and gold loans with type-specific details in JSON
+ */
+export const loans = sqliteTable(
+  'loans',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Loan identification
+    loanType: text('loan_type').notNull(), // 'personal_loan' | 'home_loan' | 'vehicle_loan' | 'education_loan' | 'business_loan' | 'gold_loan'
+    lender: text('lender').notNull(), // Bank/NBFC name (display name)
+    institution: text('institution'), // Institution ID for logo lookup (e.g., 'hdfc', 'icici')
+    loanAccountNumber: text('loan_account_number'),
+    borrowerName: text('borrower_name'),
+
+    // Loan terms
+    principalAmount: real('principal_amount'), // Original loan amount
+    interestRate: real('interest_rate'), // Interest rate in percentage
+    interestType: text('interest_type'), // 'fixed' | 'floating'
+    emiAmount: real('emi_amount'), // Monthly EMI
+    tenureMonths: integer('tenure_months'), // Loan tenure in months
+
+    // Loan dates
+    disbursementDate: text('disbursement_date'), // YYYY-MM-DD - when loan was disbursed
+    firstEmiDate: text('first_emi_date'), // YYYY-MM-DD - first EMI date
+    endDate: text('end_date'), // YYYY-MM-DD - last EMI / maturity date
+
+    // Status
+    status: text('status').notNull().default('active'), // 'active' | 'closed'
+
+    // Type-specific details stored as JSON
+    details: text('details'), // JSON for type-specific fields
+
+    // File info
+    originalFilename: text('original_filename'),
+    fileType: text('file_type'), // 'pdf'
+
+    // Parsing status
+    parseStatus: text('parse_status').notNull().default('pending'), // 'pending' | 'parsing' | 'completed' | 'failed'
+    errorMessage: text('error_message'),
+
+    // Raw text extracted from PDF (for detailed queries)
+    rawText: text('raw_text'),
+
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('loans_profile_id_idx').on(table.profileId),
+    index('loans_user_id_idx').on(table.userId),
+    index('loans_loan_type_idx').on(table.loanType),
+    index('loans_status_idx').on(table.status),
+    index('loans_end_date_idx').on(table.endDate),
+  ]
+)
+
 // Type exports for use throughout the application
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -622,6 +692,9 @@ export type NewInvestmentSnapshot = typeof investmentSnapshots.$inferInsert
 
 export type InsurancePolicy = typeof insurancePolicies.$inferSelect
 export type NewInsurancePolicy = typeof insurancePolicies.$inferInsert
+
+export type Loan = typeof loans.$inferSelect
+export type NewLoan = typeof loans.$inferInsert
 
 export type UserPreferences = typeof userPreferences.$inferSelect
 export type NewUserPreferences = typeof userPreferences.$inferInsert

@@ -24,6 +24,7 @@ export interface InsurancePolicy {
   userId: string
   policyType: PolicyType
   provider: string
+  institution: string | null
   policyNumber: string | null
   policyHolderName: string | null
   sumInsured: number | null
@@ -80,6 +81,7 @@ export interface CreatePolicyInput {
   userId: string
   policyType: PolicyType
   provider: string
+  institution?: string | null
   policyNumber?: string | null
   policyHolderName?: string | null
   sumInsured?: number | null
@@ -102,6 +104,7 @@ export interface CreatePolicyInput {
 export interface UpdatePolicyInput {
   policyType?: PolicyType
   provider?: string
+  institution?: string | null
   policyNumber?: string | null
   policyHolderName?: string | null
   sumInsured?: number | null
@@ -141,6 +144,7 @@ function toPolicyResponse(policy: DBInsurancePolicy, profileName?: string): Insu
     userId: policy.userId,
     policyType: policy.policyType as PolicyType,
     provider: policy.provider,
+    institution: policy.institution,
     policyNumber: policy.policyNumber,
     policyHolderName: policy.policyHolderName,
     sumInsured: parseNumber(policy.sumInsured),
@@ -196,6 +200,7 @@ export async function createPolicy(input: CreatePolicyInput): Promise<InsuranceP
       userId: input.userId,
       policyType: input.policyType,
       provider: input.provider,
+      institution: input.institution ?? null,
       policyNumber: input.policyNumber ?? null,
       policyHolderName: input.policyHolderName ?? null,
       sumInsured: sumInsuredValue as string | null,
@@ -354,6 +359,9 @@ export async function updatePolicy(
   if (input.provider !== undefined) {
     updateData.provider = input.provider
   }
+  if (input.institution !== undefined) {
+    updateData.institution = input.institution
+  }
   if (input.policyNumber !== undefined) {
     updateData.policyNumber = input.policyNumber
   }
@@ -436,6 +444,17 @@ export async function deletePolicy(id: string, userId: string): Promise<void> {
   if (!existingPolicy) {
     throw new Error('Policy not found')
   }
+
+  // Unlink any transactions that reference this insurance policy
+  await db
+    .update(tables.transactions)
+    .set({ linkedEntityId: null, linkedEntityType: null })
+    .where(
+      and(
+        eq(tables.transactions.linkedEntityId, id),
+        eq(tables.transactions.linkedEntityType, 'insurance')
+      )
+    )
 
   await db.delete(tables.insurancePolicies).where(eq(tables.insurancePolicies.id, id))
 
@@ -526,6 +545,7 @@ export async function processInsuranceDocument(input: InsuranceDocumentInput): P
     await updatePolicy(policyId, userId, {
       policyType: parsed.policy_type,
       provider: parsed.provider,
+      institution: parsed.institution,
       policyNumber: parsed.policy_number,
       policyHolderName: parsed.policy_holder_name,
       sumInsured: parsed.sum_insured,
@@ -543,6 +563,15 @@ export async function processInsuranceDocument(input: InsuranceDocumentInput): P
     logger.debug(
       `[Insurance] Successfully processed policy ${policyId}: ${parsed.policy_type} from ${parsed.provider}`
     )
+
+    // Link existing transactions to this insurance policy
+    try {
+      const { linkTransactionsToInsurance } = await import('./entity-linking')
+      await linkTransactionsToInsurance(policyId, userId, parsingModel)
+      logger.debug(`[Insurance] Completed transaction linking for policy ${policyId}`)
+    } catch (linkError) {
+      logger.error(`[Insurance] Transaction linking failed for policy ${policyId}:`, linkError)
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error'
     logger.error(`[Insurance] Failed to process policy ${policyId}:`, error)
