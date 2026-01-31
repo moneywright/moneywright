@@ -7,6 +7,7 @@ import { eq, and, inArray } from 'drizzle-orm'
 import { db, tables, dbType } from '../db'
 import { logger } from '../lib/logger'
 import { categorizeStatements } from '../lib/pdf'
+import { linkEntitiesForAccount } from './entity-linking'
 import type { CountryCode } from '../lib/constants'
 
 /**
@@ -124,6 +125,8 @@ export async function recategorizeTransactions(
       categoryConfidence: null,
       isSubscription: false,
       isManuallyCategorized: false,
+      linkedEntityId: null,
+      linkedEntityType: null,
       updatedAt: now as Date,
     })
     .where(inArray(tables.transactions.id, transactionIds))
@@ -143,6 +146,37 @@ export async function recategorizeTransactions(
   logger.debug(
     `[Recategorize] Completed: ${result.categorizedCount}/${result.totalCount} transactions categorized`
   )
+
+  // Re-run entity linking after recategorization
+  // Get the account ID(s) to re-link
+  let accountIdsToLink: string[] = []
+
+  if (accountId) {
+    accountIdsToLink = [accountId]
+  } else if (statementId) {
+    // Get account ID from the statement
+    const [statement] = await db
+      .select({ accountId: tables.statements.accountId })
+      .from(tables.statements)
+      .where(eq(tables.statements.id, statementId))
+      .limit(1)
+
+    if (statement?.accountId) {
+      accountIdsToLink = [statement.accountId]
+    }
+  }
+
+  // Run entity linking for each account
+  for (const accId of accountIdsToLink) {
+    if (accId !== 'no-account') {
+      try {
+        await linkEntitiesForAccount(accId, userId, categorizationModel)
+        logger.debug(`[Recategorize] Entity linking completed for account ${accId}`)
+      } catch (linkError) {
+        logger.error(`[Recategorize] Entity linking failed for account ${accId}:`, linkError)
+      }
+    }
+  }
 
   return {
     totalCount: result.totalCount,
