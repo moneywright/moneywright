@@ -42,9 +42,10 @@ pub async fn check_for_updates<R: Runtime>(app: tauri::AppHandle<R>) {
 fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, new_version: &str, body: Option<&str>) {
     let notes = body.unwrap_or("Bug fixes and improvements");
     // Colors match web app's dark mode design tokens
-    // Note: Save Tauri API reference before replacing document, as innerHTML replacement loses it
+    // Note: Store Tauri API globally so onclick handlers can access it (local const is not accessible from onclick)
+    // innerHTML is used with hardcoded content only - no user input
     let html = format!(r#"
-        const tauriApi = window.__TAURI__;
+        window._tauriApi = window.__TAURI__;
 
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
@@ -99,8 +100,8 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
     <div class="version">{} → {}</div>
     <div class="notes">{}</div>
     <div class="buttons">
-        <button class="secondary" onclick="window.close()">Later</button>
-        <button class="primary" onclick="tauriApi.core.invoke('download_update').then(() => window.close()).catch(e => alert('Update failed: ' + e))">Update Now</button>
+        <button class="secondary" onclick="window._tauriApi.window.getCurrentWindow().close()">Later</button>
+        <button class="primary" onclick="window._tauriApi.core.invoke('download_update').then(() => window._tauriApi.window.getCurrentWindow().close()).catch(e => alert('Update failed: ' + e))">Update Now</button>
     </div>
 </body>
 </html>`;
@@ -113,7 +114,10 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
 /// Note: innerHTML is used with hardcoded content only - no user input
 fn show_no_update<R: Runtime>(app: &tauri::AppHandle<R>) {
     // Colors match web app's dark mode design tokens
+    // Store Tauri API globally so onclick handlers can access it
     let html = r#"
+        window._tauriApi = window.__TAURI__;
+
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
 <html>
@@ -155,7 +159,7 @@ fn show_no_update<R: Runtime>(app: &tauri::AppHandle<R>) {
     <div class="icon">✓</div>
     <h2>You're Up to Date</h2>
     <div class="message">Moneywright is running the latest version.</div>
-    <button onclick="window.close()">OK</button>
+    <button onclick="window._tauriApi.window.getCurrentWindow().close()">OK</button>
 </body>
 </html>`;
     "#.to_string();
@@ -167,7 +171,10 @@ fn show_no_update<R: Runtime>(app: &tauri::AppHandle<R>) {
 /// Note: innerHTML is used with hardcoded content only - error message is controlled
 fn show_update_error<R: Runtime>(app: &tauri::AppHandle<R>, error: &str) {
     // Colors match web app's dark mode design tokens
+    // Store Tauri API globally so onclick handlers can access it
     let html = format!(r#"
+        window._tauriApi = window.__TAURI__;
+
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
 <html>
@@ -209,7 +216,7 @@ fn show_update_error<R: Runtime>(app: &tauri::AppHandle<R>, error: &str) {
     <div class="icon">⚠️</div>
     <h2>Update Check Failed</h2>
     <div class="message">{}</div>
-    <button onclick="window.close()">OK</button>
+    <button onclick="window._tauriApi.window.getCurrentWindow().close()">OK</button>
 </body>
 </html>`;
     "#, error);

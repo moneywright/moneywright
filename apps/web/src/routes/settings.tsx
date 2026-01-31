@@ -17,6 +17,7 @@ import {
   SessionsSection,
   DangerZoneSection,
   AboutSection,
+  PinSection,
 } from '@/components/settings'
 
 export const Route = createFileRoute('/settings')({
@@ -72,6 +73,9 @@ function SettingsPage() {
 
         {/* Profiles Section */}
         <ProfilesSection profiles={profiles} />
+
+        {/* PIN Section - only show when auth is disabled (local mode) */}
+        {!authEnabled && <PinSection />}
 
         {/* Account Section - only show when auth is enabled */}
         {authEnabled && <AccountSection user={user} />}

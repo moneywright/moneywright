@@ -798,3 +798,24 @@ export type NewChatMessage = typeof chatMessages.$inferInsert
 
 export type ChatQueryCache = typeof chatQueryCache.$inferSelect
 export type NewChatQueryCache = typeof chatQueryCache.$inferInsert
+
+/**
+ * PIN Configuration table - stores PIN for local mode authentication
+ * Only used when AUTH_ENABLED=false (local mode)
+ */
+export const pinConfig = sqliteTable('pin_config', {
+  id: text('id').primaryKey(), // Always "default" in local mode
+  pinHash: text('pin_hash').notNull(), // bcrypt hash of 6-digit PIN
+  backupCodeHash: text('backup_code_hash').notNull(), // bcrypt hash of backup code
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: text('locked_until'), // ISO timestamp when lockout expires
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+})
+
+export type PinConfig = typeof pinConfig.$inferSelect
+export type NewPinConfig = typeof pinConfig.$inferInsert

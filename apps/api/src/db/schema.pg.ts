@@ -765,3 +765,20 @@ export type NewChatMessage = typeof chatMessages.$inferInsert
 
 export type ChatQueryCache = typeof chatQueryCache.$inferSelect
 export type NewChatQueryCache = typeof chatQueryCache.$inferInsert
+
+/**
+ * PIN Configuration table - stores PIN for local mode authentication
+ * Only used when AUTH_ENABLED=false (local mode)
+ */
+export const pinConfig = pgTable('pin_config', {
+  id: varchar('id', { length: 21 }).primaryKey(), // Always "default" in local mode
+  pinHash: text('pin_hash').notNull(), // bcrypt hash of 6-digit PIN
+  backupCodeHash: text('backup_code_hash').notNull(), // bcrypt hash of backup code
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }), // When lockout expires
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type PinConfig = typeof pinConfig.$inferSelect
+export type NewPinConfig = typeof pinConfig.$inferInsert

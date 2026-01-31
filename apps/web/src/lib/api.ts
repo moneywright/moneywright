@@ -129,6 +129,118 @@ export async function localLogin(): Promise<{
   return response.data
 }
 
+// ============================================
+// PIN Authentication API (Local Mode)
+// ============================================
+
+/**
+ * PIN status response
+ */
+export interface PinStatus {
+  configured: boolean
+}
+
+/**
+ * PIN verification failure response
+ */
+export interface PinVerifyFailure {
+  success: false
+  error: string
+  retryAfter?: number
+  attemptsRemaining?: number
+}
+
+/**
+ * Get PIN status - check if PIN is configured (unauthenticated)
+ */
+export async function getPinStatus(): Promise<PinStatus> {
+  const response = await api.get('/auth/pin/status')
+  return response.data
+}
+
+/**
+ * Setup PIN for the first time
+ * Returns backup code that user must save
+ */
+export async function setupPin(pin: string): Promise<{ success: true; backupCode: string }> {
+  const response = await api.post('/auth/pin/setup', { pin })
+  return response.data
+}
+
+/**
+ * Verify PIN and create session
+ */
+export async function verifyPin(pin: string): Promise<{ success: true } | PinVerifyFailure> {
+  try {
+    const response = await api.post('/auth/pin/verify', { pin })
+    return response.data
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data?: PinVerifyFailure } }
+      if (axiosError.response?.data) {
+        return axiosError.response.data
+      }
+    }
+    throw error
+  }
+}
+
+/**
+ * Recover PIN using backup code
+ * Returns new backup code
+ */
+export async function recoverPin(
+  backupCode: string,
+  newPin: string
+): Promise<{ success: true; backupCode: string } | PinVerifyFailure> {
+  try {
+    const response = await api.post('/auth/pin/recover', { backupCode, newPin })
+    return response.data
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data?: PinVerifyFailure } }
+      if (axiosError.response?.data) {
+        return axiosError.response.data
+      }
+    }
+    throw error
+  }
+}
+
+/**
+ * Change PIN (requires current PIN and valid session)
+ */
+export async function changePin(
+  currentPin: string,
+  newPin: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await api.post('/auth/pin/change', { currentPin, newPin })
+    return response.data
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data?: { success: false; error: string } } }
+      if (axiosError.response?.data) {
+        return axiosError.response.data
+      }
+    }
+    throw error
+  }
+}
+
+/**
+ * Regenerate backup code (requires valid session AND PIN verification)
+ */
+export async function regenerateBackupCode(
+  pin: string
+): Promise<
+  | { success: true; backupCode: string }
+  | { success: false; error: string; retryAfter?: number; attemptsRemaining?: number }
+> {
+  const response = await api.post('/auth/pin/regenerate-backup', { pin })
+  return response.data
+}
+
 /**
  * Get Google OAuth URL
  */

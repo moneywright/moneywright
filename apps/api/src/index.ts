@@ -38,6 +38,7 @@ import preferencesRoutes from './routes/preferences'
 import chatRoutes from './routes/chat'
 import { insuranceRoutes } from './routes/insurance'
 import { loanRoutes } from './routes/loans'
+import pinRoutes from './routes/pin'
 import { securityHeaders } from './middleware/security-headers'
 import { printBanner, printStartupInfo, getVersion } from './lib/banner'
 import { logger } from './lib/logger'
@@ -128,6 +129,7 @@ app.get('/health', async (c) => {
 // API routes - all under /api prefix
 app.route('/api/setup', setupRoutes)
 app.route('/api/auth', authRoutes)
+app.route('/api/auth/pin', pinRoutes)
 app.route('/api/user', userRoutes)
 app.route('/api/profiles', profileRoutes)
 app.route('/api/accounts', accountRoutes)

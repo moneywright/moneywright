@@ -43,6 +43,13 @@
       "when": 1769711604114,
       "tag": "0005_smooth_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1769856261185,
+      "tag": "0006_aromatic_callisto",
+      "breakpoints": true
     }
   ]
 }

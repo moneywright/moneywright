@@ -5,6 +5,7 @@
   "windows": ["main", "update", "about", "logs"],
   "permissions": [
     "core:default",
+    "core:window:default",
     "core:window:allow-close",
     "process:default",
     "updater:default",

@@ -9,6 +9,7 @@ import {
   getProfiles,
   logout as logoutApi,
   localLogin,
+  getPinStatus,
 } from '@/lib/api'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -23,12 +24,21 @@ function hasSessionHint(): boolean {
 /**
  * Routes that don't require authentication
  */
-const PUBLIC_ROUTES = ['/login', '/auth']
+const PUBLIC_ROUTES = ['/login', '/auth', '/pin']
 
 /**
  * Routes that are part of setup/onboarding flow
  */
 const SETUP_ROUTES = ['/setup', '/onboarding']
+
+/**
+ * PIN-related routes
+ */
+const PIN_ROUTES = ['/pin/setup', '/pin/unlock', '/pin/recover']
+
+function isPinRoute(pathname: string): boolean {
+  return PIN_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'))
+}
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'))
@@ -81,7 +91,7 @@ export function useAuth() {
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
-    // Skip auth check for public routes
+    // Skip auth check for public routes (includes PIN routes)
     if (isPublicRoute(location.pathname)) {
       return
     }
@@ -91,15 +101,37 @@ export const Route = createRootRoute({
     const authEnabled = authStatus?.authEnabled ?? true
 
     // Check if user has session
-    let hasSession = hasSessionHint()
+    const hasSession = hasSessionHint()
 
-    // If auth is disabled (local mode) and no session, auto-login
-    if (!authEnabled && !hasSession) {
+    // If auth is disabled (local mode), handle PIN authentication
+    if (!authEnabled) {
+      // Check if PIN is configured
+      let pinStatus: { configured: boolean } | null = null
+
       try {
-        await localLogin()
-        hasSession = true
+        pinStatus = await getPinStatus()
       } catch {
-        // Local login failed - continue without session
+        // PIN status check failed - table might not exist yet
+        // Continue without PIN requirement
+      }
+
+      // Only enforce PIN if we successfully got the status
+      if (pinStatus !== null) {
+        if (!pinStatus.configured) {
+          // PIN not set up - redirect to PIN setup
+          throw redirect({
+            to: '/pin/setup',
+            replace: true,
+          })
+        }
+
+        // PIN is configured but no session - redirect to unlock
+        if (!hasSession) {
+          throw redirect({
+            to: '/pin/unlock',
+            replace: true,
+          })
+        }
       }
     }
 
@@ -166,15 +198,20 @@ export const Route = createRootRoute({
       if (error && typeof error === 'object' && 'to' in error) {
         throw error
       }
-      // Auth failed - redirect to login
+      // Auth failed - redirect to login or PIN unlock
       if (authEnabled) {
         throw redirect({
           to: '/login',
           search: { redirect: location.pathname },
           replace: true,
         })
+      } else {
+        // In local mode, redirect to PIN unlock
+        throw redirect({
+          to: '/pin/unlock',
+          replace: true,
+        })
       }
-      throw error
     }
   },
   component: RootComponent,
