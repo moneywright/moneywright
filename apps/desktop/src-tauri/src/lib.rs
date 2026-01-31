@@ -230,6 +230,7 @@ fn open_logs_window(app: &AppHandle) {
     .title("View Logs")
     .inner_size(1000.0, 500.0)
     .min_inner_size(400.0, 300.0)
+    .visible(false) // Start hidden to avoid flash
     .build();
 
     if let Ok(win) = window {
@@ -344,6 +345,10 @@ fn open_logs_window(app: &AppHandle) {
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             let _ = win_clone.eval(log_html);
+            // Show window after content is injected
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            let _ = win_clone.show();
+            let _ = win_clone.set_focus();
         });
     }
 }
@@ -386,6 +391,7 @@ fn open_about_window(app: &AppHandle) {
     .resizable(false)
     .maximizable(false)
     .minimizable(false)
+    .visible(false) // Start hidden to avoid flash
     .build();
 
     if let Ok(win) = window {
@@ -526,9 +532,13 @@ fn open_about_window(app: &AppHandle) {
 
         let win_clone = win.clone();
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             // Using Tauri's webview eval API to inject static HTML - safe as content is hardcoded
             let _ = win_clone.eval(&about_html);
+            // Show window after content is injected
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            let _ = win_clone.show();
+            let _ = win_clone.set_focus();
         });
     }
 }

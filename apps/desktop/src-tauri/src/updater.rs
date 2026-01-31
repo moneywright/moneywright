@@ -1,51 +1,43 @@
 // Auto-update functionality for Moneywright Desktop
-// Note: This module uses Tauri's webview.eval() API to inject HTML into dialog windows.
-// This is safe as the content is hardcoded/controlled, not user-provided.
 
-use tauri::{Runtime, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Runtime, Manager, WebviewUrl, WebviewWindowBuilder, Emitter};
 use tauri_plugin_updater::UpdaterExt;
+use serde::Serialize;
+
+#[derive(Clone, Serialize)]
+struct DownloadProgress {
+    downloaded: usize,
+    total: Option<u64>,
+    percent: f64,
+}
 
 /// Check for updates and show result to user
 pub async fn check_for_updates<R: Runtime>(app: tauri::AppHandle<R>) {
-    println!("Checking for updates...");
-
     match app.updater() {
         Ok(updater) => {
             match updater.check().await {
                 Ok(Some(update)) => {
-                    println!(
-                        "Update available: {} -> {}",
-                        update.current_version,
-                        update.version
-                    );
                     show_update_available(&app, &update.current_version, &update.version, update.body.as_deref());
                 }
                 Ok(None) => {
-                    println!("No updates available, running latest version");
                     show_no_update(&app);
                 }
                 Err(e) => {
-                    eprintln!("Failed to check for updates: {}", e);
                     show_update_error(&app, &e.to_string());
                 }
             }
         }
         Err(e) => {
-            eprintln!("Failed to create updater: {}", e);
             show_update_error(&app, &e.to_string());
         }
     }
 }
 
 /// Show dialog when update is available
-/// Note: document.documentElement.innerHTML is used with hardcoded content only - no user input is involved
 fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, new_version: &str, body: Option<&str>) {
     let notes = body.unwrap_or("Bug fixes and improvements");
-    // Colors match web app's dark mode design tokens
-    // Note: Store Tauri API globally so onclick handlers can access it (local const is not accessible from onclick)
-    // document.documentElement.innerHTML is used with hardcoded content only - no user input
     let html = format!(r#"
-        window._tauriApi = window.__TAURI__;
+        window._tauri = window.__TAURI__;
 
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
@@ -57,24 +49,106 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
             font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #030303;
+            background: #09090b;
             color: #fafafa;
             height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            padding: 24px;
+            padding: 32px;
+            overflow: hidden;
         }}
-        .icon {{ font-size: 48px; margin-bottom: 16px; }}
-        h2 {{ font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; }}
-        .version {{ font-size: 13px; color: #10b981; font-weight: 500; margin-bottom: 12px; }}
-        .notes {{ font-size: 13px; color: #71717a; margin-bottom: 24px; max-width: 280px; line-height: 1.5; }}
-        .status {{ font-size: 13px; color: #10b981; margin-bottom: 16px; display: none; }}
-        .buttons {{ display: flex; gap: 12px; }}
+        .container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+            max-width: 300px;
+        }}
+        .icon-wrapper {{
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }}
+        .icon {{
+            font-size: 28px;
+            line-height: 1;
+        }}
+        h2 {{
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-bottom: 6px;
+            color: #fafafa;
+        }}
+        .version {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #10b981;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }}
+        .version-arrow {{
+            color: #3f3f46;
+        }}
+        .notes {{
+            font-size: 13px;
+            color: #71717a;
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }}
+        .progress-container {{
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }}
+        .progress-bar {{
+            width: 100%;
+            height: 4px;
+            background: #27272a;
+            border-radius: 2px;
+            overflow: hidden;
+        }}
+        .progress-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.2s ease;
+        }}
+        .progress-text {{
+            font-size: 12px;
+            color: #a1a1aa;
+            font-variant-numeric: tabular-nums;
+        }}
+        .status {{
+            font-size: 13px;
+            color: #a1a1aa;
+            margin-bottom: 8px;
+            display: none;
+        }}
+        .buttons {{
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }}
         button {{
-            padding: 10px 24px;
+            flex: 1;
+            padding: 12px 20px;
             border-radius: 10px;
             font-size: 13px;
             font-weight: 500;
@@ -86,102 +160,121 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
             background: #10b981;
             color: #022c22;
         }}
-        .primary:hover:not(:disabled) {{ background: #059669; }}
-        .primary:disabled {{ opacity: 0.6; cursor: not-allowed; }}
-        .secondary {{
-            background: #111111;
-            color: #a1a1aa;
-            border: 1px solid rgba(255,255,255,0.06);
+        .primary:hover:not(:disabled) {{
+            background: #059669;
         }}
-        .secondary:hover {{ background: #161616; color: #fafafa; }}
-        .error {{ color: #ef4444; font-size: 12px; margin-top: 16px; display: none; max-width: 280px; }}
+        .primary:disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
+        }}
+        .secondary {{
+            background: #18181b;
+            color: #a1a1aa;
+            border: 1px solid #27272a;
+        }}
+        .secondary:hover {{
+            background: #27272a;
+            color: #fafafa;
+        }}
+        .error-container {{
+            display: none;
+            width: 100%;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }}
+        .error-text {{
+            font-size: 12px;
+            color: #fca5a5;
+            line-height: 1.5;
+        }}
     </style>
 </head>
 <body>
-    <div class="icon" id="icon">🎉</div>
-    <h2 id="title">Update Available</h2>
-    <div class="version">{} → {}</div>
-    <div class="notes" id="notes">{}</div>
-    <div class="status" id="status">Downloading update...</div>
-    <div class="error" id="error"></div>
-    <div class="buttons" id="buttons">
-        <button class="secondary" id="laterBtn">Later</button>
-        <button class="primary" id="updateBtn">Update Now</button>
+    <div class="container">
+        <div class="icon-wrapper">
+            <span class="icon" id="icon">✨</span>
+        </div>
+        <h2 id="title">Update Available</h2>
+        <div class="version" id="versionInfo">
+            <span>{}</span>
+            <span class="version-arrow">→</span>
+            <span>{}</span>
+        </div>
+        <div class="notes" id="notes">{}</div>
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0%</div>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="error-container" id="errorContainer">
+            <div class="error-text" id="errorText"></div>
+        </div>
+        <div class="buttons" id="buttons">
+            <button class="secondary" id="laterBtn">Later</button>
+            <button class="primary" id="updateBtn">Update</button>
+        </div>
     </div>
 </body>
 </html>`;
 
-        // Set up event handlers after DOM is ready
-        const laterBtn = document.getElementById('laterBtn');
-        const updateBtn = document.getElementById('updateBtn');
-        const status = document.getElementById('status');
-        const notes = document.getElementById('notes');
-        const errorEl = document.getElementById('error');
-        const icon = document.getElementById('icon');
-        const title = document.getElementById('title');
+        const $ = id => document.getElementById(id);
 
-        laterBtn.onclick = function() {{
-            window._tauriApi.window.getCurrentWindow().close();
-        }};
+        // Listen for download progress events
+        window._tauri.event.listen('update-progress', (event) => {{
+            const {{ percent }} = event.payload;
+            $('progressFill').style.width = percent + '%';
+            $('progressText').textContent = Math.round(percent) + '%';
+        }});
 
-        updateBtn.onclick = async function() {{
-            console.log('[update-dialog] Update button clicked');
+        $('laterBtn').onclick = () => window._tauri.window.getCurrentWindow().close();
 
-            // Check if Tauri API is available
-            if (!window._tauriApi || !window._tauriApi.core) {{
-                console.error('[update-dialog] Tauri API not available');
-                errorEl.style.display = 'block';
-                errorEl.textContent = 'Tauri API not available. Please restart the app and try again.';
-                return;
-            }}
-
-            // Show downloading state
-            updateBtn.disabled = true;
-            updateBtn.textContent = 'Downloading...';
-            laterBtn.style.display = 'none';
-            notes.style.display = 'none';
-            status.style.display = 'block';
-            icon.textContent = '⏳';
-            title.textContent = 'Updating...';
+        $('updateBtn').onclick = async () => {{
+            // Transition to downloading state
+            $('updateBtn').disabled = true;
+            $('updateBtn').textContent = 'Updating...';
+            $('laterBtn').style.display = 'none';
+            $('notes').style.display = 'none';
+            $('versionInfo').style.display = 'none';
+            $('progressContainer').style.display = 'flex';
+            $('icon').textContent = '⬇️';
+            $('title').textContent = 'Downloading...';
 
             try {{
-                console.log('[update-dialog] Invoking download_update command...');
-                await window._tauriApi.core.invoke('download_update');
-                console.log('[update-dialog] download_update completed successfully');
-                // Update successful - app should restart
-                status.textContent = 'Update installed! Restarting...';
-                icon.textContent = '✓';
-                title.textContent = 'Update Complete';
-                // Close after a moment if app doesn't restart
-                setTimeout(() => {{
-                    window._tauriApi.window.getCurrentWindow().close();
-                }}, 3000);
+                await window._tauri.core.invoke('download_update');
+                // Success - app will restart
+                $('progressContainer').style.display = 'none';
+                $('icon').textContent = '✓';
+                $('title').textContent = 'Restarting...';
+                $('status').style.display = 'block';
+                $('status').textContent = 'Update installed successfully';
+                $('buttons').style.display = 'none';
             }} catch (e) {{
-                // Show error
-                console.error('[update-dialog] Update failed:', e);
-                icon.textContent = '⚠️';
-                title.textContent = 'Update Failed';
-                status.style.display = 'none';
-                errorEl.style.display = 'block';
-                errorEl.textContent = String(e);
-                updateBtn.textContent = 'Retry';
-                updateBtn.disabled = false;
-                laterBtn.style.display = 'block';
-                laterBtn.textContent = 'Close';
+                // Error state
+                $('progressContainer').style.display = 'none';
+                $('icon').textContent = '✕';
+                $('title').textContent = 'Update Failed';
+                $('errorContainer').style.display = 'block';
+                $('errorText').textContent = String(e);
+                $('updateBtn').textContent = 'Retry';
+                $('updateBtn').disabled = false;
+                $('laterBtn').style.display = 'block';
+                $('laterBtn').textContent = 'Close';
             }}
         }};
     "#, current, new_version, notes);
 
-    open_update_window(app, "Update Available", &html);
+    open_update_window(app, "Software Update", 340.0, 320.0, &html);
 }
 
 /// Show dialog when no update is available
-/// Note: innerHTML is used with hardcoded content only - no user input
 fn show_no_update<R: Runtime>(app: &tauri::AppHandle<R>) {
-    // Colors match web app's dark mode design tokens
-    // Store Tauri API globally so onclick handlers can access it
     let html = r#"
-        window._tauriApi = window.__TAURI__;
+        window._tauri = window.__TAURI__;
 
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
@@ -193,52 +286,76 @@ fn show_no_update<R: Runtime>(app: &tauri::AppHandle<R>) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #030303;
+            background: #09090b;
             color: #fafafa;
             height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            padding: 24px;
+            padding: 32px;
         }
-        .icon { font-size: 48px; margin-bottom: 16px; color: #10b981; }
-        h2 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-        .message { font-size: 13px; color: #71717a; margin-bottom: 24px; }
+        .icon-wrapper {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        .icon {
+            font-size: 28px;
+            color: #10b981;
+        }
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .message {
+            font-size: 13px;
+            color: #71717a;
+            margin-bottom: 28px;
+        }
         button {
-            padding: 10px 24px;
+            padding: 12px 32px;
             border-radius: 10px;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: #111111;
+            background: #18181b;
             color: #a1a1aa;
+            border: 1px solid #27272a;
             transition: all 0.15s ease;
         }
-        button:hover { background: #161616; color: #fafafa; }
+        button:hover {
+            background: #27272a;
+            color: #fafafa;
+        }
     </style>
 </head>
 <body>
-    <div class="icon">✓</div>
+    <div class="icon-wrapper">
+        <span class="icon">✓</span>
+    </div>
     <h2>You're Up to Date</h2>
     <div class="message">Moneywright is running the latest version.</div>
-    <button onclick="window._tauriApi.window.getCurrentWindow().close()">OK</button>
+    <button onclick="window._tauri.window.getCurrentWindow().close()">OK</button>
 </body>
 </html>`;
     "#.to_string();
 
-    open_update_window(app, "Software Update", &html);
+    open_update_window(app, "Software Update", 320.0, 260.0, &html);
 }
 
 /// Show dialog when update check fails
-/// Note: innerHTML is used with hardcoded content only - error message is controlled
 fn show_update_error<R: Runtime>(app: &tauri::AppHandle<R>, error: &str) {
-    // Colors match web app's dark mode design tokens
-    // Store Tauri API globally so onclick handlers can access it
     let html = format!(r#"
-        window._tauriApi = window.__TAURI__;
+        window._tauri = window.__TAURI__;
 
         document.documentElement.innerHTML = `
 <!DOCTYPE html>
@@ -250,47 +367,84 @@ fn show_update_error<R: Runtime>(app: &tauri::AppHandle<R>, error: &str) {
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
             font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #030303;
+            background: #09090b;
             color: #fafafa;
             height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            padding: 24px;
+            padding: 32px;
         }}
-        .icon {{ font-size: 48px; margin-bottom: 16px; }}
-        h2 {{ font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; }}
-        .message {{ font-size: 12px; color: #ef4444; margin-bottom: 24px; max-width: 280px; line-height: 1.5; }}
+        .icon-wrapper {{
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.05) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }}
+        .icon {{
+            font-size: 28px;
+        }}
+        h2 {{
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }}
+        .error-box {{
+            padding: 12px 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 8px;
+            margin-bottom: 24px;
+            max-width: 280px;
+        }}
+        .error-text {{
+            font-size: 12px;
+            color: #fca5a5;
+            line-height: 1.5;
+            word-break: break-word;
+        }}
         button {{
-            padding: 10px 24px;
+            padding: 12px 32px;
             border-radius: 10px;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: #111111;
+            background: #18181b;
             color: #a1a1aa;
+            border: 1px solid #27272a;
             transition: all 0.15s ease;
         }}
-        button:hover {{ background: #161616; color: #fafafa; }}
+        button:hover {{
+            background: #27272a;
+            color: #fafafa;
+        }}
     </style>
 </head>
 <body>
-    <div class="icon">⚠️</div>
+    <div class="icon-wrapper">
+        <span class="icon">✕</span>
+    </div>
     <h2>Update Check Failed</h2>
-    <div class="message">{}</div>
-    <button onclick="window._tauriApi.window.getCurrentWindow().close()">OK</button>
+    <div class="error-box">
+        <div class="error-text">{}</div>
+    </div>
+    <button onclick="window._tauri.window.getCurrentWindow().close()">OK</button>
 </body>
 </html>`;
     "#, error);
 
-    open_update_window(app, "Software Update", &html);
+    open_update_window(app, "Software Update", 340.0, 300.0, &html);
 }
 
 /// Open a small update dialog window
-fn open_update_window<R: Runtime>(app: &tauri::AppHandle<R>, title: &str, html: &str) {
+fn open_update_window<R: Runtime>(app: &tauri::AppHandle<R>, title: &str, width: f64, height: f64, html: &str) {
     // Close existing update window if any
     if let Some(window) = app.get_webview_window("update") {
         let _ = window.close();
@@ -302,91 +456,62 @@ fn open_update_window<R: Runtime>(app: &tauri::AppHandle<R>, title: &str, html: 
         WebviewUrl::App("/".into()),
     )
     .title(title)
-    .inner_size(350.0, 280.0)
+    .inner_size(width, height)
     .resizable(false)
     .maximizable(false)
     .minimizable(false)
+    .visible(false)
     .build();
 
     if let Ok(win) = window {
         let html = html.to_string();
         let win_clone = win.clone();
         tauri::async_runtime::spawn(async move {
-            // Wait for the page to load and Tauri API to be injected
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            // Tauri's webview.eval() API - injecting controlled static HTML content
-            if let Err(e) = win_clone.eval(&html) {
-                eprintln!("[updater] Failed to inject HTML: {}", e);
-            }
+            let _ = win_clone.eval(&html);
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            let _ = win_clone.show();
+            let _ = win_clone.set_focus();
         });
     }
 }
 
-/// Download and install an update
+/// Download and install an update with progress reporting
 pub async fn download_and_install<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    println!("[updater] Starting download_and_install...");
+    let updater = app.updater().map_err(|e| format!("Failed to initialize updater: {}", e))?;
 
-    let updater = app.updater().map_err(|e| {
-        let err = format!("Failed to create updater: {}", e);
-        eprintln!("[updater] {}", err);
-        err
-    })?;
-
-    println!("[updater] Checking for updates...");
     let update = updater
         .check()
         .await
-        .map_err(|e| {
-            let err = format!("Failed to check for updates: {}", e);
-            eprintln!("[updater] {}", err);
-            err
-        })?
-        .ok_or_else(|| {
-            let err = "No update available (this may be a caching issue - try again)".to_string();
-            eprintln!("[updater] {}", err);
-            err
-        })?;
+        .map_err(|e| format!("Failed to check for updates: {}", e))?
+        .ok_or_else(|| "No update available".to_string())?;
 
-    println!("[updater] Update found: {} -> {}", update.current_version, update.version);
-    println!("[updater] Starting download...");
-
-    // Download the update
+    // Download with progress reporting
+    let app_clone = app.clone();
     let mut downloaded: usize = 0;
+
     let bytes = update
         .download(
-            |chunk_length, content_length| {
+            move |chunk_length, content_length| {
                 downloaded += chunk_length;
-                if let Some(total) = content_length {
-                    println!("[updater] Downloaded {} of {} bytes ({:.1}%)",
-                        downloaded, total, (downloaded as f64 / total as f64) * 100.0);
+                let percent = if let Some(total) = content_length {
+                    (downloaded as f64 / total as f64) * 100.0
                 } else {
-                    println!("[updater] Downloaded {} bytes", downloaded);
-                }
+                    0.0
+                };
+                let _ = app_clone.emit("update-progress", DownloadProgress {
+                    downloaded,
+                    total: content_length,
+                    percent,
+                });
             },
-            || {
-                println!("[updater] Download complete, verifying signature...");
-            },
+            || {},
         )
         .await
-        .map_err(|e| {
-            let err = format!("Failed to download update: {}", e);
-            eprintln!("[updater] {}", err);
-            err
-        })?;
-
-    println!("[updater] Installing update ({} bytes)...", bytes.len());
+        .map_err(|e| format!("{}", e))?;
 
     // Install the update (this will restart the app)
-    update
-        .install(bytes)
-        .map_err(|e| {
-            let err = format!("Failed to install update: {}", e);
-            eprintln!("[updater] {}", err);
-            err
-        })?;
-
-    // The app should restart after install, but if it doesn't:
-    println!("[updater] Update installed successfully, app should restart");
+    update.install(bytes).map_err(|e| format!("{}", e))?;
 
     Ok(())
 }

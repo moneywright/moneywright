@@ -28,7 +28,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZCODJCRDgyMTA4NDQwQTUKUldTbFFJUVFncjJDKzdhckltVldnQzF6OFJ3VkYxeW91TDB0UGFFTkx4SFNKSE5MVUk4SEErbTkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ2MzUzMDY0Q0YyQzBDQzIKUldUQ0RDelBaREExMWlWRVNibGFaRXFkL1ZpUTU0SXdCNmJqZUV6SW50NW5yVGtnaittZVc2eUgK",
       "endpoints": [
         "https://github.com/moneywright/moneywright/releases/latest/download/latest.json"
       ]
