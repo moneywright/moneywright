@@ -1,6 +1,6 @@
 [package]
 name = "moneywright-desktop"
-version = "0.6.3"
+version = "0.6.4"
 description = "Moneywright Desktop - Personal finance manager"
 authors = ["Priyansh Rastogi"]
 license = "AGPL-3.0-only"
