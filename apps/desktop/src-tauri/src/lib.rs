@@ -234,7 +234,8 @@ fn open_logs_window(app: &AppHandle) {
     .build();
 
     if let Ok(win) = window {
-        // Inject the logs UI HTML
+        // Inject the logs UI HTML - styled to match web app's dark mode design tokens
+        // This uses static/hardcoded HTML content (no user input), same pattern as about window
         let log_html = r#"
             document.documentElement.innerHTML = `
 <!DOCTYPE html>
@@ -243,53 +244,157 @@ fn open_logs_window(app: &AppHandle) {
     <meta charset="UTF-8">
     <title>View Logs</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-            font-size: 12px;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 13px;
+            background: #030303;
+            color: #fafafa;
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
         .toolbar {
-            padding: 8px 12px;
-            background: #252525;
-            border-bottom: 1px solid #333;
+            padding: 12px 16px;
+            background: #0a0a0a;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             display: flex;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
+            flex-shrink: 0;
         }
+
         .toolbar button {
-            padding: 4px 12px;
-            background: #333;
-            border: 1px solid #444;
-            color: #e0e0e0;
-            border-radius: 4px;
+            padding: 6px 14px;
+            background: #111111;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #a1a1aa;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 11px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .toolbar button:hover { background: #444; }
-        .toolbar span { color: #888; font-size: 11px; }
+
+        .toolbar button:hover {
+            background: #161616;
+            border-color: rgba(255, 255, 255, 0.12);
+            color: #fafafa;
+        }
+
+        .toolbar button:active {
+            background: #1a1a1a;
+        }
+
+        .toolbar button svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.7;
+        }
+
+        .toolbar button:hover svg {
+            opacity: 1;
+        }
+
+        .toolbar .count {
+            color: #52525b;
+            font-size: 12px;
+            margin-left: auto;
+            font-variant-numeric: tabular-nums;
+        }
+
         #logs {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 16px;
+            background: #030303;
+        }
+
+        .log-line {
+            font-family: 'DM Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            padding: 3px 0;
             white-space: pre-wrap;
             word-break: break-all;
+            color: #a1a1aa;
         }
-        .log-line { padding: 2px 0; }
-        .log-line.error { color: #f87171; }
-        .log-line.server { color: #a3e635; }
-        .log-line.info { color: #60a5fa; }
+
+        .log-line.error {
+            color: #ef4444;
+        }
+
+        .log-line.warning {
+            color: #f59e0b;
+        }
+
+        .log-line.success {
+            color: #10b981;
+        }
+
+        .log-line.server {
+            color: #fafafa;
+        }
+
+        .log-line .prefix {
+            color: #52525b;
+        }
+
+        .log-line .highlight {
+            color: #10b981;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #52525b;
+            gap: 8px;
+        }
+
+        .empty-state svg {
+            width: 32px;
+            height: 32px;
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
     <div class="toolbar">
-        <button id="refreshBtn">Refresh</button>
-        <button id="clearBtn">Clear</button>
-        <span id="count"></span>
+        <button id="refreshBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 16h5v5"/>
+            </svg>
+            Refresh
+        </button>
+        <button id="clearBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+            Clear
+        </button>
+        <span class="count" id="count"></span>
     </div>
     <div id="logs"></div>
 </body>
@@ -301,26 +406,47 @@ fn open_logs_window(app: &AppHandle) {
                 return div.innerHTML;
             }
 
+            function classifyLog(log) {
+                const lower = log.toLowerCase();
+                if (lower.includes('[error]') || lower.includes('error:') || lower.includes('failed') || lower.includes(':err]')) {
+                    return 'error';
+                }
+                if (lower.includes('warning') || lower.includes('warn')) {
+                    return 'warning';
+                }
+                if (lower.includes('success') || lower.includes('running') || lower.includes('started') || lower.includes('completed')) {
+                    return 'success';
+                }
+                if (log.includes('[moneywright]')) {
+                    return 'server';
+                }
+                return '';
+            }
+
             async function refreshLogs() {
                 try {
                     const logs = await window.__TAURI__.core.invoke('get_logs');
                     const container = document.getElementById('logs');
-                    // Check if user is near the bottom before updating
                     const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+
+                    if (logs.length === 0) {
+                        container.innerHTML = '<div class="empty-state"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg><span>No logs yet</span></div>';
+                        document.getElementById('count').textContent = '';
+                        return;
+                    }
+
                     container.innerHTML = logs.map(log => {
-                        let cls = 'log-line';
-                        if (log.includes('[error]') || log.includes('Error') || log.includes('error:')) cls += ' error';
-                        else if (log.includes('[moneywright]')) cls += ' server';
-                        else cls += ' info';
-                        return '<div class="' + cls + '">' + escapeHtml(log) + '</div>';
+                        const cls = classifyLog(log);
+                        return '<div class="log-line' + (cls ? ' ' + cls : '') + '">' + escapeHtml(log) + '</div>';
                     }).join('');
+
                     document.getElementById('count').textContent = logs.length + ' lines';
-                    // Only auto-scroll if user was already at/near the bottom
+
                     if (wasAtBottom) {
                         container.scrollTop = container.scrollHeight;
                     }
                 } catch (e) {
-                    document.getElementById('logs').innerHTML = '<div class="log-line error">Failed to load logs: ' + e + '</div>';
+                    document.getElementById('logs').innerHTML = '<div class="log-line error">Failed to load logs: ' + escapeHtml(String(e)) + '</div>';
                 }
             }
 

@@ -319,7 +319,8 @@ pinRoutes.post('/change', auth(), async (c) => {
     const result = await changePin(currentPin, newPin)
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 401)
+      // Use 400 (not 401) since user is already authenticated - this is a validation error
+      return c.json({ success: false, error: result.error }, 400)
     }
 
     logger.info('[PIN] PIN changed successfully')
@@ -356,6 +357,7 @@ pinRoutes.post('/regenerate-backup', auth(), async (c) => {
     // Verify PIN first
     const verifyResult = await verifyPin(pin)
     if (!verifyResult.success) {
+      // Use 400 (not 401) since user is already authenticated - this is a validation error
       return c.json(
         {
           success: false,
@@ -363,7 +365,7 @@ pinRoutes.post('/regenerate-backup', auth(), async (c) => {
           retryAfter: verifyResult.retryAfter,
           attemptsRemaining: verifyResult.attemptsRemaining,
         },
-        401
+        400
       )
     }
 
