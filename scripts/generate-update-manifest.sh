@@ -51,10 +51,26 @@ get_signature() {
   fi
 }
 
-# Build the JSON
-# Note: Tauri generates .tar.gz.sig and .zip.sig files during build
-# These need to exist for the manifest to be valid
+# Function to find and read signature
+get_sig() {
+  local bundle_dir="$1"
+  local pattern="$2"
+  for f in "$bundle_dir"/$pattern 2>/dev/null; do
+    if [ -f "$f" ]; then
+      cat "$f"
+      return
+    fi
+  done
+  echo ""
+}
 
+# Look for signature files in build directories
+SIG_DARWIN_ARM64=$(get_sig "$DESKTOP_DIR/src-tauri/target/aarch64-apple-darwin/release/bundle/macos" "*.app.tar.gz.sig")
+SIG_DARWIN_X64=$(get_sig "$DESKTOP_DIR/src-tauri/target/x86_64-apple-darwin/release/bundle/macos" "*.app.tar.gz.sig")
+SIG_LINUX=$(get_sig "$DESKTOP_DIR/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb" "*.deb.sig")
+SIG_WINDOWS=$(get_sig "$DESKTOP_DIR/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" "*.nsis.zip.sig")
+
+# Build the JSON
 cat > "$OUTPUT_FILE" << EOF
 {
   "version": "v$VERSION",
@@ -62,19 +78,19 @@ cat > "$OUTPUT_FILE" << EOF
   "pub_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "",
+      "signature": "$SIG_DARWIN_ARM64",
       "url": "$BASE_URL/Moneywright_${VERSION}_aarch64.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "",
+      "signature": "$SIG_DARWIN_X64",
       "url": "$BASE_URL/Moneywright_${VERSION}_x64.app.tar.gz"
     },
     "linux-x86_64": {
-      "signature": "",
+      "signature": "$SIG_LINUX",
       "url": "$BASE_URL/moneywright_${VERSION}_amd64.deb"
     },
     "windows-x86_64": {
-      "signature": "",
+      "signature": "$SIG_WINDOWS",
       "url": "$BASE_URL/Moneywright_${VERSION}_x64-setup.nsis.zip"
     }
   }
@@ -83,43 +99,19 @@ EOF
 
 echo -e "${GREEN}Generated: ${CYAN}$OUTPUT_FILE${NC}"
 echo ""
-echo -e "${YELLOW}Note:${NC} Signatures need to be added after signing the release files."
-echo -e "      Run this script again after building with TAURI_SIGNING_PRIVATE_KEY set."
+
+# Show signature status
+echo -e "Signature status:"
+[ -n "$SIG_DARWIN_ARM64" ] && echo -e "  darwin-aarch64: ${GREEN}Found${NC}" || echo -e "  darwin-aarch64: ${YELLOW}Missing${NC}"
+[ -n "$SIG_DARWIN_X64" ] && echo -e "  darwin-x86_64:  ${GREEN}Found${NC}" || echo -e "  darwin-x86_64:  ${YELLOW}Missing${NC}"
+[ -n "$SIG_LINUX" ] && echo -e "  linux-x86_64:   ${GREEN}Found${NC}" || echo -e "  linux-x86_64:   ${YELLOW}Missing${NC}"
+[ -n "$SIG_WINDOWS" ] && echo -e "  windows-x86_64: ${GREEN}Found${NC}" || echo -e "  windows-x86_64: ${YELLOW}Missing${NC}"
 echo ""
 
-# If signature files exist, update the manifest
-update_signature() {
-  local platform="$1"
-  local sig_file="$2"
+if [ -z "$SIG_DARWIN_ARM64" ] && [ -z "$SIG_DARWIN_X64" ] && [ -z "$SIG_LINUX" ] && [ -z "$SIG_WINDOWS" ]; then
+  echo -e "${YELLOW}Note:${NC} No signatures found. Build with TAURI_SIGNING_PRIVATE_KEY set to generate signatures."
+  echo ""
+fi
 
-  if [ -f "$sig_file" ]; then
-    local sig=$(cat "$sig_file")
-    # Use jq to update if available, otherwise use sed
-    if command -v jq &> /dev/null; then
-      tmp=$(mktemp)
-      jq ".platforms.\"$platform\".signature = \"$sig\"" "$OUTPUT_FILE" > "$tmp" && mv "$tmp" "$OUTPUT_FILE"
-      echo -e "  Updated signature for ${CYAN}$platform${NC}"
-    fi
-  fi
-}
-
-# Look for signature files in the target directories
-TARGETS=("aarch64-apple-darwin" "x86_64-apple-darwin" "x86_64-unknown-linux-gnu" "x86_64-pc-windows-msvc")
-PLATFORMS=("darwin-aarch64" "darwin-x86_64" "linux-x86_64" "windows-x86_64")
-
-for i in "${!TARGETS[@]}"; do
-  target="${TARGETS[$i]}"
-  platform="${PLATFORMS[$i]}"
-  bundle_dir="$DESKTOP_DIR/src-tauri/target/$target/release/bundle"
-
-  # Find .sig files
-  for sig_file in "$bundle_dir"/**/*.sig 2>/dev/null; do
-    if [ -f "$sig_file" ]; then
-      update_signature "$platform" "$sig_file"
-    fi
-  done
-done
-
-echo ""
 cat "$OUTPUT_FILE"
 echo ""

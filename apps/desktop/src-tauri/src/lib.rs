@@ -357,6 +357,16 @@ fn refresh_main_window(app: &AppHandle) {
     }
 }
 
+/// Clear cookies and browsing data from all windows
+fn clear_cookies(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.clear_all_browsing_data();
+        // Refresh the window after clearing - using Tauri's webview eval API with app-controlled URL
+        let url = get_server_url();
+        let _ = window.eval(&format!("window.location.href = '{}'", url));
+    }
+}
+
 /// Open the about window
 fn open_about_window(app: &AppHandle) {
     // Check if window already exists
@@ -622,6 +632,7 @@ pub fn run() {
                     let _ = open::that(get_server_url());
                 }
                 "logs" => open_logs_window(app),
+                "clear_cookies" => clear_cookies(app),
                 "quit" => {
                     // Kill server process synchronously before exit (only in release mode)
                     #[cfg(not(debug_assertions))]
@@ -691,6 +702,8 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // Edit submenu (for copy/paste)
+    let clear_cookies = MenuItem::with_id(app, "clear_cookies", "Clear Cookies", true, None::<&str>)?;
+
     let edit_menu = Submenu::with_items(
         app,
         "Edit",
@@ -703,6 +716,8 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             &PredefinedMenuItem::copy(app, None)?,
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::select_all(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &clear_cookies,
         ],
     )?;
 

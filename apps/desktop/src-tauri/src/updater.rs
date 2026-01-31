@@ -38,12 +38,12 @@ pub async fn check_for_updates<R: Runtime>(app: tauri::AppHandle<R>) {
 }
 
 /// Show dialog when update is available
-/// Note: innerHTML is used with hardcoded content only - no user input
+/// Note: document.documentElement.innerHTML is used with hardcoded content only - no user input is involved
 fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, new_version: &str, body: Option<&str>) {
     let notes = body.unwrap_or("Bug fixes and improvements");
     // Colors match web app's dark mode design tokens
     // Note: Store Tauri API globally so onclick handlers can access it (local const is not accessible from onclick)
-    // innerHTML is used with hardcoded content only - no user input
+    // document.documentElement.innerHTML is used with hardcoded content only - no user input
     let html = format!(r#"
         window._tauriApi = window.__TAURI__;
 
@@ -71,6 +71,7 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
         h2 {{ font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; }}
         .version {{ font-size: 13px; color: #10b981; font-weight: 500; margin-bottom: 12px; }}
         .notes {{ font-size: 13px; color: #71717a; margin-bottom: 24px; max-width: 280px; line-height: 1.5; }}
+        .status {{ font-size: 13px; color: #10b981; margin-bottom: 16px; display: none; }}
         .buttons {{ display: flex; gap: 12px; }}
         button {{
             padding: 10px 24px;
@@ -85,26 +86,90 @@ fn show_update_available<R: Runtime>(app: &tauri::AppHandle<R>, current: &str, n
             background: #10b981;
             color: #022c22;
         }}
-        .primary:hover {{ background: #059669; }}
+        .primary:hover:not(:disabled) {{ background: #059669; }}
+        .primary:disabled {{ opacity: 0.6; cursor: not-allowed; }}
         .secondary {{
             background: #111111;
             color: #a1a1aa;
             border: 1px solid rgba(255,255,255,0.06);
         }}
         .secondary:hover {{ background: #161616; color: #fafafa; }}
+        .error {{ color: #ef4444; font-size: 12px; margin-top: 16px; display: none; max-width: 280px; }}
     </style>
 </head>
 <body>
-    <div class="icon">🎉</div>
-    <h2>Update Available</h2>
+    <div class="icon" id="icon">🎉</div>
+    <h2 id="title">Update Available</h2>
     <div class="version">{} → {}</div>
-    <div class="notes">{}</div>
-    <div class="buttons">
-        <button class="secondary" onclick="window._tauriApi.window.getCurrentWindow().close()">Later</button>
-        <button class="primary" onclick="window._tauriApi.core.invoke('download_update').then(() => window._tauriApi.window.getCurrentWindow().close()).catch(e => alert('Update failed: ' + e))">Update Now</button>
+    <div class="notes" id="notes">{}</div>
+    <div class="status" id="status">Downloading update...</div>
+    <div class="error" id="error"></div>
+    <div class="buttons" id="buttons">
+        <button class="secondary" id="laterBtn">Later</button>
+        <button class="primary" id="updateBtn">Update Now</button>
     </div>
 </body>
 </html>`;
+
+        // Set up event handlers after DOM is ready
+        const laterBtn = document.getElementById('laterBtn');
+        const updateBtn = document.getElementById('updateBtn');
+        const status = document.getElementById('status');
+        const notes = document.getElementById('notes');
+        const errorEl = document.getElementById('error');
+        const icon = document.getElementById('icon');
+        const title = document.getElementById('title');
+
+        laterBtn.onclick = function() {{
+            window._tauriApi.window.getCurrentWindow().close();
+        }};
+
+        updateBtn.onclick = async function() {{
+            console.log('[update-dialog] Update button clicked');
+
+            // Check if Tauri API is available
+            if (!window._tauriApi || !window._tauriApi.core) {{
+                console.error('[update-dialog] Tauri API not available');
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Tauri API not available. Please restart the app and try again.';
+                return;
+            }}
+
+            // Show downloading state
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Downloading...';
+            laterBtn.style.display = 'none';
+            notes.style.display = 'none';
+            status.style.display = 'block';
+            icon.textContent = '⏳';
+            title.textContent = 'Updating...';
+
+            try {{
+                console.log('[update-dialog] Invoking download_update command...');
+                await window._tauriApi.core.invoke('download_update');
+                console.log('[update-dialog] download_update completed successfully');
+                // Update successful - app should restart
+                status.textContent = 'Update installed! Restarting...';
+                icon.textContent = '✓';
+                title.textContent = 'Update Complete';
+                // Close after a moment if app doesn't restart
+                setTimeout(() => {{
+                    window._tauriApi.window.getCurrentWindow().close();
+                }}, 3000);
+            }} catch (e) {{
+                // Show error
+                console.error('[update-dialog] Update failed:', e);
+                icon.textContent = '⚠️';
+                title.textContent = 'Update Failed';
+                status.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = String(e);
+                updateBtn.textContent = 'Retry';
+                updateBtn.disabled = false;
+                laterBtn.style.display = 'block';
+                laterBtn.textContent = 'Close';
+            }}
+        }};
     "#, current, new_version, notes);
 
     open_update_window(app, "Update Available", &html);
@@ -247,51 +312,81 @@ fn open_update_window<R: Runtime>(app: &tauri::AppHandle<R>, title: &str, html: 
         let html = html.to_string();
         let win_clone = win.clone();
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            // Tauri webview eval API - injecting controlled static HTML content
-            let _ = win_clone.eval(&html);
+            // Wait for the page to load and Tauri API to be injected
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            // Tauri's webview.eval() API - injecting controlled static HTML content
+            if let Err(e) = win_clone.eval(&html) {
+                eprintln!("[updater] Failed to inject HTML: {}", e);
+            }
         });
     }
 }
 
 /// Download and install an update
 pub async fn download_and_install<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    let updater = app.updater().map_err(|e| format!("Failed to create updater: {}", e))?;
+    println!("[updater] Starting download_and_install...");
 
+    let updater = app.updater().map_err(|e| {
+        let err = format!("Failed to create updater: {}", e);
+        eprintln!("[updater] {}", err);
+        err
+    })?;
+
+    println!("[updater] Checking for updates...");
     let update = updater
         .check()
         .await
-        .map_err(|e| format!("Failed to check for updates: {}", e))?
-        .ok_or_else(|| "No update available".to_string())?;
+        .map_err(|e| {
+            let err = format!("Failed to check for updates: {}", e);
+            eprintln!("[updater] {}", err);
+            err
+        })?
+        .ok_or_else(|| {
+            let err = "No update available (this may be a caching issue - try again)".to_string();
+            eprintln!("[updater] {}", err);
+            err
+        })?;
 
-    println!("Downloading update {}...", update.version);
+    println!("[updater] Update found: {} -> {}", update.current_version, update.version);
+    println!("[updater] Starting download...");
 
     // Download the update
-    let mut downloaded = 0;
+    let mut downloaded: usize = 0;
     let bytes = update
         .download(
             |chunk_length, content_length| {
                 downloaded += chunk_length;
                 if let Some(total) = content_length {
-                    println!("Downloaded {} of {} bytes", downloaded, total);
+                    println!("[updater] Downloaded {} of {} bytes ({:.1}%)",
+                        downloaded, total, (downloaded as f64 / total as f64) * 100.0);
+                } else {
+                    println!("[updater] Downloaded {} bytes", downloaded);
                 }
             },
             || {
-                println!("Download complete, verifying...");
+                println!("[updater] Download complete, verifying signature...");
             },
         )
         .await
-        .map_err(|e| format!("Failed to download update: {}", e))?;
+        .map_err(|e| {
+            let err = format!("Failed to download update: {}", e);
+            eprintln!("[updater] {}", err);
+            err
+        })?;
 
-    println!("Installing update...");
+    println!("[updater] Installing update ({} bytes)...", bytes.len());
 
     // Install the update (this will restart the app)
     update
         .install(bytes)
-        .map_err(|e| format!("Failed to install update: {}", e))?;
+        .map_err(|e| {
+            let err = format!("Failed to install update: {}", e);
+            eprintln!("[updater] {}", err);
+            err
+        })?;
 
     // The app should restart after install, but if it doesn't:
-    println!("Update installed, please restart the app");
+    println!("[updater] Update installed successfully, app should restart");
 
     Ok(())
 }

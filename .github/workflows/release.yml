@@ -147,31 +147,108 @@ jobs:
 
       - name: Collect artifacts (macOS)
         if: startsWith(matrix.os, 'macos')
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           mkdir -p artifacts
-          BUNDLE_DIR="apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle"
-          find "$BUNDLE_DIR" -name "*.dmg" -exec cp {} artifacts/ \; 2>/dev/null || true
-          find "$BUNDLE_DIR" -name "*.app.tar.gz" -exec cp {} artifacts/ \; 2>/dev/null || true
-          find "$BUNDLE_DIR" -name "*.app.tar.gz.sig" -exec cp {} artifacts/ \; 2>/dev/null || true
+          BUNDLE_DIR="apps/desktop/src-tauri/target/${RUST_TARGET}/release/bundle"
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Determine architecture suffix
+          if [[ "${RUST_TARGET}" == "aarch64-apple-darwin" ]]; then
+            ARCH="aarch64"
+          else
+            ARCH="x64"
+          fi
+
+          # Copy and rename DMG
+          for f in "$BUNDLE_DIR"/dmg/*.dmg; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/Moneywright_${VERSION}_${ARCH}.dmg"
+            fi
+          done
+
+          # Copy and rename .app.tar.gz for updater (Tauri generates these with createUpdaterArtifacts)
+          for f in "$BUNDLE_DIR"/macos/*.app.tar.gz; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/Moneywright_${VERSION}_${ARCH}.app.tar.gz"
+            fi
+          done
+
+          # Copy and rename signature files
+          for f in "$BUNDLE_DIR"/macos/*.app.tar.gz.sig; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/Moneywright_${VERSION}_${ARCH}.app.tar.gz.sig"
+            fi
+          done
+
+          echo "=== Bundle directory contents ==="
+          find "$BUNDLE_DIR" -type f \( -name "*.dmg" -o -name "*.tar.gz" -o -name "*.sig" \) 2>/dev/null || true
+          echo "=== Artifacts ==="
           ls -la artifacts/
 
       - name: Collect artifacts (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           mkdir -p artifacts
-          BUNDLE_DIR="apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle"
-          find "$BUNDLE_DIR" -name "*.exe" -exec cp {} artifacts/ \; 2>/dev/null || true
-          find "$BUNDLE_DIR" -name "*.exe.sig" -exec cp {} artifacts/ \; 2>/dev/null || true
+          BUNDLE_DIR="apps/desktop/src-tauri/target/${RUST_TARGET}/release/bundle"
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Copy NSIS installer
+          for f in "$BUNDLE_DIR"/nsis/*.exe; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/Moneywright_${VERSION}_x64-setup.exe"
+            fi
+          done
+
+          # Copy NSIS zip for updater (Tauri generates .nsis.zip with createUpdaterArtifacts)
+          for f in "$BUNDLE_DIR"/nsis/*.nsis.zip; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/Moneywright_${VERSION}_x64-setup.nsis.zip"
+            fi
+          done
+
+          # Copy signature files
+          for f in "$BUNDLE_DIR"/nsis/*.nsis.zip.sig; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/Moneywright_${VERSION}_x64-setup.nsis.zip.sig"
+            fi
+          done
+
+          echo "=== Bundle directory contents ==="
+          find "$BUNDLE_DIR" -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.sig" \) 2>/dev/null || true
+          echo "=== Artifacts ==="
           ls -la artifacts/
 
       - name: Collect artifacts (Linux)
         if: matrix.os == 'ubuntu-22.04'
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           mkdir -p artifacts
-          BUNDLE_DIR="apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle"
-          find "$BUNDLE_DIR" -name "*.deb" -exec cp {} artifacts/ \; 2>/dev/null || true
-          find "$BUNDLE_DIR" -name "*.deb.sig" -exec cp {} artifacts/ \; 2>/dev/null || true
+          BUNDLE_DIR="apps/desktop/src-tauri/target/${RUST_TARGET}/release/bundle"
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Copy deb package
+          for f in "$BUNDLE_DIR"/deb/*.deb; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/moneywright_${VERSION}_amd64.deb"
+            fi
+          done
+
+          # Copy signature files
+          for f in "$BUNDLE_DIR"/deb/*.deb.sig; do
+            if [ -f "$f" ]; then
+              cp "$f" "artifacts/moneywright_${VERSION}_amd64.deb.sig"
+            fi
+          done
+
+          echo "=== Bundle directory contents ==="
+          find "$BUNDLE_DIR" -type f \( -name "*.deb" -o -name "*.sig" \) 2>/dev/null || true
+          echo "=== Artifacts ==="
           ls -la artifacts/
 
       - name: Upload artifacts
@@ -207,31 +284,59 @@ jobs:
           VERSION: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
+          # Get version without 'v' prefix
+          VERSION_NUM="${VERSION#v}"
+
+          # Read signatures from .sig files
+          SIG_DARWIN_ARM64=""
+          SIG_DARWIN_X64=""
+          SIG_LINUX=""
+          SIG_WINDOWS=""
+
+          if [ -f "release-files/Moneywright_${VERSION_NUM}_aarch64.app.tar.gz.sig" ]; then
+            SIG_DARWIN_ARM64=$(cat "release-files/Moneywright_${VERSION_NUM}_aarch64.app.tar.gz.sig")
+          fi
+          if [ -f "release-files/Moneywright_${VERSION_NUM}_x64.app.tar.gz.sig" ]; then
+            SIG_DARWIN_X64=$(cat "release-files/Moneywright_${VERSION_NUM}_x64.app.tar.gz.sig")
+          fi
+          if [ -f "release-files/moneywright_${VERSION_NUM}_amd64.deb.sig" ]; then
+            SIG_LINUX=$(cat "release-files/moneywright_${VERSION_NUM}_amd64.deb.sig")
+          fi
+          if [ -f "release-files/Moneywright_${VERSION_NUM}_x64-setup.nsis.zip.sig" ]; then
+            SIG_WINDOWS=$(cat "release-files/Moneywright_${VERSION_NUM}_x64-setup.nsis.zip.sig")
+          fi
+
+          echo "=== Signature files found ==="
+          ls -la release-files/*.sig 2>/dev/null || echo "No signature files found"
+
           cat > release-files/latest.json << EOF
           {
-            "version": "$VERSION",
-            "notes": "Release $VERSION",
+            "version": "${VERSION}",
+            "notes": "Release ${VERSION}",
             "pub_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
             "platforms": {
               "darwin-aarch64": {
-                "signature": "$(cat release-files/*aarch64*.app.tar.gz.sig 2>/dev/null | head -1 || echo '')",
-                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION#v}_aarch64.app.tar.gz"
+                "signature": "${SIG_DARWIN_ARM64}",
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION_NUM}_aarch64.app.tar.gz"
               },
               "darwin-x86_64": {
-                "signature": "$(cat release-files/*x64*.app.tar.gz.sig 2>/dev/null | head -1 || echo '')",
-                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION#v}_x64.app.tar.gz"
+                "signature": "${SIG_DARWIN_X64}",
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION_NUM}_x64.app.tar.gz"
               },
               "linux-x86_64": {
-                "signature": "$(cat release-files/*.deb.sig 2>/dev/null || echo '')",
-                "url": "https://github.com/${REPO}/releases/download/${VERSION}/moneywright_${VERSION#v}_amd64.deb"
+                "signature": "${SIG_LINUX}",
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/moneywright_${VERSION_NUM}_amd64.deb"
               },
               "windows-x86_64": {
-                "signature": "$(cat release-files/*.exe.sig 2>/dev/null || echo '')",
-                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION#v}_x64-setup.exe"
+                "signature": "${SIG_WINDOWS}",
+                "url": "https://github.com/${REPO}/releases/download/${VERSION}/Moneywright_${VERSION_NUM}_x64-setup.nsis.zip"
               }
             }
           }
           EOF
+
+          echo "=== Generated latest.json ==="
+          cat release-files/latest.json
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
