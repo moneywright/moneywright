@@ -12,6 +12,7 @@ import {
   Tag,
   Code2,
   Shield,
+  Landmark,
 } from 'lucide-react'
 
 // Tool config for icons and labels (pending = in progress, completed = done)
@@ -86,6 +87,28 @@ export const TOOL_CONFIG: Record<
     icon: Shield,
     pending: 'Loading policy details',
     completed: 'Loaded policy details',
+  },
+
+  // Loan tools
+  getLoans: {
+    icon: Landmark,
+    pending: 'Fetching loans',
+    completed: 'Fetched loans',
+  },
+  getLoanDetails: {
+    icon: Landmark,
+    pending: 'Loading loan details',
+    completed: 'Loaded loan details',
+  },
+  getLoanDocumentRawText: {
+    icon: Landmark,
+    pending: 'Reading loan document',
+    completed: 'Read loan document',
+  },
+  getInsurancePolicyRawText: {
+    icon: Shield,
+    pending: 'Reading policy document',
+    completed: 'Read policy document',
   },
 
   // Code execution

@@ -8,7 +8,15 @@
  */
 
 import { cn } from '@/lib/utils'
-import { Search, TrendingDown, Calendar, Lightbulb, type LucideIcon } from 'lucide-react'
+import {
+  Search,
+  TrendingDown,
+  Calendar,
+  Lightbulb,
+  TrendingUp,
+  Landmark,
+  type LucideIcon,
+} from 'lucide-react'
 
 interface PromptSuggestion {
   icon: LucideIcon
@@ -44,6 +52,18 @@ const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
     label: 'Get insights',
     prompt: 'What are my top 3 areas where I could reduce spending?',
     gradient: 'from-amber-500/20 to-orange-500/20',
+  },
+  {
+    icon: TrendingUp,
+    label: 'Track investments',
+    prompt: 'How much have I invested in mutual funds, stocks, and SIPs this year?',
+    gradient: 'from-violet-500/20 to-purple-500/20',
+  },
+  {
+    icon: Landmark,
+    label: 'Analyze loans',
+    prompt: 'What are my monthly EMI payments and total interest paid this year?',
+    gradient: 'from-indigo-500/20 to-blue-500/20',
   },
 ]
 

@@ -49,9 +49,6 @@ import {
   TrendingUp,
   MapPin,
   Receipt,
-  IndianRupee,
-  DollarSign,
-  PoundSterling,
   ChevronRight,
   Banknote,
   Target,
@@ -85,6 +82,7 @@ import {
 } from '@/lib/api'
 import {
   useAuth,
+  useAccounts,
   useLoans,
   useDeleteLoan,
   useProfileSelection,
@@ -145,7 +143,7 @@ const LOAN_TYPE_CONFIG: Record<
 function LoansPage() {
   const { user, profiles } = useAuth()
   const queryClient = useQueryClient()
-  const { countryCode, rawInstitutions } = useConstants()
+  const { countryCode, rawInstitutions, institutions } = useConstants()
   const {
     activeProfileId,
     showFamilyView,
@@ -174,6 +172,7 @@ function LoansPage() {
       return hasProcessing ? 3000 : false
     },
   })
+  const { data: accounts } = useAccounts(activeProfileId, { enabled: queryEnabled })
 
   // Mutation hooks
   const deleteMutation = useDeleteLoan(activeProfileId)
@@ -373,6 +372,8 @@ function LoansPage() {
           currencySymbol={currencySymbol}
           countryCode={countryCode}
           institutions={rawInstitutions}
+          accounts={accounts}
+          institutionsMap={institutions}
         />
       </div>
     </AppLayout>
@@ -1195,6 +1196,8 @@ interface LoanDetailModalProps {
   currencySymbol: string
   countryCode?: string
   institutions?: { id: string; name: string; logo: string }[]
+  accounts?: { id: string; institution?: string | null; accountName?: string | null }[]
+  institutionsMap?: Record<string, string>
 }
 
 function LoanDetailSheet({
@@ -1203,8 +1206,11 @@ function LoanDetailSheet({
   currencySymbol,
   countryCode,
   institutions,
+  accounts,
+  institutionsMap,
 }: LoanDetailModalProps) {
   const [logoError, setLogoError] = useState(false)
+  const [paymentLogoErrors, setPaymentLogoErrors] = useState<Record<string, boolean>>({})
   // Fetch payment history and outstanding data
   const { data: paymentHistory, isLoading: isLoadingPayments } = useLoanPaymentHistory(
     loan?.id || ''
@@ -1224,9 +1230,28 @@ function LoanDetailSheet({
       ? `/institutions/${countryCode.toLowerCase()}/${loan.institution}.svg`
       : null
 
-  // Currency icon based on symbol
-  const CurrencyIcon =
-    currencySymbol === '₹' ? IndianRupee : currencySymbol === '£' ? PoundSterling : DollarSign
+  // Get source account info for payment
+  const getSourceAccount = (sourceAccountId: string) => {
+    return accounts?.find((a) => a.id === sourceAccountId)
+  }
+
+  // Get logo path for source account
+  const getSourceAccountLogoPath = (sourceAccountId: string) => {
+    const sourceAccount = getSourceAccount(sourceAccountId)
+    if (sourceAccount?.institution && countryCode) {
+      return `/institutions/${countryCode.toLowerCase()}/${sourceAccount.institution}.svg`
+    }
+    return null
+  }
+
+  // Get institution name for source account
+  const getSourceAccountInstitutionName = (sourceAccountId: string) => {
+    const sourceAccount = getSourceAccount(sourceAccountId)
+    if (sourceAccount?.institution && institutionsMap) {
+      return institutionsMap[sourceAccount.institution]
+    }
+    return sourceAccount?.accountName || 'Account'
+  }
 
   // Format currency - always show absolute numbers, rounded
   const formatAmount = (amount: number | null) => {
@@ -1843,52 +1868,68 @@ function LoanDetailSheet({
                   </div>
                 ) : paymentHistory && paymentHistory.length > 0 ? (
                   <div className="space-y-2">
-                    {paymentHistory.map((payment, index) => (
-                      <div
-                        key={payment.id}
-                        className={cn(
-                          'flex items-center justify-between p-4 rounded-xl border border-border-subtle',
-                          'bg-card hover:bg-surface-elevated transition-colors',
-                          'group cursor-default'
-                        )}
-                        style={{
-                          animationDelay: `${index * 50}ms`,
-                          animation: 'fadeInUp 0.3s ease-out forwards',
-                        }}
-                      >
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div
-                            className={cn(
-                              'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
-                              'bg-gradient-to-br from-positive/20 to-positive/10',
-                              'group-hover:scale-105 transition-transform'
-                            )}
-                          >
-                            <CurrencyIcon className="h-5 w-5 text-positive" />
+                    {paymentHistory.map((payment, index) => {
+                      const sourceLogoPath = getSourceAccountLogoPath(payment.accountId)
+                      const sourceInstitutionName = getSourceAccountInstitutionName(
+                        payment.accountId
+                      )
+                      const hasLogoError = paymentLogoErrors[payment.accountId]
+
+                      return (
+                        <div
+                          key={payment.id}
+                          className={cn(
+                            'flex items-center justify-between p-4 rounded-xl border border-border-subtle',
+                            'bg-card hover:bg-surface-elevated transition-colors',
+                            'group cursor-default'
+                          )}
+                          style={{
+                            animationDelay: `${index * 50}ms`,
+                            animation: 'fadeInUp 0.3s ease-out forwards',
+                          }}
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-surface-elevated border border-border-subtle shrink-0">
+                              {sourceLogoPath && !hasLogoError ? (
+                                <img
+                                  src={sourceLogoPath}
+                                  alt={sourceInstitutionName}
+                                  className="h-5 w-5 object-contain"
+                                  onError={() =>
+                                    setPaymentLogoErrors((prev) => ({
+                                      ...prev,
+                                      [payment.accountId]: true,
+                                    }))
+                                  }
+                                />
+                              ) : (
+                                <Building2 className="h-5 w-5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {payment.summary || 'EMI Payment'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(payment.date).toLocaleDateString('en-GB', {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {payment.summary || 'EMI Payment'}
+                          <div className="flex items-center gap-2">
+                            <p className="text-base font-semibold tabular-nums text-positive">
+                              +{currencySymbol}
+                              {formatAmount(payment.amount)}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(payment.date).toLocaleDateString('en-GB', {
-                                weekday: 'short',
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })}
-                            </p>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold tabular-nums text-positive">
-                            +{currencySymbol}
-                            {formatAmount(payment.amount)}
-                          </p>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-center">

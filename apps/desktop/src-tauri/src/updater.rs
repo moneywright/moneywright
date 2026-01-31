@@ -510,8 +510,9 @@ pub async fn download_and_install<R: Runtime>(app: tauri::AppHandle<R>) -> Resul
         .await
         .map_err(|e| format!("{}", e))?;
 
-    // Install the update (this will restart the app)
+    // Install the update
     update.install(bytes).map_err(|e| format!("{}", e))?;
 
-    Ok(())
+    // Restart the app to apply the update
+    app.restart();
 }

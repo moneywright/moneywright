@@ -84,7 +84,7 @@ function AccountsPage() {
           description="Manage your financial accounts"
           actions={
             <div className="flex items-center gap-3">
-              <Button asChild size="sm">
+              <Button asChild>
                 <Link to="/statements" search={{ upload: true }}>
                   <Plus className="h-4 w-4 mr-1.5" />
                   Add Account
@@ -228,6 +228,8 @@ function AccountsPage() {
               : undefined
           }
           currencySymbol={currencySymbol}
+          accounts={accounts}
+          institutions={institutions}
         />
       </div>
     </AppLayout>

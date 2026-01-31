@@ -47,6 +47,11 @@ import { getHoldingsByUserId, getInvestmentSummary } from '../investment-holding
 import { getSourcesByUserId } from '../investment-sources'
 import { getPoliciesByUser, getPolicyById, type PolicyFilters } from '../insurance'
 import { getLoansByUser, getLoanById, type LoanFilters } from '../loans'
+import {
+  getLoanPaymentHistory,
+  getInsurancePaymentHistory,
+  calculateLoanOutstanding,
+} from '../entity-linking'
 
 /** Page size for paginated results */
 const PAGE_SIZE = 250
@@ -1083,15 +1088,20 @@ Returns life insurance, health insurance, and vehicle insurance details.
     }),
 
     getInsurancePolicyDetails: tool({
-      description: `Get detailed information about a specific insurance policy, including the full document text.
-Use this when the user asks specific questions about policy terms, exclusions, claim process, or any detailed information that requires the original document text.
+      description: `Get detailed information about a specific insurance policy, including payment history.
+Use this to get policy metadata, coverage details, and premium payment history.
 
-**Returns**: Policy metadata plus full raw text extracted from the PDF.`,
+**Returns**: Policy metadata (type, provider, sum insured, premium, dates, status) and payment history (all linked premium payments).
+
+**For document text**: Use getInsurancePolicyRawText if you need the original document text for specific questions about terms, exclusions, or claim process.`,
       inputSchema: z.object({
         policyId: z.string().describe('The policy ID to retrieve details for'),
       }),
       execute: async (params) => {
-        const policy = await getPolicyById(params.policyId, userId)
+        const [policy, paymentHistory] = await Promise.all([
+          getPolicyById(params.policyId, userId),
+          getInsurancePaymentHistory(params.policyId, userId),
+        ])
 
         if (!policy) {
           return { error: `Policy ${params.policyId} not found.` }
@@ -1110,7 +1120,48 @@ Use this when the user asks specific questions about policy terms, exclusions, c
           endDate: policy.endDate,
           status: policy.status,
           details: policy.details,
-          rawText: policy.rawText || 'Raw text not available for this policy.',
+          // Payment history - all linked premium payments
+          paymentHistory: {
+            count: paymentHistory.length,
+            totalPaid: paymentHistory.reduce((sum, p) => sum + p.amount, 0),
+            payments: paymentHistory.map((p) => ({
+              date: p.date,
+              amount: p.amount,
+              summary: p.summary,
+            })),
+          },
+        }
+      },
+    }),
+
+    getInsurancePolicyRawText: tool({
+      description: `Get the raw document text extracted from an insurance policy PDF.
+Use this ONLY when you need the original document text to answer specific questions about policy terms, exclusions, waiting periods, claim process, or fine print details.
+
+**Note**: This returns a large amount of text. Prefer getInsurancePolicyDetails for general policy information.`,
+      inputSchema: z.object({
+        policyId: z.string().describe('The policy ID to retrieve document text for'),
+      }),
+      execute: async (params) => {
+        const policy = await getPolicyById(params.policyId, userId)
+
+        if (!policy) {
+          return { error: `Policy ${params.policyId} not found.` }
+        }
+
+        if (!policy.rawText) {
+          return {
+            error:
+              'Raw text not available for this policy. The document may not have been processed.',
+          }
+        }
+
+        return {
+          id: policy.id,
+          policyType: policy.policyType,
+          provider: policy.provider,
+          policyNumber: policy.policyNumber,
+          rawText: policy.rawText,
         }
       },
     }),
@@ -1253,15 +1304,24 @@ Returns personal loans, home loans, vehicle loans, education loans, business loa
     }),
 
     getLoanDetails: tool({
-      description: `Get detailed information about a specific loan, including the full document text.
-Use this when the user asks specific questions about loan terms, prepayment charges, foreclosure process, or any detailed information that requires the original document text.
+      description: `Get detailed information about a specific loan, including payment history and outstanding balance calculation.
+Use this to get loan metadata, EMI payments made, interest vs principal breakdown, and outstanding balance.
 
-**Returns**: Loan metadata plus full raw text extracted from the PDF.`,
+**Returns**:
+- Loan metadata (type, lender, principal, interest rate, EMI, tenure, dates, status)
+- Payment history (all linked EMI payments with dates and amounts)
+- Outstanding summary (outstanding principal, interest paid, principal paid, progress %, estimated remaining)
+
+**For document text**: Use getLoanDocumentRawText if you need the original document text for specific questions about prepayment charges, foreclosure process, or fine print details.`,
       inputSchema: z.object({
         loanId: z.string().describe('The loan ID to retrieve details for'),
       }),
       execute: async (params) => {
-        const loan = await getLoanById(params.loanId, userId)
+        const [loan, paymentHistory, outstandingSummary] = await Promise.all([
+          getLoanById(params.loanId, userId),
+          getLoanPaymentHistory(params.loanId, userId),
+          calculateLoanOutstanding(params.loanId, userId),
+        ])
 
         if (!loan) {
           return { error: `Loan ${params.loanId} not found.` }
@@ -1283,7 +1343,63 @@ Use this when the user asks specific questions about loan terms, prepayment char
           endDate: loan.endDate,
           status: loan.status,
           details: loan.details,
-          rawText: loan.rawText || 'Raw text not available for this loan.',
+          // Payment history - all linked EMI payments
+          paymentHistory: {
+            count: paymentHistory.length,
+            totalPaid: paymentHistory.reduce((sum, p) => sum + p.amount, 0),
+            payments: paymentHistory.map((p) => ({
+              date: p.date,
+              amount: p.amount,
+              summary: p.summary,
+            })),
+          },
+          // Outstanding balance calculation (interest vs principal breakdown)
+          outstanding: outstandingSummary
+            ? {
+                outstandingPrincipal: outstandingSummary.outstandingPrincipal,
+                principalPaid: outstandingSummary.principalPaid,
+                interestPaid: outstandingSummary.interestPaid,
+                principalProgressPercent: outstandingSummary.principalProgressPercent,
+                emisCompleted: outstandingSummary.emisCompleted,
+                totalEmis: outstandingSummary.totalEmis,
+                totalPayable: outstandingSummary.totalPayable,
+                totalInterest: outstandingSummary.totalInterest,
+                remainingPayable: outstandingSummary.remainingPayable,
+                interestSaved: outstandingSummary.interestSaved,
+              }
+            : null,
+        }
+      },
+    }),
+
+    getLoanDocumentRawText: tool({
+      description: `Get the raw document text extracted from a loan document PDF.
+Use this ONLY when you need the original document text to answer specific questions about prepayment charges, foreclosure process, penalty clauses, or fine print details.
+
+**Note**: This returns a large amount of text. Prefer getLoanDetails for general loan information, payment history, and outstanding balance.`,
+      inputSchema: z.object({
+        loanId: z.string().describe('The loan ID to retrieve document text for'),
+      }),
+      execute: async (params) => {
+        const loan = await getLoanById(params.loanId, userId)
+
+        if (!loan) {
+          return { error: `Loan ${params.loanId} not found.` }
+        }
+
+        if (!loan.rawText) {
+          return {
+            error:
+              'Raw text not available for this loan. The document may not have been processed or was entered manually.',
+          }
+        }
+
+        return {
+          id: loan.id,
+          loanType: loan.loanType,
+          lender: loan.lender,
+          loanAccountNumber: loan.loanAccountNumber,
+          rawText: loan.rawText,
         }
       },
     }),

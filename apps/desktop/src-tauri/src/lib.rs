@@ -408,18 +408,44 @@ fn open_logs_window(app: &AppHandle) {
 
             function classifyLog(log) {
                 const lower = log.toLowerCase();
-                if (lower.includes('[error]') || lower.includes('error:') || lower.includes('failed') || lower.includes(':err]')) {
+
+                // Check for explicit log level markers first (highest priority)
+                if (lower.includes('[error]') || lower.includes(':err]') || lower.includes('[err]')) {
                     return 'error';
                 }
-                if (lower.includes('warning') || lower.includes('warn')) {
+                if (lower.includes('[warn]') || lower.includes('[warning]')) {
                     return 'warning';
                 }
-                if (lower.includes('success') || lower.includes('running') || lower.includes('started') || lower.includes('completed')) {
+
+                // Success patterns - check these before error patterns
+                // Handle "X success, Y failed" pattern - if it has success count, it's a success summary
+                if (/\d+\s*success/i.test(log) && lower.includes('complete')) {
                     return 'success';
                 }
+                if (lower.includes('server is running') || lower.includes('migrations completed') || lower.includes('started successfully') || lower.includes('succeeded')) {
+                    return 'success';
+                }
+
+                // Error patterns - but exclude "0 failed" which indicates no failures
+                const hasZeroFailed = /\b0\s+failed\b/i.test(log);
+                const hasFailed = lower.includes('failed');
+                if (hasFailed && !hasZeroFailed) {
+                    return 'error';
+                }
+                if (/\berror:/i.test(log) || lower.includes('exception') || lower.includes('crash')) {
+                    return 'error';
+                }
+
+                // Warning patterns
+                if (/\bwarning:/i.test(log) || lower.includes('deprecated')) {
+                    return 'warning';
+                }
+
+                // Server log lines (neutral, but slightly highlighted)
                 if (log.includes('[moneywright]')) {
                     return 'server';
                 }
+
                 return '';
             }
 

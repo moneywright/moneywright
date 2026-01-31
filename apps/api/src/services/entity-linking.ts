@@ -10,7 +10,7 @@
  * - loan: Transaction → Loan (for EMI payments)
  */
 
-import { eq, and, gte, lte, inArray, isNull, or } from 'drizzle-orm'
+import { eq, and, gte, lte, inArray, isNull, or, desc } from 'drizzle-orm'
 import { generateObject } from 'ai'
 import { z } from 'zod/v4'
 import { db, tables, dbType } from '../db'
@@ -22,6 +22,43 @@ const BANK_ACCOUNT_TYPES = ['savings_account', 'current_account', 'checking_acco
 
 // Credit card account type
 const CREDIT_CARD_TYPE = 'credit_card'
+
+/**
+ * Calculate amount tolerance for credit card payment matching
+ *
+ * Tiered tolerance to handle cashback (CRED, etc.) and convenience fees:
+ * - Lower amounts: higher % tolerance (cashback is often a fixed amount, so % impact is higher)
+ * - Higher amounts: lower % tolerance (to avoid false positives)
+ *
+ * Tiers:
+ * - < ₹5,000: 10% tolerance
+ * - ₹5,000 - ₹20,000: 7% tolerance
+ * - ₹20,000 - ₹50,000: 5% tolerance
+ * - ₹50,000 - ₹100,000: 3% tolerance
+ * - > ₹100,000: 2% tolerance
+ */
+function getAmountTolerance(amount: number): { min: number; max: number } {
+  const absAmount = Math.abs(amount)
+
+  let tolerancePercent: number
+  if (absAmount < 5000) {
+    tolerancePercent = 0.1 // 10%
+  } else if (absAmount < 20000) {
+    tolerancePercent = 0.07 // 7%
+  } else if (absAmount < 50000) {
+    tolerancePercent = 0.05 // 5%
+  } else if (absAmount < 100000) {
+    tolerancePercent = 0.03 // 3%
+  } else {
+    tolerancePercent = 0.02 // 2%
+  }
+
+  const tolerance = absAmount * tolerancePercent
+  return {
+    min: absAmount - tolerance,
+    max: absAmount + tolerance,
+  }
+}
 
 /**
  * Main entry point: Link entities for an account after categorization
@@ -119,53 +156,78 @@ async function linkCreditCardPayments(bankAccountId: string, userId: string): Pr
     const startDateStr = startDate.toISOString().split('T')[0]!
     const endDateStr = endDate.toISOString().split('T')[0]!
 
-    // Find matching CC credit (same amount, within ±3 days, credit type)
-    const [matchingCredit] = await db
+    // Calculate amount tolerance for fuzzy matching (handles cashback/fees)
+    const debitAmount =
+      typeof debit.amount === 'string' ? parseFloat(debit.amount) : Number(debit.amount)
+    const { min: minAmount, max: maxAmount } = getAmountTolerance(debitAmount)
+
+    // Find matching CC credits within amount tolerance and ±3 days
+    const matchingCredits = await db
       .select({
         id: tables.transactions.id,
         accountId: tables.transactions.accountId,
+        amount: tables.transactions.amount,
       })
       .from(tables.transactions)
       .where(
         and(
           inArray(tables.transactions.accountId, ccAccountIds),
           eq(tables.transactions.type, 'credit'),
-          eq(tables.transactions.amount, debit.amount),
+          gte(tables.transactions.amount, minAmount.toString()),
+          lte(tables.transactions.amount, maxAmount.toString()),
           eq(tables.transactions.isHidden, false),
           gte(tables.transactions.date, startDateStr),
           lte(tables.transactions.date, endDateStr),
           isNull(tables.transactions.linkedEntityId)
         )
       )
-      .limit(1)
 
-    if (matchingCredit) {
-      const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
+    if (matchingCredits.length === 0) continue
 
-      // Link bank debit to CC account
-      await db
-        .update(tables.transactions)
-        .set({
-          linkedEntityId: matchingCredit.accountId,
-          linkedEntityType: 'credit_card',
-          updatedAt: now as Date,
-        })
-        .where(eq(tables.transactions.id, debit.id))
+    // Pick the closest match by amount
+    const matchingCredit = matchingCredits.reduce((closest, current) => {
+      const currentAmount =
+        typeof current.amount === 'string' ? parseFloat(current.amount) : Number(current.amount)
+      const closestAmount =
+        typeof closest.amount === 'string' ? parseFloat(closest.amount) : Number(closest.amount)
 
-      // Link CC credit to bank transaction
-      await db
-        .update(tables.transactions)
-        .set({
-          linkedEntityId: debit.id,
-          linkedEntityType: 'transaction',
-          updatedAt: now as Date,
-        })
-        .where(eq(tables.transactions.id, matchingCredit.id))
+      const currentDiff = Math.abs(currentAmount - debitAmount)
+      const closestDiff = Math.abs(closestAmount - debitAmount)
 
-      logger.debug(
-        `[EntityLinking] Linked bank debit ${debit.id} to CC account ${matchingCredit.accountId}`
-      )
-    }
+      return currentDiff < closestDiff ? current : closest
+    })
+
+    const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
+
+    // Link bank debit to CC account
+    await db
+      .update(tables.transactions)
+      .set({
+        linkedEntityId: matchingCredit.accountId,
+        linkedEntityType: 'credit_card',
+        updatedAt: now as Date,
+      })
+      .where(eq(tables.transactions.id, debit.id))
+
+    // Link CC credit to bank transaction
+    await db
+      .update(tables.transactions)
+      .set({
+        linkedEntityId: debit.id,
+        linkedEntityType: 'transaction',
+        updatedAt: now as Date,
+      })
+      .where(eq(tables.transactions.id, matchingCredit.id))
+
+    const creditAmount =
+      typeof matchingCredit.amount === 'string'
+        ? parseFloat(matchingCredit.amount)
+        : Number(matchingCredit.amount)
+    const amountDiff = Math.abs(creditAmount - debitAmount)
+
+    logger.debug(
+      `[EntityLinking] Linked bank debit ${debit.id} (₹${debitAmount}) to CC account ${matchingCredit.accountId} (credit: ₹${creditAmount}, diff: ₹${amountDiff.toFixed(2)})`
+    )
   }
 }
 
@@ -224,51 +286,78 @@ async function linkCreditCardCreditsToBank(ccAccountId: string, userId: string):
     const startDateStr = startDate.toISOString().split('T')[0]!
     const endDateStr = endDate.toISOString().split('T')[0]!
 
-    // Find matching bank debit with credit_card_payment category
-    const [matchingDebit] = await db
-      .select({ id: tables.transactions.id })
+    // Calculate amount tolerance for fuzzy matching (handles cashback/fees)
+    const creditAmount =
+      typeof credit.amount === 'string' ? parseFloat(credit.amount) : Number(credit.amount)
+    const { min: minAmount, max: maxAmount } = getAmountTolerance(creditAmount)
+
+    // Find matching bank debits within amount tolerance and ±3 days
+    const matchingDebits = await db
+      .select({
+        id: tables.transactions.id,
+        amount: tables.transactions.amount,
+      })
       .from(tables.transactions)
       .where(
         and(
           inArray(tables.transactions.accountId, bankAccountIds),
           eq(tables.transactions.type, 'debit'),
           eq(tables.transactions.category, 'credit_card_payment'),
-          eq(tables.transactions.amount, credit.amount),
+          gte(tables.transactions.amount, minAmount.toString()),
+          lte(tables.transactions.amount, maxAmount.toString()),
           eq(tables.transactions.isHidden, false),
           gte(tables.transactions.date, startDateStr),
           lte(tables.transactions.date, endDateStr),
           isNull(tables.transactions.linkedEntityId)
         )
       )
-      .limit(1)
 
-    if (matchingDebit) {
-      const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
+    if (matchingDebits.length === 0) continue
 
-      // Link CC credit to bank transaction
-      await db
-        .update(tables.transactions)
-        .set({
-          linkedEntityId: matchingDebit.id,
-          linkedEntityType: 'transaction',
-          updatedAt: now as Date,
-        })
-        .where(eq(tables.transactions.id, credit.id))
+    // Pick the closest match by amount
+    const matchingDebit = matchingDebits.reduce((closest, current) => {
+      const currentAmount =
+        typeof current.amount === 'string' ? parseFloat(current.amount) : Number(current.amount)
+      const closestAmount =
+        typeof closest.amount === 'string' ? parseFloat(closest.amount) : Number(closest.amount)
 
-      // Link bank debit to CC account
-      await db
-        .update(tables.transactions)
-        .set({
-          linkedEntityId: ccAccountId,
-          linkedEntityType: 'credit_card',
-          updatedAt: now as Date,
-        })
-        .where(eq(tables.transactions.id, matchingDebit.id))
+      const currentDiff = Math.abs(currentAmount - creditAmount)
+      const closestDiff = Math.abs(closestAmount - creditAmount)
 
-      logger.debug(
-        `[EntityLinking] Linked CC credit ${credit.id} to bank debit ${matchingDebit.id}`
-      )
-    }
+      return currentDiff < closestDiff ? current : closest
+    })
+
+    const now = dbType === 'postgres' ? new Date() : new Date().toISOString()
+
+    // Link CC credit to bank transaction
+    await db
+      .update(tables.transactions)
+      .set({
+        linkedEntityId: matchingDebit.id,
+        linkedEntityType: 'transaction',
+        updatedAt: now as Date,
+      })
+      .where(eq(tables.transactions.id, credit.id))
+
+    // Link bank debit to CC account
+    await db
+      .update(tables.transactions)
+      .set({
+        linkedEntityId: ccAccountId,
+        linkedEntityType: 'credit_card',
+        updatedAt: now as Date,
+      })
+      .where(eq(tables.transactions.id, matchingDebit.id))
+
+    const debitAmount =
+      typeof matchingDebit.amount === 'string'
+        ? parseFloat(matchingDebit.amount)
+        : Number(matchingDebit.amount)
+    const amountDiff = Math.abs(debitAmount - creditAmount)
+
+    logger.debug(
+      `[EntityLinking] Linked CC credit ${credit.id} (₹${creditAmount}) to bank debit ${matchingDebit.id} (₹${debitAmount}, diff: ₹${amountDiff.toFixed(2)})`
+    )
   }
 }
 
@@ -654,7 +743,7 @@ export async function getCreditCardPaymentHistory(
         eq(tables.transactions.isHidden, false)
       )
     )
-    .orderBy(tables.transactions.date)
+    .orderBy(desc(tables.transactions.date))
 
   return payments.map((p) => ({
     id: p.id,
@@ -697,7 +786,7 @@ export async function getInsurancePaymentHistory(
         eq(tables.transactions.isHidden, false)
       )
     )
-    .orderBy(tables.transactions.date)
+    .orderBy(desc(tables.transactions.date))
 
   return payments.map((p) => ({
     id: p.id,
@@ -740,7 +829,7 @@ export async function getLoanPaymentHistory(
         eq(tables.transactions.isHidden, false)
       )
     )
-    .orderBy(tables.transactions.date)
+    .orderBy(desc(tables.transactions.date))
 
   return payments.map((p) => ({
     id: p.id,
