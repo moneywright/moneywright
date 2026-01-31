@@ -63,7 +63,22 @@
     "macOS": {
       "minimumSystemVersion": "10.15",
       "hardenedRuntime": true,
-      "entitlements": "entitlements.plist"
+      "entitlements": "entitlements.plist",
+      "dmg": {
+        "background": "./dmg-background.png",
+        "windowSize": {
+          "width": 540,
+          "height": 380
+        },
+        "appPosition": {
+          "x": 130,
+          "y": 190
+        },
+        "applicationFolderPosition": {
+          "x": 410,
+          "y": 190
+        }
+      }
     },
     "windows": {
       "nsis": {
