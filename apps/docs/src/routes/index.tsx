@@ -375,15 +375,15 @@ function LandingPage() {
               transition={{ duration: 0.5, ease: smoothEase, delay: 0.1 }}
               className="text-[clamp(1.75rem,4vw,2.75rem)] font-semibold tracking-tighter mb-6"
             >
-              Your financial data is <Highlighter action="highlight" color="#ef4444" strokeWidth={3} isView delay={700}>everywhere</Highlighter>
+              Where did that <Highlighter action="highlight" color="#ef4444" strokeWidth={3} isView delay={700}>₹12,000 go?</Highlighter>
             </motion.h2>
             <motion.p
               variants={fadeInUp}
               transition={{ duration: 0.5, ease: smoothEase, delay: 0.2 }}
               className="text-[#a1a1aa] text-base sm:text-lg max-w-2xl mx-auto leading-relaxed"
             >
-              Juggling multiple bank apps, maintaining outdated spreadsheets, trusting finance tools
-              that profit from your data. There's a better way.
+              You check your balance. It's lower than expected. Again.
+              Somewhere between 4 bank apps and a forgotten spreadsheet, you lost track.
             </motion.p>
           </motion.div>
 
@@ -398,24 +398,24 @@ function LandingPage() {
               <BentoCard
                 icon={<Globe className="w-6 h-6 text-[#ef4444]" />}
                 iconBg="bg-[rgba(239,68,68,0.15)]"
-                title="Scattered across apps"
-                description="Different bank apps, credit cards, investments — no single view of your finances."
+                title="4 apps, zero clarity"
+                description="HDFC for savings, ICICI credit card, Zerodha for stocks, Groww for MFs. Good luck getting the full picture."
               />
             </motion.div>
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
                 icon={<FileText className="w-6 h-6 text-[#f97316]" />}
                 iconBg="bg-[rgba(249,115,22,0.15)]"
-                title="Manual spreadsheets"
-                description="Tedious data entry that's always out of date. Who has time for that?"
+                title="Spreadsheets from 2023"
+                description="You started tracking expenses once. It lasted 3 weeks. Now it mocks you from Google Drive."
               />
             </motion.div>
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
                 icon={<Eye className="w-6 h-6 text-[#a855f7]" />}
                 iconBg="bg-[rgba(168,85,247,0.15)]"
-                title="Privacy concerns"
-                description="Most finance apps monetize your data. You're the product, not the customer."
+                title="Free apps sell your data"
+                description="That 'free' finance app? They know your salary, rent, and shopping habits. And they're selling it."
               />
             </motion.div>
           </motion.div>
