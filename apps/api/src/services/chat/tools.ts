@@ -113,7 +113,7 @@ async function executeWebSearch(
 
   try {
     // Create model using user's configuration
-    const model = createLLMClient({
+    const { model, providerOptions } = createLLMClient({
       provider: context.provider,
       model: context.model,
       apiKey: context.apiKey,
@@ -125,6 +125,7 @@ async function executeWebSearch(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         model: model as any,
         prompt: searchPrompt,
+        providerOptions,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tools: { webSearch: openai.tools.webSearch({}) } as any,
       })
@@ -142,6 +143,7 @@ async function executeWebSearch(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         model: model as any,
         prompt: searchPrompt,
+        providerOptions,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tools: { webSearch: anthropic.tools.webSearch_20250305({ maxUses: 3 }) } as any,
       })
@@ -153,6 +155,7 @@ async function executeWebSearch(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         model: model as any,
         prompt: searchPrompt,
+        providerOptions,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tools: { google_search: google.tools.googleSearch({}) } as any,
       })
@@ -164,6 +167,7 @@ async function executeWebSearch(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         model: model as any,
         prompt: searchPrompt,
+        providerOptions,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tools: { perplexity_search: gateway.tools.perplexitySearch({ maxResults: 5 }) } as any,
       })

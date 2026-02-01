@@ -499,7 +499,7 @@ async function linkWithLLM(
 ): Promise<void> {
   if (transactions.length === 0 || entities.length === 0) return
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
 
   // Build context for LLM
   const transactionList = transactions
@@ -541,6 +541,7 @@ Return matches as JSON array.`
     const { object } = await generateObject({
       model,
       prompt,
+      providerOptions,
       schema: z.object({
         matches: z.array(
           z.object({

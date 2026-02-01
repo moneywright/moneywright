@@ -210,7 +210,7 @@ async function detectDocumentType(
     )
   }
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const accountTypes = getAccountTypesForCountry(countryCode)
   const accountTypeList = accountTypes.map((t) => t.code).join(', ')
   const institutionList = formatInstitutionsForLLM(countryCode)
@@ -275,6 +275,7 @@ Determine what type of document this is:
       model,
       schema: documentInfoSchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(`[Parser] Document type detected: ${object.document_type}`)
@@ -315,7 +316,7 @@ async function extractAccountInfo(
     )
   }
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const accountTypes = getAccountTypesForCountry(countryCode)
   const accountTypeList = accountTypes.map((t) => t.code).join(', ')
   const institutionList = formatInstitutionsForLLM(countryCode)
@@ -381,6 +382,7 @@ If this is CSV/Excel data (columnar transaction rows without a summary section):
       model,
       schema: accountInfoSchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(

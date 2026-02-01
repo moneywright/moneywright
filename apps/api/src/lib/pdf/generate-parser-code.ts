@@ -613,7 +613,7 @@ export async function generateParserCode(
     )
   }
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const systemPrompt = getSystemPrompt(institutionId, expectedSummary, fileType)
 
   // Track state across tool calls
@@ -629,6 +629,7 @@ export async function generateParserCode(
   // Create the agent with tools
   const agent = new ToolLoopAgent({
     model,
+    providerOptions,
     instructions: systemPrompt,
     tools: {
       // Tool for submitting and testing parser code

@@ -1,0 +1,8 @@
+# Generated output files
+output/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/

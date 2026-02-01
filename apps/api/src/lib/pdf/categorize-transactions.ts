@@ -8,7 +8,7 @@
 
 import { generateText, streamText } from 'ai'
 import { eq, inArray, and, isNull } from 'drizzle-orm'
-import { createLLMClientFromSettings } from '../../llm'
+import { createLLMClientFromSettings, type LLMClientResult } from '../../llm'
 import { getCategoriesForCountry, type CountryCode } from '../constants'
 import { db, tables, dbType } from '../../db'
 import { logger } from '../logger'
@@ -370,7 +370,7 @@ async function categorizeBatch(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<Map<string, CategorizedTransaction>> {
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const categories = getCategoriesForCountry(countryCode)
   const categoryList = categories.map((c) => `${c.code}: ${c.label}`).join('\n')
   const validCategories = categories.map((c) => c.code)
@@ -417,6 +417,7 @@ jkl012,software,0.95,"Claude subscription",1`
     const { text } = await generateText({
       model,
       prompt,
+      providerOptions,
     })
 
     return parseCategoryCSV(text, validCategories)
@@ -582,7 +583,7 @@ async function categorizeBatchStreaming(
   validCategories: string[],
   categoryList: string,
   countryCode: CountryCode,
-  model: Awaited<ReturnType<typeof createLLMClientFromSettings>>,
+  llmClient: LLMClientResult,
   onCategorized: (cat: CategorizedTransaction) => Promise<void>,
   accountType?: string,
   profileSummary?: string | null,
@@ -655,9 +656,10 @@ START OUTPUT NOW:`
     logger.debug(`[Categorize] Starting stream for ${transactions.length} transactions`)
 
     const { textStream } = streamText({
-      model,
+      model: llmClient.model,
       system: systemPrompt,
       prompt,
+      providerOptions: llmClient.providerOptions,
     })
 
     for await (const chunk of textStream) {
@@ -750,7 +752,7 @@ START OUTPUT NOW:`
 async function runCategorizationPass(
   transactions: TransactionForCategorization[],
   countryCode: CountryCode,
-  model: Awaited<ReturnType<typeof createLLMClientFromSettings>>,
+  llmClient: LLMClientResult,
   onProgress?: (categorized: number, total: number) => void,
   progressOffset: number = 0,
   totalForProgress: number = 0,
@@ -802,7 +804,7 @@ async function runCategorizationPass(
       validCategories,
       categoryList,
       countryCode,
-      model,
+      llmClient,
       async (cat) => {
         const updated = await updateTransactionCategory(cat)
         if (updated) {
@@ -864,7 +866,7 @@ export async function categorizeTransactionsStreaming(
 ): Promise<{ categorizedCount: number; failedAtIndex?: number }> {
   if (transactionIds.length === 0) return { categorizedCount: 0 }
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const llmClient = await createLLMClientFromSettings(modelOverride)
   const totalTransactions = transactionIds.length
 
   logger.debug(`[Categorize] Starting categorization for ${totalTransactions} transactions`)
@@ -893,7 +895,7 @@ export async function categorizeTransactionsStreaming(
     const { success } = await runCategorizationPass(
       uncategorized,
       countryCode,
-      model,
+      llmClient,
       onProgress,
       totalCategorized,
       totalTransactions,

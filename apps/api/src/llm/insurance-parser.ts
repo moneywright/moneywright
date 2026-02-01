@@ -67,7 +67,7 @@ export async function parseInsurancePolicy(options: {
     `[InsuranceParser] Parsing insurance policy, pages: ${pages.length}, model: ${modelOverride || 'default'}`
   )
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
 
   const policyTypeContext = policyTypeHint
     ? `The user has indicated this is a ${policyTypeHint.replace('_', ' ')} policy.`
@@ -162,6 +162,7 @@ Extract these fields that are common across all policy types:
       model,
       schema: insurancePolicySchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(

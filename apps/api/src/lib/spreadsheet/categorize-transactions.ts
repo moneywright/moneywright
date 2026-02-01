@@ -96,7 +96,7 @@ async function categorizeBatch(
   countryCode: CountryCode,
   modelOverride?: string
 ): Promise<Map<string, CategorizedTransaction>> {
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const categories = getCategoriesForCountry(countryCode)
   const categoryList = categories.map((c) => `${c.code}: ${c.label}`).join('\n')
   const validCategories = categories.map((c) => c.code)
@@ -132,6 +132,7 @@ ghi789,transfer,0.85,"Bank transfer to savings"`
     const { text } = await generateText({
       model,
       prompt,
+      providerOptions,
     })
 
     return parseCategoryCSV(text, validCategories)

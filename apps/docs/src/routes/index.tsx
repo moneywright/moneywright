@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useState, useRef } from 'react';
+import { analytics } from '@/lib/analytics';
 import {
   ArrowRight,
   Github,
@@ -232,7 +233,10 @@ function LandingPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
-                      onClick={() => setShowMacDropdown(false)}
+                      onClick={() => {
+                        setShowMacDropdown(false);
+                        analytics.trackDownload('macos-arm64', downloads?.version);
+                      }}
                     >
                       <div className="flex-1 text-left">
                         <div className="text-sm font-medium text-[#f5f5f7]">Apple Silicon</div>
@@ -244,7 +248,10 @@ function LandingPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
-                      onClick={() => setShowMacDropdown(false)}
+                      onClick={() => {
+                        setShowMacDropdown(false);
+                        analytics.trackDownload('macos-intel', downloads?.version);
+                      }}
                     >
                       <div className="flex-1 text-left">
                         <div className="text-sm font-medium text-[#f5f5f7]">Intel</div>
@@ -260,6 +267,7 @@ function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
+                onClick={() => analytics.trackDownload(platform, downloads?.version)}
               >
                 <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
                 <img src={platformInfo[platform].icon} alt="" className="w-4 h-4 invert" />
@@ -269,6 +277,7 @@ function LandingPage() {
             )}
             <a
               href="https://github.com/moneywright/moneywright"
+              onClick={() => analytics.trackCTAClick('star_github', 'hero')}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-[#18181c] border border-white/10 text-[#f5f5f7] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:bg-[#111115] hover:border-white/20 transition-all"
@@ -288,6 +297,7 @@ function LandingPage() {
                   key={p}
                   href={downloads ? getDownloadUrl(downloads, p) : releasesUrl}
                   className="inline-flex items-center gap-1.5 text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors"
+                  onClick={() => analytics.trackDownload(p, downloads?.version)}
                 >
                   <img src={platformInfo[p].icon} alt="" className="w-3.5 h-3.5 opacity-70 invert" />
                   {platformInfo[p].label}
@@ -821,6 +831,7 @@ function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="relative inline-flex items-center gap-2 bg-gradient-to-br from-[#10b981] to-[#059669] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] transition-all shadow-[0_4px_20px_rgba(16,185,129,0.15)] overflow-hidden"
+                onClick={() => analytics.trackDownload(platform, downloads?.version)}
               >
                 <ShineBorder shineColor={['#10b981', '#14b8a6', '#06b6d4']} borderWidth={2} />
                 <img src={platformInfo[platform].icon} alt="" className="w-4 h-4 invert" />
@@ -877,9 +888,9 @@ function LandingPage() {
             <div>
               <h4 className="font-semibold text-sm mb-4 text-[#a1a1aa]">Download</h4>
               <ul className="space-y-2">
-                <li><a href={downloads ? getDownloadUrl(downloads, 'macos') : releasesUrl} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/apple.svg" className="w-3.5 h-3.5 opacity-60 invert" /> macOS</a></li>
-                <li><a href={downloads ? getDownloadUrl(downloads, 'windows') : releasesUrl} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/windows.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Windows</a></li>
-                <li><a href={downloads ? getDownloadUrl(downloads, 'linux') : releasesUrl} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/linux.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Linux</a></li>
+                <li><a href={downloads ? getDownloadUrl(downloads, 'macos') : releasesUrl} onClick={() => analytics.trackDownload('macos', downloads?.version)} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/apple.svg" className="w-3.5 h-3.5 opacity-60 invert" /> macOS</a></li>
+                <li><a href={downloads ? getDownloadUrl(downloads, 'windows') : releasesUrl} onClick={() => analytics.trackDownload('windows', downloads?.version)} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/windows.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Windows</a></li>
+                <li><a href={downloads ? getDownloadUrl(downloads, 'linux') : releasesUrl} onClick={() => analytics.trackDownload('linux', downloads?.version)} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors inline-flex items-center gap-2"><img src="/icons/linux.svg" className="w-3.5 h-3.5 opacity-60 invert" /> Linux</a></li>
               </ul>
             </div>
 
@@ -1159,7 +1170,10 @@ function CtaMacDropdown({ downloads, releasesUrl }: { downloads: ReturnType<type
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
-            onClick={() => setShowDropdown(false)}
+            onClick={() => {
+              setShowDropdown(false);
+              analytics.trackDownload('macos-arm64', downloads?.version);
+            }}
           >
             <div className="flex-1 text-left">
               <div className="text-sm font-medium text-[#f5f5f7]">Apple Silicon</div>
@@ -1171,7 +1185,10 @@ function CtaMacDropdown({ downloads, releasesUrl }: { downloads: ReturnType<type
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
-            onClick={() => setShowDropdown(false)}
+            onClick={() => {
+              setShowDropdown(false);
+              analytics.trackDownload('macos-intel', downloads?.version);
+            }}
           >
             <div className="flex-1 text-left">
               <div className="text-sm font-medium text-[#f5f5f7]">Intel</div>

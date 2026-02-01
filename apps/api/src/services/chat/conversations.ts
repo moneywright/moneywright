@@ -231,10 +231,11 @@ export async function generateConversationTitle(
       return // Already has a title or doesn't exist
     }
 
-    const model = await createLLMClientFromSettings(modelOverride)
+    const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
 
     const { text } = await generateText({
       model,
+      providerOptions,
       prompt: `Generate a very short title (3-5 words max) for a conversation that starts with this message. Return ONLY the title, no quotes, no punctuation at the end, no explanation.
 
 Message: "${userMessage.slice(0, 200)}"

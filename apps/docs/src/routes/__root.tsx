@@ -1,17 +1,11 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
-import * as React from 'react';
+import type * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import appCss from '@/styles/app.css?url';
 import { RootProvider } from 'fumadocs-ui/provider/tanstack';
+import { PostHogProvider, PostHogPageView } from '@/lib/analytics';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 export const Route = createRootRoute({
   head: () => ({
@@ -99,9 +93,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="flex flex-col min-h-screen">
-        <QueryClientProvider client={queryClient}>
-          <RootProvider>{children}</RootProvider>
-        </QueryClientProvider>
+        <PostHogProvider>
+          <QueryClientProvider client={queryClient}>
+            <RootProvider>
+              <PostHogPageView />
+              {children}
+            </RootProvider>
+          </QueryClientProvider>
+        </PostHogProvider>
         <Scripts />
       </body>
     </html>

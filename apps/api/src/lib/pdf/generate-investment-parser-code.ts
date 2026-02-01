@@ -526,7 +526,7 @@ export async function generateInvestmentParserCode(
     )
   }
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const truncatedText = truncatePdfText(statementText)
   const systemPrompt = getSystemPrompt(sourceType, expectedSummary, fileType)
 
@@ -542,6 +542,7 @@ export async function generateInvestmentParserCode(
   // Create the agent with tools
   const agent = new ToolLoopAgent({
     model,
+    providerOptions,
     instructions: systemPrompt,
     tools: {
       // Tool for submitting and testing parser code

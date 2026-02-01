@@ -208,7 +208,7 @@ llmRoutes.post('/test', async (c) => {
         break
     }
 
-    const llmClient = createLLMClient({
+    const { model: llmClient, providerOptions } = createLLMClient({
       provider,
       model,
       apiKey,
@@ -220,6 +220,7 @@ llmRoutes.post('/test', async (c) => {
     const { text } = await generateText({
       model: llmClient,
       prompt: 'Say "Hello from Moneywright!" in exactly 5 words or less.',
+      providerOptions,
     })
 
     const latency = Date.now() - startTime

@@ -15,6 +15,8 @@ import {
   type LLMProvider,
   getDefaultParsingModelId,
   getProviderModels,
+  getGatewayProviderOptions,
+  type GatewayProviderOptions,
 } from '../lib/ai'
 
 /**
@@ -27,6 +29,15 @@ export interface LLMConfig {
   model: string
   apiKey?: string
   apiBaseUrl?: string
+}
+
+/**
+ * Result from creating an LLM client
+ * Includes both the model and any provider-specific options (e.g., gateway restrictions)
+ */
+export interface LLMClientResult {
+  model: LanguageModel
+  providerOptions: GatewayProviderOptions
 }
 
 /**
@@ -61,13 +72,15 @@ function maybeWrapWithDevTools(model: LanguageModel): LanguageModel {
 
 /**
  * Create an LLM client based on configuration
+ * Returns both the model and any provider-specific options (e.g., gateway restrictions)
  */
-export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
+export function createLLMClient(config?: Partial<LLMConfig>): LLMClientResult {
   const provider = config?.provider || (process.env.LLM_PROVIDER as LLMProvider) || 'openai'
   const model = config?.model || process.env.LLM_MODEL || getDefaultModel(provider)
   const apiBaseUrl = config?.apiBaseUrl || process.env.LLM_API_BASE_URL
 
   let llmModel: LanguageModel
+  let providerOptions: GatewayProviderOptions = {}
 
   switch (provider) {
     case 'openai': {
@@ -112,6 +125,8 @@ export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
       })
       // modelId is in format "provider/model" e.g. "openai/gpt-4o"
       llmModel = gateway(model)
+      // Get gateway provider options (e.g., restrict to specific providers)
+      providerOptions = getGatewayProviderOptions(model)
       break
     }
 
@@ -119,7 +134,10 @@ export function createLLMClient(config?: Partial<LLMConfig>): LanguageModel {
       throw new Error(`Unsupported LLM provider: ${provider}`)
   }
 
-  return maybeWrapWithDevTools(llmModel)
+  return {
+    model: maybeWrapWithDevTools(llmModel),
+    providerOptions,
+  }
 }
 
 /**
@@ -206,8 +224,11 @@ function parseModelOverride(
  * Create LLM client using database settings for API keys
  * Accepts model override in format "provider:model" (e.g., "openai:gpt-4o")
  * or just model name which will be inferred
+ * Returns both the model and any provider-specific options (e.g., gateway restrictions)
  */
-export async function createLLMClientFromSettings(modelOverride?: string): Promise<LanguageModel> {
+export async function createLLMClientFromSettings(
+  modelOverride?: string
+): Promise<LLMClientResult> {
   // Import here to avoid circular dependency
   const { getLLMSettings } = await import('../services/config')
   const settings = await getLLMSettings()

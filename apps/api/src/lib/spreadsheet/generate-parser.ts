@@ -63,7 +63,7 @@ export async function generateParserConfig(
 ): Promise<ParserConfig> {
   logger.debug(`[ParserGen] Generating parser config for ${metadata.fileName}`)
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
 
   // Get the first sheet's metadata
   const sheetName = Object.keys(metadata.sheets)[0]
@@ -158,6 +158,7 @@ Common patterns:
       model,
       schema: parserConfigSchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(

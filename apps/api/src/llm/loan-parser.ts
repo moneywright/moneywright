@@ -73,7 +73,7 @@ export async function parseLoanDocument(options: {
     `[LoanParser] Parsing loan document, pages: ${pages.length}, model: ${modelOverride || 'default'}`
   )
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
 
   const loanTypeContext = loanTypeHint
     ? `The user has indicated this is a ${loanTypeHint.replace(/_/g, ' ')}.`
@@ -194,6 +194,7 @@ Extract these fields that are common across all loan types:
       model,
       schema: loanDocumentSchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(`[LoanParser] Parsed loan: type=${object.loan_type}, lender=${object.lender}`)

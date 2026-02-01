@@ -24,6 +24,8 @@ export interface AIModel {
   recommendedForChat?: boolean
   supportsThinking?: boolean
   reasoningBuiltIn?: boolean
+  /** Gateway provider restrictions - only route to these providers (Vercel AI Gateway only) */
+  gatewayProviders?: string[]
 }
 
 /**
@@ -201,12 +203,14 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
         name: 'GLM 4.7',
         supportsParsing: true,
         supportsThinking: true,
+        gatewayProviders: ['zai', 'deepinfra'],
       },
       {
-        id: 'moonshotai/kimi-k2.5',
-        name: 'Kimi K2.5',
+        id: 'minimax/minimax-m2.1',
+        name: 'MiniMax M2.1',
         supportsParsing: true,
         supportsThinking: true,
+        gatewayProviders: ['minimax', 'deepinfra'],
       },
     ],
   },
@@ -303,4 +307,35 @@ export function getDefaultParsingModelId(provider: LLMProvider): string {
 export function getDefaultCategorizationModelId(provider: LLMProvider): string {
   const recommended = getRecommendedCategorizationModel(provider)
   return recommended?.id ?? 'gpt-5-mini'
+}
+
+/**
+ * Get model configuration by model ID (for Vercel Gateway models)
+ */
+export function getModelConfig(modelId: string): AIModel | undefined {
+  const vercelProvider = AI_PROVIDERS.find((p) => p.id === 'vercel')
+  return vercelProvider?.models.find((m) => m.id === modelId)
+}
+
+/**
+ * Gateway provider options for AI SDK
+ * Used with Vercel AI Gateway to restrict which providers can serve a model
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type GatewayProviderOptions = Record<string, any>
+
+/**
+ * Get gateway provider options for a model
+ * Returns provider options with 'only' restriction if the model has gatewayProviders configured
+ */
+export function getGatewayProviderOptions(modelId: string): GatewayProviderOptions {
+  const model = getModelConfig(modelId)
+  if (model?.gatewayProviders && model.gatewayProviders.length > 0) {
+    return {
+      gateway: {
+        only: model.gatewayProviders,
+      },
+    }
+  }
+  return {}
 }

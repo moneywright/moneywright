@@ -92,7 +92,7 @@ export async function extractDocumentInfo(
     )
   }
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
   const sourceTypes = getInvestmentSourceTypesForCountry(countryCode)
   const sourceTypeList = sourceTypes.map((t) => `${t.code}: ${t.label}`).join(', ')
 
@@ -152,6 +152,7 @@ Determine what type of document this is:
       model,
       schema: documentInfoSchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(
@@ -214,7 +215,7 @@ export async function extractInvestmentMetadata(
 
   const truncatedText = truncateText(fullText, MAX_DOCUMENT_INFO_LENGTH)
 
-  const model = await createLLMClientFromSettings(modelOverride)
+  const { model, providerOptions } = await createLLMClientFromSettings(modelOverride)
 
   // Build source-specific hints for better extraction
   const sourceHints = getSourceSpecificHints(sourceType)
@@ -259,6 +260,7 @@ The summary is used for validation. Invented/calculated values will cause parsin
       model,
       schema: investmentMetadataSchema,
       prompt,
+      providerOptions,
     })
 
     logger.debug(
