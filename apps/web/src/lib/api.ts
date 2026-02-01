@@ -1485,6 +1485,7 @@ export interface MonthlyTrendData {
   income: number
   expenses: number
   net: number
+  hasFullData: boolean // true if there's at least one transaction in the last 5 days of the month
 }
 
 /**

@@ -246,6 +246,41 @@ function DashboardPage() {
   )
   const { data: trendsData, isLoading: trendsLoading } = useMonthlyTrends(profileId, trendsOptions)
 
+  // Calculate 3-month average expenses (for when current month has no data)
+  const threeMonthAvgExpenses = useMemo(() => {
+    if (!trendsData?.trends || trendsData.trends.length === 0) return null
+
+    // Get the current month in YYYY-MM format
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+    // Filter out current month and months with no expenses
+    const monthsWithExpenses = trendsData.trends.filter(
+      (t) => t.month !== currentMonth && t.expenses > 0
+    )
+
+    if (monthsWithExpenses.length === 0) return null
+
+    // Find the most recent month with full data (has transaction in last 5 days)
+    // This ensures we don't include partial months in the average
+    let lastFullMonthIndex = monthsWithExpenses.length - 1
+    while (lastFullMonthIndex >= 0 && !monthsWithExpenses[lastFullMonthIndex]!.hasFullData) {
+      lastFullMonthIndex--
+    }
+
+    if (lastFullMonthIndex < 0) return null
+
+    // Take up to 3 months ending at the last full month
+    const startIndex = Math.max(0, lastFullMonthIndex - 2)
+    const selectedMonths = monthsWithExpenses.slice(startIndex, lastFullMonthIndex + 1)
+
+    const total = selectedMonths.reduce((sum, t) => sum + t.expenses, 0)
+    return {
+      average: total / selectedMonths.length,
+      monthCount: selectedMonths.length,
+    }
+  }, [trendsData])
+
   // Fetch month transactions for modal
   const { data: monthTransactionsData, isLoading: monthTransactionsLoading } = useQuery({
     queryKey: [
@@ -345,16 +380,24 @@ function DashboardPage() {
           trend={summary?.netWorth.total ? (summary.netWorth.total > 0 ? 'up' : 'down') : undefined}
         />
         <StatCard
-          label={timeframe === 'this_month' ? 'Monthly Expenses' : 'Expenses'}
-          value={summary?.transactions.totalExpenses}
-          currency={summary?.transactions.currency}
+          label="Monthly Expenses"
+          value={
+            summary?.transactions.totalExpenses && summary.transactions.totalExpenses > 0
+              ? summary.transactions.totalExpenses
+              : threeMonthAvgExpenses?.average
+          }
+          currency={summary?.transactions.currency || trendsData?.currency}
           subtitle={
-            summary?.transactions.expenseCount
-              ? `${summary.transactions.expenseCount} transactions`
-              : selectedTimeframeOption.shortLabel
+            summary?.transactions.totalExpenses && summary.transactions.totalExpenses > 0
+              ? summary.transactions.expenseCount
+                ? `${summary.transactions.expenseCount} transactions`
+                : selectedTimeframeOption.shortLabel
+              : threeMonthAvgExpenses
+                ? `${threeMonthAvgExpenses.monthCount}-month average`
+                : selectedTimeframeOption.shortLabel
           }
           icon={CreditCard}
-          loading={summaryLoading}
+          loading={summaryLoading || trendsLoading}
         />
         <StatCard
           label="Investments"

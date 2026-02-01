@@ -4,8 +4,9 @@ mod server;
 mod updater;
 
 use server::{create_server_manager, get_server_url, start_server, stop_server, kill_process_on_port, SERVER_PORT, ServerStatus, SharedServerManager};
-use updater::{check_for_updates, download_and_install};
+use updater::{check_for_updates, download_and_install, background_download_and_install, UpdateState, SharedUpdateState, UpdateReadyInfo};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_updater::UpdaterExt;
 use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
 use serde::Serialize;
 use std::sync::Arc;
@@ -26,6 +27,14 @@ struct InitialState {
     version: String,
     url: String,
     status: String,
+}
+
+#[derive(Clone, Serialize)]
+struct UpdateInfo {
+    current_version: String,
+    new_version: String,
+    body: Option<String>,
+    ready: bool, // true if update is downloaded and installed, waiting for restart
 }
 
 /// Log storage for backend logs
@@ -209,6 +218,79 @@ async fn quit_app_cmd(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn download_update(app: AppHandle) -> Result<(), String> {
     download_and_install(app).await
+}
+
+/// Check if an update is available (returns info without showing UI)
+/// Also checks if update is already downloaded and ready for restart
+#[tauri::command]
+async fn check_update_available(app: AppHandle, update_state: tauri::State<'_, SharedUpdateState>) -> Result<Option<UpdateInfo>, String> {
+    // First check if an update is already ready
+    {
+        let state = update_state.lock().await;
+        if let Some(ref ready_info) = state.ready {
+            return Ok(Some(UpdateInfo {
+                current_version: ready_info.current_version.clone(),
+                new_version: ready_info.new_version.clone(),
+                body: ready_info.body.clone(),
+                ready: true,
+            }));
+        }
+    }
+
+    // Check for new updates
+    let updater = app.updater().map_err(|e| format!("Failed to initialize updater: {}", e))?;
+    let update = updater.check().await.map_err(|e| format!("Failed to check for updates: {}", e))?;
+
+    match update {
+        Some(u) => Ok(Some(UpdateInfo {
+            current_version: u.current_version.to_string(),
+            new_version: u.version.to_string(),
+            body: u.body.clone(),
+            ready: false,
+        })),
+        None => Ok(None),
+    }
+}
+
+/// Start background download and install of update
+#[tauri::command]
+async fn start_background_update(app: AppHandle, update_state: tauri::State<'_, SharedUpdateState>) -> Result<(), String> {
+    // Check if already ready
+    {
+        let state = update_state.lock().await;
+        if state.ready.is_some() {
+            return Ok(()); // Already done
+        }
+    }
+
+    // Download and install in background
+    let info = background_download_and_install(app).await?;
+
+    // Store the ready state
+    {
+        let mut state = update_state.lock().await;
+        state.ready = Some(info);
+    }
+
+    Ok(())
+}
+
+/// Restart the app to apply a ready update
+#[tauri::command]
+async fn restart_for_update(app: AppHandle, update_state: tauri::State<'_, SharedUpdateState>) -> Result<(), String> {
+    let state = update_state.lock().await;
+    if state.ready.is_none() {
+        return Err("No update ready for restart".to_string());
+    }
+    drop(state); // Release lock before restart
+
+    app.restart();
+}
+
+/// Open the update window (triggers update check and shows UI)
+#[tauri::command]
+async fn show_update_window(app: AppHandle) {
+    check_for_updates(app).await;
 }
 
 /// Open the logs window
@@ -720,6 +802,10 @@ pub fn run() {
             clear_logs,
             quit_app_cmd,
             download_update,
+            check_update_available,
+            show_update_window,
+            start_background_update,
+            restart_for_update,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -728,6 +814,10 @@ pub fn run() {
             #[allow(unused_variables)]
             let log_store: SharedLogStore = Arc::new(Mutex::new(LogStore::new()));
             app.manage(log_store.clone());
+
+            // Create update state for tracking background updates
+            let update_state: SharedUpdateState = Arc::new(Mutex::new(UpdateState::new()));
+            app.manage(update_state);
 
             // Create server manager with app handle (for data directory)
             let server_manager = create_server_manager(&handle);

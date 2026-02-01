@@ -737,6 +737,7 @@ export interface MonthlyTrendData {
   income: number
   expenses: number
   net: number
+  hasFullData: boolean // true if there's at least one transaction in the last 5 days of the month
 }
 
 // Categories that should be netted (debits - credits) instead of counted separately
@@ -991,6 +992,7 @@ export async function getMonthlyTrends(
       expenses: number
       nettedDebits: Map<string, number>
       nettedCredits: Map<string, number>
+      latestDate: string // Track latest transaction date to determine if month has full data
     }
   >()
 
@@ -1005,10 +1007,16 @@ export async function getMonthlyTrends(
         expenses: 0,
         nettedDebits: new Map(),
         nettedCredits: new Map(),
+        latestDate: txn.date,
       })
     }
 
     const data = monthlyData.get(monthKey)!
+
+    // Track the latest transaction date for this month
+    if (txn.date > data.latestDate) {
+      data.latestDate = txn.date
+    }
     const amount = typeof txn.amount === 'string' ? parseFloat(txn.amount) : Number(txn.amount)
 
     // Check if this category should be netted
@@ -1055,12 +1063,21 @@ export async function getMonthlyTrends(
       const date = new Date(parseInt(year!), parseInt(monthNum!) - 1, 1)
       const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
 
+      // Check if month has full data (at least one transaction in last 5 days of the month)
+      // Get the last day of the month
+      const lastDayOfMonth = new Date(parseInt(year!), parseInt(monthNum!), 0).getDate()
+      // Get the day from the latest transaction date
+      const latestDay = parseInt(data.latestDate.split('-')[2]!)
+      // Month has full data if latest transaction is within the last 5 days
+      const hasFullData = latestDay > lastDayOfMonth - 5
+
       return {
         month,
         monthLabel,
         income: Math.round(data.income),
         expenses: Math.round(data.expenses),
         net: Math.round(data.income - data.expenses),
+        hasFullData,
       }
     })
 

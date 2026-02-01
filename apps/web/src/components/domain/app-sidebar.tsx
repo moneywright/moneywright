@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useAuth } from '@/hooks'
+import { useAuth, useUpdateChecker } from '@/hooks'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 import {
@@ -40,6 +40,8 @@ import {
   Repeat,
   Shield,
   Landmark,
+  Download,
+  X,
 } from 'lucide-react'
 
 // Main navigation items
@@ -105,6 +107,7 @@ export function AppSidebar() {
   const location = useLocation()
   const { user, authEnabled, logout } = useAuth()
   const { theme, setTheme } = useTheme()
+  const { updateAvailable, isReady, restartToUpdate, dismissUpdate } = useUpdateChecker()
 
   const initials = user?.name
     ? user.name
@@ -178,6 +181,67 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* Update Ready Banner - only shown when update is downloaded and ready for restart */}
+      {updateAvailable && isReady && (
+        <div className="mx-2 mb-2">
+          <div className="group relative overflow-hidden rounded-xl bg-gradient-to-b from-zinc-800/90 to-zinc-900/95 p-3 shadow-lg shadow-black/20 ring-1 ring-white/[0.08] backdrop-blur-sm">
+            {/* Subtle shimmer effect on hover */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+
+            {/* Accent line at top */}
+            <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
+
+            {/* Dismiss button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                dismissUpdate()
+              }}
+              className="absolute top-2 right-2 z-10 p-1 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] active:bg-white/[0.08] transition-all duration-150 cursor-pointer"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="relative flex items-center gap-3 pr-6">
+              {/* Icon */}
+              <div className="shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                <Download className="h-4 w-4 text-emerald-400" />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13px] font-medium text-zinc-200">Update Ready</p>
+                  <span className="px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 rounded">
+                    v{updateAvailable.new_version}
+                  </span>
+                </div>
+                <button
+                  onClick={restartToUpdate}
+                  className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-emerald-400 transition-colors duration-200 group/btn cursor-pointer"
+                >
+                  <span>Restart to install</span>
+                  <svg
+                    className="h-3 w-3 transition-transform duration-200 group-hover/btn:translate-x-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SidebarSeparator className="mx-0 w-full bg-(--border-subtle)" />
 
