@@ -15,7 +15,7 @@
     },
     "apps/api": {
       "name": "@moneywright/api",
-      "version": "0.6.5",
+      "version": "0.7.0",
       "dependencies": {
         "@ai-sdk/anthropic": "^3.0.15",
         "@ai-sdk/devtools": "^0.0.6",
@@ -60,7 +60,7 @@
     },
     "apps/desktop": {
       "name": "@moneywright/desktop",
-      "version": "0.6.5",
+      "version": "0.7.0",
       "dependencies": {
         "@tauri-apps/api": "^2",
         "@tauri-apps/plugin-opener": "^2",
@@ -73,7 +73,7 @@
     },
     "apps/docs": {
       "name": "docs",
-      "version": "0.6.5",
+      "version": "0.7.0",
       "dependencies": {
         "@fontsource-variable/outfit": "^5.2.8",
         "@fontsource/dm-sans": "^5.2.8",
@@ -131,7 +131,7 @@
     },
     "apps/web": {
       "name": "@moneywright/web",
-      "version": "0.6.5",
+      "version": "0.7.0",
       "dependencies": {
         "@fontsource-variable/outfit": "^5.2.8",
         "@fontsource/dm-sans": "^5.2.8",
