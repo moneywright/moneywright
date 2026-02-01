@@ -1,0 +1,233 @@
+---
+title: AI Setup
+description: Configure Vercel AI Gateway, Google Gemini, OpenAI, Anthropic, or Ollama for AI features
+icon: Cpu
+---
+
+Moneywright uses AI to categorize transactions, detect subscriptions, and power the chat assistant. You bring your own API key — your data goes directly to your chosen provider, never through Moneywright servers.
+
+When you first open Moneywright, you'll be asked to configure at least one AI provider before you can start using the app.
+
+![Setup wizard](/screenshots/ai-setup-wizard.png)
+
+## Which Provider Should I Choose?
+
+| Provider | Recommendation | Setup Difficulty |
+|----------|----------------|------------------|
+| **Vercel AI Gateway** | Best choice — access all providers with one API key | Easy |
+| **Google Gemini** | Great results with good pricing | Easy |
+| **OpenAI** | Excellent quality | Medium (requires identity verification) |
+| **Anthropic** | Best quality, most expensive | Medium (requires identity verification) |
+| **Ollama** | Complete privacy, runs locally | Advanced |
+
+<Callout type="info">
+**Our recommendation:** Start with **Vercel AI Gateway** — it's the easiest to set up and gives you access to models from all providers (OpenAI, Anthropic, Google, xAI Grok, GLM, MiniMax) with a single API key.
+</Callout>
+
+---
+
+## Vercel AI Gateway (Recommended)
+
+Vercel AI Gateway is the easiest way to get started. You get access to all major AI providers through a single API key, with no identity verification required.
+
+### Available Models
+
+Through Vercel AI Gateway, you can use:
+
+- **Google:** Gemini 3 Flash, Gemini 3 Pro, Gemini 2.5 Pro/Flash
+- **OpenAI:** GPT-5.2, GPT-5 Mini, GPT-5 Nano, GPT-4.1
+- **Anthropic:** Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5
+- **xAI:** Grok 4, Grok 4.1 Fast
+- **Others:** GLM 4.7, MiniMax M2.1
+
+### Setup
+
+1. Go to [vercel.com](https://vercel.com) and sign up (free)
+2. Create a new project or select an existing one
+3. Go to **Settings → AI**
+4. Enable AI Gateway and copy your API key
+
+### Add to Moneywright
+
+1. Open Moneywright settings (gear icon)
+2. Go to **AI Providers**
+3. Select **Vercel AI Gateway**
+4. Paste your API key
+5. Choose your preferred model (we recommend **Gemini 3 Flash** for best value)
+
+---
+
+## Google Gemini
+
+Google Gemini offers excellent results with competitive pricing. Gemini 3 Flash is particularly good for transaction categorization.
+
+### Available Models
+
+| Model | Best For |
+|-------|----------|
+| **Gemini 3 Flash** | Parsing, categorization, chat (recommended) |
+| **Gemini 3 Pro** | Complex analysis |
+| **Gemini 2.5 Pro** | Fallback option |
+| **Gemini 2.5 Flash** | Fast, lightweight tasks |
+
+### Setup
+
+1. Go to [aistudio.google.com](https://aistudio.google.com)
+2. Sign in with your Google account
+3. Click **Get API key** in the left sidebar
+4. Click **Create API key**
+5. Copy the key
+
+### Add to Moneywright
+
+1. Open Moneywright settings
+2. Go to **AI Providers**
+3. Select **Google**
+4. Paste your API key
+5. Select **Gemini 3 Flash** (recommended)
+
+### Pricing
+
+Google offers a free tier for testing. For regular use, you'll need to add a payment method. Pricing is very competitive — typically a few cents per statement.
+
+---
+
+## OpenAI
+
+OpenAI provides the GPT-5 series, which offers excellent accuracy.
+
+### Available Models
+
+| Model | Best For |
+|-------|----------|
+| **GPT-5 Mini** | Parsing, categorization, chat (recommended) |
+| **GPT-5.2** | Most capable, higher cost |
+| **GPT-5 Nano** | Fast, lightweight tasks |
+| **GPT-4.1** | Fallback option |
+
+### Setup
+
+1. Go to [platform.openai.com](https://platform.openai.com)
+2. Sign up or log in
+3. **Important:** You'll need to verify your identity and add funds to your account
+4. Navigate to **API Keys**
+5. Click **Create new secret key**
+6. Copy the key
+
+<Callout type="warn">
+**Note:** OpenAI requires identity verification and prepaid credits before you can use the API. This can take a few hours to process.
+</Callout>
+
+### Add to Moneywright
+
+1. Open Moneywright settings
+2. Go to **AI Providers**
+3. Select **OpenAI**
+4. Paste your API key
+5. Select **GPT-5 Mini** (recommended)
+
+---
+
+## Anthropic (Claude)
+
+Anthropic's Claude models provide the highest quality results, especially for complex analysis and chat.
+
+### Available Models
+
+| Model | Best For |
+|-------|----------|
+| **Claude Haiku 4.5** | Parsing, categorization (recommended for speed) |
+| **Claude Sonnet 4.5** | Chat, complex analysis (recommended for quality) |
+| **Claude Opus 4.5** | Most capable, highest cost |
+
+### Setup
+
+1. Go to [console.anthropic.com](https://console.anthropic.com)
+2. Sign up or log in
+3. **Important:** You'll need to verify your identity and add funds to your account
+4. Navigate to **API Keys**
+5. Click **Create Key**
+6. Copy the key
+
+<Callout type="warn">
+**Note:** Anthropic requires identity verification and prepaid credits. Claude is the most expensive option but provides the best quality.
+</Callout>
+
+### Add to Moneywright
+
+1. Open Moneywright settings
+2. Go to **AI Providers**
+3. Select **Anthropic**
+4. Paste your API key
+5. Select **Claude Haiku 4.5** for parsing or **Claude Sonnet 4.5** for chat
+
+---
+
+## Ollama (Local AI)
+
+Run AI models entirely on your computer. No API keys, no cloud, complete privacy — but requires more setup and a capable computer.
+
+### Requirements
+
+- 8GB+ RAM (16GB recommended)
+- macOS, Windows, or Linux
+- ~4-8GB disk space per model
+- For best performance: Apple Silicon Mac or dedicated GPU
+
+### Install Ollama
+
+1. Download from [ollama.com](https://ollama.com)
+2. Install and run Ollama
+3. Pull a model:
+
+```bash
+# Recommended for most users
+ollama pull llama3.2
+
+# Smaller, faster model
+ollama pull llama3.2:1b
+
+# Larger, more capable (needs 16GB+ RAM)
+ollama pull llama3.1:70b
+```
+
+### Add to Moneywright
+
+1. Make sure Ollama is running (`ollama serve`)
+2. Open Moneywright settings
+3. Go to **AI Providers**
+4. Enable **Ollama**
+5. The default URL is `http://localhost:11434`
+6. Select your installed model
+
+<Callout type="warn">
+**Performance note:** Local models are slower than cloud APIs and may produce lower quality categorization. For the best experience, we recommend using a cloud provider.
+</Callout>
+
+---
+
+## Troubleshooting
+
+### "Invalid API key"
+
+- Make sure you copied the entire key
+- Check that you're using the right provider's key
+- Verify the key hasn't been revoked
+- For OpenAI/Anthropic: ensure you've added funds to your account
+
+### "Rate limit exceeded"
+
+- Wait a few minutes and try again
+- Add more credits to your account
+- Switch to a different provider
+
+### "Insufficient credits"
+
+- Add funds to your provider account
+- Switch to Vercel AI Gateway or Google Gemini (easier billing setup)
+
+### Ollama not connecting
+
+- Make sure Ollama is running: `ollama serve`
+- Check the URL is correct (default: `http://localhost:11434`)
+- Verify you've pulled at least one model: `ollama list`

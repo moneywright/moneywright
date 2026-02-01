@@ -1,28 +1,39 @@
 ---
 title: Getting Started
-description: Welcome to Moneywright - a privacy-focused personal finance manager
+description: Welcome to Moneywright - a private, AI-powered personal finance app
 icon: Rocket
 ---
 
-Moneywright is an open-source, self-hostable, AI-powered personal finance helper. Upload your bank statements, credit card statements, and investment data to get intelligent expense analysis, investment insights, and personalized financial advice.
+Moneywright is a free, open-source personal finance app that runs on your computer. Upload your bank statements, track expenses and investments, and get AI-powered insights — all without your data leaving your machine.
 
-## Features
+## Why Moneywright?
 
-- **AI-Powered Analysis** - Get intelligent insights into your spending patterns
-- **Statement Upload** - Import bank and credit card statements
-- **Expense Tracking** - Automatic categorization of expenses
-- **Investment Analysis** - Track your portfolio performance
-- **Financial Advice** - Personalized recommendations
-- **Self-Hostable** - Full control over your financial data
-
-<Cards>
-  <Card title="Installation" href="/docs/installation" />
-  <Card title="GitHub Repository" href="https://github.com/moneywright/moneywright" />
-</Cards>
+- **100% Private** — Your financial data stays on your computer. No cloud sync, no accounts, no data harvesting.
+- **Works with Any Bank** — If your bank gives you a PDF or CSV statement, Moneywright can read it.
+- **AI-Powered** — Smart categorization, subscription detection, and a chat assistant that answers questions about your finances.
+- **Free Forever** — Open source, no premium tiers, no subscriptions.
 
 ## Quick Start
 
-The fastest way to get started is with the desktop app or one-line installer:
+**1. Download the desktop app**
+
+<DownloadTable />
+
+**2. Add your AI provider** (optional but recommended)
+
+Moneywright uses AI to categorize transactions and power the chat assistant. You bring your own API key from OpenAI, Anthropic, Google, or run locally with Ollama.
+
+→ [Set up AI](/docs/ai-setup)
+
+**3. Import your first statement**
+
+Drop a PDF or CSV bank statement into Moneywright. The AI will extract and categorize every transaction automatically.
+
+→ [Importing statements](/docs/importing-statements)
+
+## Alternative: Command Line Install
+
+If you prefer the terminal, install with a single command:
 
 ```bash
 # macOS / Linux
@@ -32,18 +43,13 @@ curl -fsSL https://moneywright.com/install.sh | bash
 irm moneywright.com/install.ps1 | iex
 ```
 
-Then open [http://localhost:17777](http://localhost:17777) in your browser.
+Then run `moneywright` and open [http://localhost:17777](http://localhost:17777).
 
-## Project Structure
+## Next Steps
 
-```
-moneywright/
-├── apps/
-│   ├── api/          # Hono backend server
-│   ├── web/          # React frontend
-│   ├── docs/         # Documentation (you are here)
-│   └── desktop/      # System tray app (Tauri)
-├── scripts/          # Build scripts
-├── Dockerfile        # Docker configuration
-└── docker-compose.yml
-```
+<Cards>
+  <Card title="Installation" href="/docs/installation" description="Detailed installation instructions" />
+  <Card title="AI Setup" href="/docs/ai-setup" description="Configure OpenAI, Anthropic, Google, or Ollama" />
+  <Card title="Importing Statements" href="/docs/importing-statements" description="How to import bank statements" />
+  <Card title="Features" href="/docs/features" description="Categories, subscriptions, loans, and more" />
+</Cards>

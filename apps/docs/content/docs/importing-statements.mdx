@@ -1,0 +1,109 @@
+---
+title: Importing Statements
+description: How to import bank statements, credit card statements, and investment data
+icon: Upload
+---
+
+Moneywright reads your bank statements and extracts every transaction automatically. If your bank gives you a PDF or CSV, Moneywright can import it.
+
+## Supported Formats
+
+| Format | Support |
+|--------|---------|
+| **PDF** | Bank statements, credit card statements, investment reports |
+| **CSV** | Transaction exports from most banks |
+| **Excel (.xlsx)** | Spreadsheet exports |
+
+## How to Import
+
+1. Open Moneywright
+2. Go to **Statements**
+3. Drag your file onto the upload area, or click to browse
+4. Wait for AI to process the statement
+
+You can import multiple statements at once by selecting multiple files.
+
+---
+
+## Bank Statements (PDF)
+
+Most banks provide monthly statements as PDFs. Moneywright's AI reads these and extracts:
+
+- Transaction date
+- Description/merchant name
+- Amount (debit or credit)
+- Running balance (if shown)
+
+### Tips for Best Results
+
+- **Use official statements** — Download directly from your bank's website or app
+- **Avoid scanned documents** — OCR quality varies; digital PDFs work best
+- **Password-protected PDFs** — Remove the password before uploading, or enter it when prompted
+
+---
+
+## CSV Exports
+
+CSV files are the most reliable format. Most banks let you export transactions as CSV.
+
+### How to Export from Your Bank
+
+Look for "Export", "Download", or "Statement" options in your online banking. Most banks support CSV export.
+
+**Common locations:**
+- Account Statement → Download → CSV
+- Transaction History → Export
+- Reports → Download Statement
+
+---
+
+## Credit Card Statements
+
+Credit card statements work the same as bank statements:
+
+1. Download your monthly statement PDF from your card issuer
+2. Import into Moneywright
+3. Transactions are categorized automatically
+
+---
+
+## After Import
+
+Once your statement is imported:
+
+### Automatic Categorization
+
+AI categorizes each transaction into categories like Food & Dining, Shopping, Transportation, Bills & Utilities, and 40+ more.
+
+### Review and Correct
+
+1. Go to **Transactions**
+2. Review the auto-assigned categories
+3. Click any transaction to change its category
+4. Your corrections help improve future categorization
+
+### Subscription Detection
+
+Moneywright automatically identifies recurring charges like monthly subscriptions and recurring bills. View all detected subscriptions in the **Subscriptions** tab.
+
+---
+
+## Troubleshooting
+
+### "Could not parse statement"
+
+- Try exporting as CSV instead of PDF
+- Make sure it's a transaction statement (not an account summary)
+- Check if the PDF is password-protected
+
+### Duplicate Transactions
+
+Moneywright detects and skips exact duplicates automatically. If you're seeing duplicates, the transactions may have slight differences — you can merge or delete them manually.
+
+### Wrong Categories
+
+Categories are AI-generated and may need correction:
+
+1. Click the transaction
+2. Select the correct category
+3. Optionally create a rule: "Always categorize [merchant] as [category]"

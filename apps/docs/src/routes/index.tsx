@@ -72,7 +72,7 @@ export const Route = createFileRoute('/')({
       {
         name: 'description',
         content:
-          'Privacy-first personal finance manager. Upload any bank statement, track expenses and investments, get AI-powered insights. Self-hostable and open source.',
+          'A desktop app that reads any bank statement, categorizes your spending with AI, and keeps your financial data on your computer. Free and open source.',
       },
     ],
   }),
@@ -185,18 +185,13 @@ function LandingPage() {
               <Sparkles className="w-3 h-3" />
               AI-powered
             </span>
-            <span className="relative group inline-flex items-center gap-1.5 bg-[#f97316]/10 border border-[#f97316]/20 px-3 py-1.5 rounded-full text-xs text-[#f97316] font-medium cursor-help">
+            <span className="inline-flex items-center gap-1.5 bg-[#f97316]/10 border border-[#f97316]/20 px-3 py-1.5 rounded-full text-xs text-[#f97316] font-medium">
               <Lock className="w-3 h-3" />
-              BYOK
-              {/* Tooltip */}
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#18181c] border border-white/10 rounded-lg text-xs text-[#f5f5f7] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                Bring Your Own API Keys
-                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#18181c]" />
-              </span>
+              100% private
             </span>
             <span className="inline-flex items-center gap-1.5 bg-[#3b82f6]/10 border border-[#3b82f6]/20 px-3 py-1.5 rounded-full text-xs text-[#3b82f6] font-medium">
               <Github className="w-3 h-3" />
-              Open source
+              Free forever
             </span>
           </div>
 
@@ -209,8 +204,8 @@ function LandingPage() {
 
           {/* Subtitle */}
           <p className="text-sm sm:text-lg text-[#a1a1aa] max-w-[580px] mx-auto mb-8 sm:mb-10 font-normal px-2 animate-fade-in-up-2 leading-relaxed">
-            Drop all your bank and card statements. See exactly where your money went,
-            find subscriptions you forgot about, and chat with AI about your finances. Free forever.
+            A desktop app that reads your bank statements, categorizes every transaction with AI,
+            and finds subscriptions you forgot about. Works with any bank. Your data never leaves your computer.
           </p>
 
           {/* CTA Buttons */}
@@ -317,9 +312,9 @@ function LandingPage() {
         className="py-8 border-y border-white/5 bg-[#0a0a0c]/50 relative overflow-hidden"
       >
         <Marquee pauseOnHover className="[--duration:40s]">
-          <StatCard stat="₹4,299/mo" label="hidden subscriptions found on average" />
+          <StatCard stat="Any bank" label="if you have a PDF or CSV, it works" />
           <StatCard stat="0" label="accounts or signups needed" />
-          <StatCard stat="500+" label="banks supported worldwide" />
+          <StatCard stat="100%" label="of your data stays on your computer" />
           <StatCard stat="$0" label="cost forever — fully open source" />
           <StatCard stat="30 sec" label="to import your first statement" />
         </Marquee>
@@ -336,7 +331,7 @@ function LandingPage() {
             transition={{ duration: 0.5, ease: smoothEase }}
             className="text-[#71717a] text-sm mb-8"
           >
-            Works with banks and brokers you already use
+            If your bank gives you a PDF or CSV, it works
           </motion.p>
           <motion.div
             initial="hidden"
@@ -474,35 +469,35 @@ function LandingPage() {
                   Upload <span className="text-[#10b981]">any</span> statement
                 </h3>
                 <p className="text-[#a1a1aa] text-sm sm:text-base leading-relaxed mb-6">
-                  PDF, CSV, Excel — from any bank in the world. Our AI extracts every transaction,
+                  PDF, CSV, Excel — from any bank in the world. AI extracts every transaction,
                   categorizes it automatically, and builds your complete financial picture.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {institutions.slice(0, 6).map((inst) => (
                     <img key={inst.name} src={inst.logo} alt={inst.name} className="h-6 opacity-60" />
                   ))}
-                  <span className="px-2 py-1 text-xs text-[#71717a]">+500 more</span>
+                  <span className="px-2 py-1 text-xs text-[#71717a]">+ any bank</span>
                 </div>
               </div>
+            </motion.div>
+
+            {/* AI Categorization */}
+            <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
+              <BentoCard
+                icon={<Sparkles className="w-6 h-6 text-[#f97316]" />}
+                iconBg="bg-[rgba(249,115,22,0.15)]"
+                title="Smart categorization"
+                description="AI categorizes every transaction automatically. Create custom categories with your own rules."
+              />
             </motion.div>
 
             {/* Subscription Detection */}
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
-                icon={<RefreshCw className="w-6 h-6 text-[#f97316]" />}
-                iconBg="bg-[rgba(249,115,22,0.15)]"
-                title="Find hidden subscriptions"
-                description="Discover recurring charges you forgot about. The average user finds ₹4,299/month in subscriptions they don't use."
-              />
-            </motion.div>
-
-            {/* AI Assistant */}
-            <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
-              <BentoCard
-                icon={<MessageCircle className="w-6 h-6 text-[#a855f7]" />}
+                icon={<RefreshCw className="w-6 h-6 text-[#a855f7]" />}
                 iconBg="bg-[rgba(168,85,247,0.15)]"
-                title="Chat with your finances"
-                description="'How much did I spend on food?' Ask Penny anything in plain English."
+                title="Find hidden subscriptions"
+                description="Automatically detects recurring charges. See exactly what you're paying for every month."
               />
             </motion.div>
 
@@ -534,23 +529,23 @@ function LandingPage() {
               </div>
             </motion.div>
 
-            {/* Insurance Analysis */}
+            {/* Loan Tracking */}
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
-                icon={<FileText className="w-6 h-6 text-[#ef4444]" />}
+                icon={<Scale className="w-6 h-6 text-[#ef4444]" />}
                 iconBg="bg-[rgba(239,68,68,0.15)]"
-                title="Understand your policies"
-                description="Upload insurance documents, get plain-English explanations. No more hidden clauses."
+                title="Track loan progress"
+                description="Automatically links your EMI payments to loans. See exactly how much you've paid off."
               />
             </motion.div>
 
-            {/* Visual Insights */}
+            {/* AI Chat */}
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
-                icon={<PieChart className="w-6 h-6 text-[#06b6d4]" />}
+                icon={<MessageCircle className="w-6 h-6 text-[#06b6d4]" />}
                 iconBg="bg-[rgba(6,182,212,0.15)]"
-                title="Beautiful insights"
-                description="See where your money goes with charts that actually make sense."
+                title="Ask anything"
+                description="'How much did I spend on food?' Chat with AI about your finances or upload documents to get answers."
               />
             </motion.div>
 
@@ -560,7 +555,7 @@ function LandingPage() {
                 icon={<Users className="w-6 h-6 text-[#10b981]" />}
                 iconBg="bg-[rgba(16,185,129,0.15)]"
                 title="Family finances"
-                description="Create profiles for each family member. See individual or combined views instantly."
+                description="Create profiles for each family member. See individual or combined views."
               />
             </motion.div>
           </motion.div>
@@ -635,8 +630,7 @@ function LandingPage() {
               transition={{ duration: 0.5, ease: smoothEase, delay: 0.2 }}
               className="text-[#a1a1aa] text-base sm:text-lg leading-relaxed max-w-2xl mx-auto"
             >
-              No Moneywright servers. No accounts. No data harvesting.
-              Choose your AI provider — or go fully local with Ollama.
+              Runs entirely on your computer. Use your own AI — OpenAI, Claude, Gemini, or run completely offline with Ollama.
             </motion.p>
           </motion.div>
 
@@ -651,16 +645,16 @@ function LandingPage() {
               <BentoCard
                 icon={<Server className="w-6 h-6 text-[#10b981]" />}
                 iconBg="bg-[rgba(16,185,129,0.15)]"
-                title="Self-hostable"
-                description="Deploy on your own servers, NAS, or cloud. You own the infrastructure."
+                title="Runs on your computer"
+                description="A real desktop app. No cloud. No sync. Your finances stay on your machine."
               />
             </motion.div>
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
                 icon={<Sparkles className="w-6 h-6 text-[#a855f7]" />}
                 iconBg="bg-[rgba(168,85,247,0.15)]"
-                title="Your AI, your choice"
-                description="OpenAI, Anthropic, Google, Grok — or run locally with Ollama."
+                title="Use your own AI"
+                description="Connect OpenAI, Claude, or Gemini with your API key. Or go fully offline with Ollama."
               />
             </motion.div>
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
@@ -668,15 +662,15 @@ function LandingPage() {
                 icon={<Lock className="w-6 h-6 text-[#f97316]" />}
                 iconBg="bg-[rgba(249,115,22,0.15)]"
                 title="No middlemen"
-                description="Your data goes directly to your chosen AI. We never see it."
+                description="Your data goes directly to your chosen AI provider. We never see it."
               />
             </motion.div>
             <motion.div variants={scaleIn} transition={{ duration: 0.5, ease: smoothEase }} className="h-full">
               <BentoCard
                 icon={<Github className="w-6 h-6 text-[#3b82f6]" />}
                 iconBg="bg-[rgba(59,130,246,0.15)]"
-                title="Fully open source"
-                description="Audit every line. Fork it. Modify it. It's yours."
+                title="Free and open source"
+                description="No trials, no premium tiers. Audit the code, fork it, make it yours."
               />
             </motion.div>
           </motion.div>
@@ -723,10 +717,10 @@ function LandingPage() {
             <motion.div
               variants={fadeInUp}
               transition={{ duration: 0.5, ease: smoothEase }}
-              className="relative group"
+              className="relative group h-full"
             >
               <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-[#10b981]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-[#18181c] border border-white/5 hover:border-white/10 transition-all">
+              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-[#18181c] border border-white/5 hover:border-white/10 transition-all h-full">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#10b981] text-xs font-bold text-[#022c22]">
                   Step 1
                 </div>
@@ -744,19 +738,19 @@ function LandingPage() {
             <motion.div
               variants={fadeInUp}
               transition={{ duration: 0.5, ease: smoothEase }}
-              className="relative group"
+              className="relative group h-full"
             >
               <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-[#a855f7]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-[#18181c] border border-white/5 hover:border-white/10 transition-all">
+              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-[#18181c] border border-white/5 hover:border-white/10 transition-all h-full">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#a855f7] text-xs font-bold text-white">
                   Step 2
                 </div>
                 <div className="w-16 h-16 rounded-2xl bg-[rgba(168,85,247,0.15)] flex items-center justify-center mt-4 mb-5">
                   <Upload className="w-8 h-8 text-[#a855f7]" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Upload Statements</h3>
+                <h3 className="text-lg font-semibold mb-2">Drop Your Statements</h3>
                 <p className="text-[#a1a1aa] text-sm leading-relaxed">
-                  Drag and drop your bank statements. PDF, CSV, and Excel supported.
+                  PDF, CSV, Excel — from any bank. AI reads and categorizes everything automatically.
                 </p>
               </div>
             </motion.div>
@@ -765,10 +759,10 @@ function LandingPage() {
             <motion.div
               variants={fadeInUp}
               transition={{ duration: 0.5, ease: smoothEase }}
-              className="relative group"
+              className="relative group h-full"
             >
               <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-[#06b6d4]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-[#18181c] border border-white/5 hover:border-white/10 transition-all">
+              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-[#18181c] border border-white/5 hover:border-white/10 transition-all h-full">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#06b6d4] text-xs font-bold text-[#022c22]">
                   Step 3
                 </div>
@@ -777,7 +771,7 @@ function LandingPage() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">See Everything</h3>
                 <p className="text-[#a1a1aa] text-sm leading-relaxed">
-                  Instantly see spending patterns, subscriptions, and get AI insights.
+                  Where your money went, forgotten subscriptions, spending trends — all in one place.
                 </p>
               </div>
             </motion.div>
@@ -816,7 +810,7 @@ function LandingPage() {
             transition={{ duration: 0.5, ease: smoothEase, delay: 0.2 }}
             className="text-[#a1a1aa] text-sm sm:text-base mb-8"
           >
-            Join thousands who finally know where every rupee goes.
+            Download, import your first statement, and finally see where your money goes.
           </motion.p>
 
           <motion.div
@@ -881,7 +875,7 @@ function LandingPage() {
               <ul className="space-y-2">
                 <li><Link to="/docs/$" params={{ _splat: '' }} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">Getting Started</Link></li>
                 <li><Link to="/docs/$" params={{ _splat: '' }} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">Installation</Link></li>
-                <li><Link to="/docs/$" params={{ _splat: '' }} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">Self-hosting</Link></li>
+                <li><Link to="/docs/$" params={{ _splat: '' }} className="text-[#71717a] hover:text-[#f5f5f7] text-sm transition-colors">AI Setup</Link></li>
               </ul>
             </div>
 
@@ -913,7 +907,7 @@ function LandingPage() {
               <span>AGPL-3.0</span>
             </div>
             <div className="text-[#71717a] text-sm">
-              Built by <a href="https://priyanshrastogi.com" target="_blank" rel="noopener noreferrer" className="text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors">@priyanshrastogi</a> & <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors">@claude</a>
+              An indie project by <a href="https://priyanshrastogi.com" target="_blank" rel="noopener noreferrer" className="text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors">@priyanshrastogi</a>
             </div>
           </div>
         </div>

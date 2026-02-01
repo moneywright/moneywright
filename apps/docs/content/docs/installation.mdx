@@ -1,32 +1,51 @@
 ---
 title: Installation
-description: Install Moneywright on your system using native installers, CLI scripts, or Docker
+description: Download and install Moneywright on macOS, Windows, or Linux
 icon: Download
 ---
 
-Moneywright can be installed in several ways depending on your needs. Choose the method that works best for you.
+Moneywright is a desktop app that runs entirely on your computer. Download the installer for your operating system and you're ready to go.
 
 ## Desktop App (Recommended)
 
-The desktop app runs in your system tray and automatically starts the Moneywright server. Download the installer for your operating system:
+The desktop app provides the easiest setup experience — just download, install, and run.
 
-| Platform | Download |
-|----------|----------|
-| **macOS** (Apple Silicon) | [Download DMG](https://github.com/moneywright/moneywright/releases/latest/download/Moneywright_aarch64.dmg) |
-| **macOS** (Intel) | [Download DMG](https://github.com/moneywright/moneywright/releases/latest/download/Moneywright_x64.dmg) |
-| **Windows** | [Download Installer](https://github.com/moneywright/moneywright/releases/latest/download/Moneywright_x64-setup.exe) |
-| **Linux** | [Download DEB](https://github.com/moneywright/moneywright/releases/latest/download/moneywright_amd64.deb) |
+<DownloadTable />
 
-After installation:
+### macOS
 
-1. Launch Moneywright from your applications
-2. The app runs in your system tray/menu bar
-3. Click the tray icon and select **Open** to access the web interface
-4. Complete the setup wizard to configure your database and API keys
+1. Download the DMG file for your Mac (Apple Silicon or Intel)
+2. Open the DMG and drag Moneywright to your Applications folder
+3. Launch Moneywright from Applications
+4. **First launch:** Right-click the app and select "Open" to bypass Gatekeeper (macOS security)
 
-## One-Line Install
+<Callout type="info">
+**Apple Silicon vs Intel:** If you have an M1, M2, M3, or M4 Mac, download the Apple Silicon version. For older Macs (pre-2020), download the Intel version.
+</Callout>
 
-Install the Moneywright CLI with a single command. This downloads the latest release and sets up everything automatically.
+### Windows
+
+1. Download the Windows installer (.exe)
+2. Run the installer and follow the prompts
+3. Launch Moneywright from the Start menu or desktop shortcut
+
+<Callout type="info">
+**Windows SmartScreen:** You may see a "Windows protected your PC" warning. Click "More info" then "Run anyway" to proceed.
+</Callout>
+
+### Linux
+
+1. Download the DEB package
+2. Install with: `sudo dpkg -i moneywright_*.deb`
+3. Launch Moneywright from your applications menu
+
+For other Linux distributions, use the [command line install](#command-line-install) below.
+
+---
+
+## Command Line Install
+
+Install Moneywright CLI with a single command. This downloads the latest release binary and sets it up automatically.
 
 ### macOS / Linux
 
@@ -40,13 +59,14 @@ curl -fsSL https://moneywright.com/install.sh | bash
 irm moneywright.com/install.ps1 | iex
 ```
 
-The installer will:
+### What the installer does
 
-- Detect your operating system and architecture
-- Download the appropriate binary
-- Install to a local directory (`~/.moneywright` on Unix, `%LOCALAPPDATA%\Moneywright` on Windows)
-- Prompt you to configure the database (SQLite or PostgreSQL)
-- Optionally add Moneywright to your PATH
+- Detects your operating system and architecture
+- Downloads the appropriate binary from GitHub releases
+- Installs to `~/.moneywright` (Unix) or `%LOCALAPPDATA%\Moneywright` (Windows)
+- Optionally adds `moneywright` to your PATH
+
+### Running the CLI
 
 After installation, start the server:
 
@@ -60,78 +80,21 @@ Then open [http://localhost:17777](http://localhost:17777) in your browser.
 
 Run the install script again to upgrade to the latest version. Your data and configuration will be preserved.
 
-## Docker
+---
 
-Run Moneywright in a container for easy deployment and isolation.
+## After Installation
 
-### Quick Start
+Once Moneywright is running:
 
-```bash
-docker run -d \
-  --name moneywright \
-  -p 17777:17777 \
-  -v moneywright-data:/app/data \
-  ghcr.io/moneywright/moneywright:latest
-```
+1. **Set up AI** — Add your API key for OpenAI, Anthropic, or Google (or configure Ollama for local AI)
+2. **Import statements** — Drop your first bank statement to get started
 
-Then open [http://localhost:17777](http://localhost:17777).
+<Cards>
+  <Card title="AI Setup" href="/docs/ai-setup" description="Configure your AI provider" />
+  <Card title="Importing Statements" href="/docs/importing-statements" description="How to import bank statements" />
+</Cards>
 
-### With PostgreSQL (Docker Compose)
-
-For a complete setup with PostgreSQL, use Docker Compose:
-
-```yaml
-# docker-compose.yml
-services:
-  app:
-    image: ghcr.io/moneywright/moneywright:latest
-    ports:
-      - "17777:17777"
-    environment:
-      - DATABASE_URL=postgres://moneywright:moneywright@db:5432/moneywright
-    volumes:
-      - moneywright-data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_USER=moneywright
-      - POSTGRES_PASSWORD=moneywright
-      - POSTGRES_DB=moneywright
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U moneywright"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  moneywright-data:
-  postgres-data:
-```
-
-Start the stack:
-
-```bash
-docker compose up -d
-```
-
-### Environment Variables
-
-Configure Moneywright using environment variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | SQLite (local file) |
-| `JWT_SECRET` | Secret for signing tokens | Auto-generated |
-| `ENCRYPTION_KEY` | Key for encrypting sensitive data | Auto-generated |
-| `OPENAI_API_KEY` | OpenAI API key for AI features | - |
-| `ANTHROPIC_API_KEY` | Anthropic API key for AI features | - |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Google AI API key | - |
+---
 
 ## Building from Source
 
@@ -139,8 +102,8 @@ For developers who want to build Moneywright from source.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (v1.1 or later)
-- [Node.js](https://nodejs.org) (v20 or later)
+- [Bun](https://bun.sh) v1.1 or later
+- [Node.js](https://nodejs.org) v20 or later
 - [Rust](https://rustup.rs) (for desktop app only)
 
 ### Development Setup
@@ -179,8 +142,6 @@ bun run build:binary:macos-intel   # macOS Intel
 bun run build:binary:linux         # Linux x64
 bun run build:binary:windows       # Windows x64
 ```
-
-The output is in the `dist/` directory.
 
 ### Building Desktop App
 
