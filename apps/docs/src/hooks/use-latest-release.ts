@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 
 interface ReleaseAsset {
   name: string;
@@ -25,6 +25,15 @@ export interface PlatformDownloads {
 
 const GITHUB_API = 'https://api.github.com/repos/moneywright/moneywright/releases/latest';
 const RELEASES_URL = 'https://github.com/moneywright/moneywright/releases';
+
+const DEFAULT_DATA: PlatformDownloads = {
+  macos: null,
+  macosIntel: null,
+  windows: null,
+  linux: null,
+  releasesUrl: RELEASES_URL,
+  version: null,
+};
 
 function parseAssets(assets: ReleaseAsset[]): Omit<PlatformDownloads, 'releasesUrl' | 'version'> {
   let macos: string | null = null;
@@ -56,43 +65,48 @@ function parseAssets(assets: ReleaseAsset[]): Omit<PlatformDownloads, 'releasesU
   return { macos, macosIntel, windows, linux };
 }
 
-async function fetchLatestRelease(): Promise<PlatformDownloads> {
-  const response = await fetch(GITHUB_API, {
-    headers: {
-      Accept: 'application/vnd.github.v3+json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch release');
-  }
-
-  const release: Release = await response.json();
-  const assets = parseAssets(release.assets);
-
-  return {
-    ...assets,
-    releasesUrl: release.html_url || RELEASES_URL,
-    version: release.tag_name,
-  };
-}
-
 export function useLatestRelease() {
-  return useQuery({
-    queryKey: ['github-release', 'latest'],
-    queryFn: fetchLatestRelease,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    gcTime: 1000 * 60 * 30, // 30 minutes
-    retry: 2,
-    placeholderData: {
-      macos: null,
-      macosIntel: null,
-      windows: null,
-      linux: null,
-      releasesUrl: RELEASES_URL,
-      version: null,
-    },
-  });
+  const [data, setData] = useState<PlatformDownloads>(DEFAULT_DATA);
+
+  useEffect(() => {
+    // Only fetch on client side
+    if (typeof window === 'undefined') return;
+
+    let cancelled = false;
+
+    async function fetchRelease() {
+      try {
+        const response = await fetch(GITHUB_API, {
+          headers: {
+            Accept: 'application/vnd.github.v3+json',
+          },
+        });
+
+        if (!response.ok) return;
+
+        const release: Release = await response.json();
+        const assets = parseAssets(release.assets);
+
+        if (!cancelled) {
+          setData({
+            ...assets,
+            releasesUrl: release.html_url || RELEASES_URL,
+            version: release.tag_name,
+          });
+        }
+      } catch {
+        // Silently fail, keep default data
+      }
+    }
+
+    fetchRelease();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { data };
 }
 
 export function getDownloadUrl(

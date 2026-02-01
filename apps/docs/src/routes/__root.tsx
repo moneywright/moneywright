@@ -1,11 +1,8 @@
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from '@tanstack/react-router';
 import type * as React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import appCss from '@/styles/app.css?url';
 import { RootProvider } from 'fumadocs-ui/provider/tanstack';
 import { PostHogProvider, PostHogPageView } from '@/lib/analytics';
-
-const queryClient = new QueryClient();
 
 const SITE_URL = 'https://moneywright.com';
 
@@ -173,12 +170,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="flex flex-col min-h-screen">
         <PostHogProvider>
-          <QueryClientProvider client={queryClient}>
-            <RootProvider>
-              <PostHogPageView />
-              {children}
-            </RootProvider>
-          </QueryClientProvider>
+          <RootProvider>
+            <PostHogPageView />
+            {children}
+          </RootProvider>
         </PostHogProvider>
         <Scripts />
       </body>
