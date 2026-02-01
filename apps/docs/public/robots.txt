@@ -1,0 +1,14 @@
+# Moneywright Documentation
+# https://moneywright.com
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://moneywright.com/api/sitemap
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Crawl delay (optional, be nice to the server)
+Crawl-delay: 1

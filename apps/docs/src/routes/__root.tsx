@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from '@tanstack/react-router';
 import type * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import appCss from '@/styles/app.css?url';
@@ -6,6 +6,59 @@ import { RootProvider } from 'fumadocs-ui/provider/tanstack';
 import { PostHogProvider, PostHogPageView } from '@/lib/analytics';
 
 const queryClient = new QueryClient();
+
+const SITE_URL = 'https://moneywright.com';
+
+// JSON-LD structured data for Organization
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Moneywright',
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  description: 'Privacy-first personal finance manager. Self-hostable and open source.',
+  sameAs: ['https://github.com/moneywright/moneywright'],
+};
+
+// JSON-LD structured data for WebSite (enables sitelinks search box)
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Moneywright',
+  url: SITE_URL,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/docs?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
+// JSON-LD structured data for SoftwareApplication
+const softwareSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Moneywright',
+  applicationCategory: 'FinanceApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  description:
+    'Privacy-first personal finance manager. Upload any bank statement, track expenses and investments, get AI-powered insights.',
+  featureList: [
+    'Bank statement parsing',
+    'Expense tracking',
+    'Investment portfolio management',
+    'AI-powered financial insights',
+    'Self-hostable',
+    'Open source',
+  ],
+};
 
 export const Route = createRootRoute({
   head: () => ({
@@ -41,7 +94,7 @@ export const Route = createRootRoute({
       },
       {
         property: 'og:image',
-        content: 'https://moneywright.com/og.png',
+        content: `${SITE_URL}/og.png`,
       },
       {
         property: 'og:type',
@@ -50,6 +103,10 @@ export const Route = createRootRoute({
       {
         property: 'og:site_name',
         content: 'Moneywright',
+      },
+      {
+        property: 'og:url',
+        content: SITE_URL,
       },
       // Twitter Card
       {
@@ -67,12 +124,26 @@ export const Route = createRootRoute({
       },
       {
         name: 'twitter:image',
-        content: 'https://moneywright.com/og.png',
+        content: `${SITE_URL}/og.png`,
       },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
+    ],
+    scripts: [
+      {
+        type: 'application/ld+json',
+        children: JSON.stringify(organizationSchema),
+      },
+      {
+        type: 'application/ld+json',
+        children: JSON.stringify(websiteSchema),
+      },
+      {
+        type: 'application/ld+json',
+        children: JSON.stringify(softwareSchema),
+      },
     ],
   }),
   component: RootComponent,
@@ -86,11 +157,19 @@ function RootComponent() {
   );
 }
 
+function CanonicalLink() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const canonicalUrl = `${SITE_URL}${pathname === '/' ? '' : pathname}`;
+
+  return <link rel="canonical" href={canonicalUrl} />;
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html suppressHydrationWarning lang="en">
       <head>
         <HeadContent />
+        <CanonicalLink />
       </head>
       <body className="flex flex-col min-h-screen">
         <PostHogProvider>
